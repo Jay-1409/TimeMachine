@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "TimeMachine",
+  "version": "1.0.0",
+  "description": "Track browsing time with insights and daily summaries",
+  "permissions": [
+    "tabs",
+    "storage",
+    "idle",
+    "alarms"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; style-src 'self' 'unsafe-inline'"
+  }
+}
