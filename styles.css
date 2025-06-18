@@ -265,6 +265,7 @@ input[type="email"]:focus {
   color: var(--accent);
   border: 1px solid var(--accent);
   width: 100%;
+  margin-top: 10px;
 }
 
 .secondary-btn:hover {
@@ -358,9 +359,15 @@ input[type="email"]:focus {
 }
 
 /* Chart */
-canvas {
+#statsChart {
   max-height: 220px;
-  width: 100% !important;
+  width: 100%;
+}
+
+@media (max-height: 600px) {
+  #statsChart {
+    height: 180px;
+  }
 }
 
 /* Feedback */
@@ -425,14 +432,24 @@ canvas {
   to { transform: rotate(360deg); }
 }
 
-/* Add this to the bottom of styles.css */
-#statsChart {
-  max-height: 220px;
-  width: 100%;
+.category-select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 12px;
 }
 
-@media (max-height: 600px) {
-  #statsChart {
-    height: 180px;
-  }
+/* Feedback form */
+#feedbackMessage {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  resize: vertical;
+  min-height: 80px;
 }

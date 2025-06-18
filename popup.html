@@ -37,6 +37,7 @@
         <input type="email" id="userEmail" placeholder="your@email.com">
         <button id="saveEmailBtn" class="primary-btn">Save</button>
       </div>
+      <div id="emailStatus" style="font-size: 14px; margin-top: 10px;"></div>
       <button id="testEmailBtn" class="secondary-btn">Send Test Report</button>
     </div>
     
@@ -49,9 +50,18 @@
       <h2>Time Distribution</h2>
       <canvas id="statsChart" width="280" height="220"></canvas>
     </div>
+    
+    <!-- New: Feedback form -->
+    <div class="card">
+      <h2>Send Feedback</h2>
+      <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">
+        Help improve TimeMachine! Share your suggestions or report issues.
+      </p>
+      <textarea id="feedbackMessage" rows="3" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px;" placeholder="Your feedback..."></textarea>
+      <button id="sendFeedbackBtn" class="primary-btn">Send Feedback</button>
+    </div>
   </div>
 
-  <!-- Load Chart.js locally -->
   <script src="chart.min.js"></script>
   <script src="popup.js"></script>
 </body>

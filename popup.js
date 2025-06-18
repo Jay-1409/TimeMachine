@@ -1,23 +1,13 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Site categories
-  const siteCategories = {
-    "github.com": "Work",
-    "stackoverflow.com": "Work",
-    "leetcode.com": "Work",
-    "youtube.com": "Entertainment",
-    "instagram.com": "Social",
-    "chatgpt.com": "Work",
-    "reddit.com": "Social",
-    "twitter.com": "Social",
-    "linkedin.com": "Professional",
-    "netflix.com": "Entertainment"
-  };
+  let siteCategories = {};
 
   const splashScreen = document.getElementById("splashScreen");
   const statsContainer = document.getElementById("statsContainer");
   const enterBtn = document.getElementById("enterBtn");
   const backBtn = document.getElementById("backBtn");
   const feedbackToast = document.getElementById("feedbackToast");
+  const emailStatus = document.getElementById("emailStatus");
 
   // Navigation
   enterBtn.addEventListener("click", () => {
@@ -47,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Email handling
   document.getElementById("saveEmailBtn").addEventListener("click", saveEmail);
   document.getElementById("testEmailBtn").addEventListener("click", sendTestEmail);
+  document.getElementById("sendFeedbackBtn").addEventListener("click", sendFeedback);
   
   // Utility functions
   function formatDuration(seconds) {
@@ -71,13 +62,41 @@ document.addEventListener("DOMContentLoaded", () => {
       const statsDiv = document.getElementById("stats");
       statsDiv.innerHTML = '<div class="loader">Loading data...</div>';
       
-      const { timeData } = await chrome.storage.local.get(["timeData"]);
+      // Load categories
+      const { siteCategories: storedCategories } = await chrome.storage.local.get(["siteCategories"]);
+      siteCategories = storedCategories || {};
+      
+      const { timeData, emailHistory, userEmail } = await chrome.storage.local.get([
+        "timeData", 
+        "emailHistory",
+        "userEmail"
+      ]);
+      
       const currentDate = new Date().toISOString().split("T")[0];
       const todayData = timeData?.[currentDate] || {};
       
       // Set email if exists
-      const { userEmail } = await chrome.storage.local.get(["userEmail"]);
       if (userEmail) document.getElementById("userEmail").value = userEmail;
+      
+      // Show email status
+      if (emailHistory?.[currentDate]) {
+        const sentTime = new Date(emailHistory[currentDate]);
+        emailStatus.innerHTML = `
+          <span style="color: #10b981; display: flex; align-items: center; gap: 5px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Email sent today at ${sentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+          </span>
+        `;
+      } else {
+        emailStatus.innerHTML = `
+          <span style="color: #64748b;">
+            No email sent yet today (scheduled for noon)
+          </span>
+        `;
+      }
       
       // Display stats
       if (Object.keys(todayData).length === 0) {
@@ -89,13 +108,21 @@ document.addEventListener("DOMContentLoaded", () => {
       let html = '<div class="site-list">';
       for (const [domain, sessions] of Object.entries(todayData)) {
         const totalDuration = sessions.reduce((sum, session) => sum + session.duration, 0);
-        const category = siteCategories[domain] || "Other";
+        const currentCategory = siteCategories[domain] || "Other";
         
         html += `
           <div class="site-item">
             <div class="site-info">
               <span class="site-domain">${domain}</span>
-              <span class="site-category ${category.toLowerCase()}">${category}</span>
+              <div class="category-editor">
+                <select class="category-select" data-domain="${domain}">
+                  <option value="Work" ${currentCategory === "Work" ? "selected" : ""}>Work</option>
+                  <option value="Social" ${currentCategory === "Social" ? "selected" : ""}>Social</option>
+                  <option value="Entertainment" ${currentCategory === "Entertainment" ? "selected" : ""}>Entertainment</option>
+                  <option value="Professional" ${currentCategory === "Professional" ? "selected" : ""}>Professional</option>
+                  <option value="Other" ${currentCategory === "Other" ? "selected" : ""}>Other</option>
+                </select>
+              </div>
             </div>
             <div class="site-time">${formatDuration(totalDuration)}</div>
           </div>
@@ -103,6 +130,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       html += "</div>";
       statsDiv.innerHTML = html;
+      
+      // Add event listeners to category selectors
+      document.querySelectorAll('.category-select').forEach(select => {
+        select.addEventListener('change', (e) => {
+          const domain = e.target.dataset.domain;
+          const category = e.target.value;
+          updateCategory(domain, category);
+        });
+      });
       
       // Render chart
       renderChart(todayData);
@@ -115,6 +151,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderChart(todayData) {
     const ctx = document.getElementById("statsChart").getContext("2d");
+    if (!ctx) {
+      console.error("Canvas context not found");
+      return;
+    }
+    
     const labels = [];
     const data = [];
     const backgroundColors = [];
@@ -182,12 +223,65 @@ document.addEventListener("DOMContentLoaded", () => {
   async function sendTestEmail() {
     showFeedback("Sending test email...");
     try {
-      await chrome.runtime.sendMessage({ action: "testEmail" });
-      showFeedback("Test email sent successfully!");
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: "testEmail" }, 
+          resolve
+        );
+      });
+      
+      if (response?.status === "success") {
+        showFeedback("Test email sent successfully!");
+        
+        // Update status
+        const currentDate = new Date().toISOString().split("T")[0];
+        emailStatus.innerHTML = `
+          <span style="color: #10b981;">
+            ✓ Test email sent successfully
+          </span>
+        `;
+      } else {
+        showFeedback(response?.error || "Failed to send test email", true);
+      }
     } catch (error) {
       console.error("Test email failed:", error);
       showFeedback("Failed to send test email", true);
     }
+  }
+  
+  function updateCategory(domain, category) {
+    chrome.runtime.sendMessage(
+      { action: "updateCategory", domain, category },
+      response => {
+        if (response?.status === "success") {
+          showFeedback(`Category updated for ${domain}`);
+        } else {
+          showFeedback("Failed to update category", true);
+        }
+      }
+    );
+  }
+  
+  function sendFeedback() {
+    const message = document.getElementById("feedbackMessage").value.trim();
+    if (!message) {
+      showFeedback("Please enter feedback message", true);
+      return;
+    }
+    
+    showFeedback("Sending feedback...");
+    
+    chrome.runtime.sendMessage(
+      { action: "sendFeedback", message },
+      response => {
+        if (response?.status === "success") {
+          showFeedback("Feedback sent successfully!");
+          document.getElementById("feedbackMessage").value = "";
+        } else {
+          showFeedback(response?.error || "Failed to send feedback", true);
+        }
+      }
+    );
   }
 
   function validateEmail(email) {

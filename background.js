@@ -7,14 +7,39 @@ self.addEventListener("unhandledrejection", e => console.error("Unhandled reject
 let currentTab = null;
 let startTime = null;
 let timeData = {};
+let emailHistory = {};
+let siteCategories = {};
 
-// Load timeData
-chrome.storage.local.get(["timeData"], result => {
+// Load saved data
+chrome.storage.local.get(["timeData", "emailHistory", "siteCategories"], result => {
   timeData = result.timeData || {};
+  emailHistory = result.emailHistory || {};
+  
+  // Initialize default categories if none exist
+  siteCategories = result.siteCategories || {
+    "github.com": "Work",
+    "stackoverflow.com": "Work",
+    "leetcode.com": "Work",
+    "youtube.com": "Entertainment",
+    "instagram.com": "Social",
+    "chatgpt.com": "Work",
+    "reddit.com": "Social",
+    "twitter.com": "Social",
+    "linkedin.com": "Professional",
+    "netflix.com": "Entertainment"
+  };
+  
+  console.log("Loaded siteCategories:", siteCategories);
   console.log("Loaded timeData:", timeData);
+  console.log("Email history:", emailHistory);
 });
 
-// Tab change handlers
+// Save categories to storage
+function saveSiteCategories() {
+  chrome.storage.local.set({ siteCategories });
+}
+
+// Tab change handler
 const handleTabChange = tab => {
   if (!tab.url || tab.url.startsWith("chrome://")) return;
   
@@ -38,14 +63,6 @@ const handleTabChange = tab => {
   if (!timeData[currentDate][domain]) timeData[currentDate][domain] = [];
 };
 
-chrome.tabs.onActivated.addListener(activeInfo => {
-  chrome.tabs.get(activeInfo.tabId, handleTabChange);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url && tab.active) handleTabChange(tab);
-});
-
 // Session management
 function saveSession(domain, start, end) {
   const duration = Math.floor((end - start) / 1000);
@@ -63,10 +80,17 @@ function saveSession(domain, start, end) {
   if (!timeData[currentDate][domain]) timeData[currentDate][domain] = [];
   
   timeData[currentDate][domain].push(session);
-  chrome.storage.local.set({ timeData }, () => {
-    console.log(`Saved session for ${domain} on ${currentDate}`, session);
-  });
+  chrome.storage.local.set({ timeData });
 }
+
+// Tab event listeners
+chrome.tabs.onActivated.addListener(activeInfo => {
+  chrome.tabs.get(activeInfo.tabId, handleTabChange);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url && tab.active) handleTabChange(tab);
+});
 
 // Idle detection
 chrome.idle.setDetectionInterval(60);
@@ -86,37 +110,39 @@ chrome.idle.onStateChanged.addListener(state => {
   }
 });
 
-// Daily email scheduling
-chrome.alarms.create("dailyEmail", {
-  when: getNextNoon(),
-  periodInMinutes: 24 * 60
-});
+// Email scheduling system
+function scheduleDailyEmail() {
+  const nextNoon = getNextNoon();
+  console.log("Scheduling next email at:", new Date(nextNoon).toLocaleString());
+  
+  chrome.alarms.create("dailyEmail", {
+    when: nextNoon,
+    periodInMinutes: 24 * 60
+  });
+}
+
+// Initialize scheduling
+scheduleDailyEmail();
 
 chrome.alarms.onAlarm.addListener(alarm => {
-  if (alarm.name === "dailyEmail") sendDailySummary();
+  console.log("Alarm triggered:", alarm.name);
+  if (alarm.name === "dailyEmail") {
+    console.log("Sending daily summary...");
+    sendDailySummary();
+  }
 });
 
 function getNextNoon() {
   const now = new Date();
   const noon = new Date(now);
   noon.setHours(12, 0, 0, 0);
-  if (now > noon) noon.setDate(noon.getDate() + 1);
+  
+  if (now > noon) {
+    noon.setDate(noon.getDate() + 1);
+  }
+  
   return noon.getTime();
 }
-
-// Site categorization
-const siteCategories = {
-  "github.com": "Work",
-  "stackoverflow.com": "Work",
-  "leetcode.com": "Work",
-  "youtube.com": "Entertainment",
-  "instagram.com": "Social",
-  "chatgpt.com": "Work",
-  "reddit.com": "Social",
-  "twitter.com": "Social",
-  "linkedin.com": "Professional",
-  "netflix.com": "Entertainment"
-};
 
 // Data processing
 function calculateInsights(data) {
@@ -150,6 +176,13 @@ function calculateInsights(data) {
 // Email sending
 async function sendDailySummary() {
   const currentDate = new Date().toISOString().split("T")[0];
+  
+  // Don't send if already sent today
+  if (emailHistory[currentDate]) {
+    console.log("Email already sent today");
+    return;
+  }
+  
   const data = timeData[currentDate] || {};
   const insights = calculateInsights(timeData);
 
@@ -166,23 +199,91 @@ async function sendDailySummary() {
     };
   });
 
-  chrome.storage.local.get(["userEmail"], async result => {
-    const userEmail = result.userEmail || "devh9933@gmail.com";
-    
-    try {
-      const response = await fetch("http://localhost:3000/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: currentDate, summary, insights, userEmail })
-      });
+  return new Promise(async (resolve, reject) => {
+    chrome.storage.local.get(["userEmail"], async result => {
+      const userEmail = result.userEmail || "devh9933@gmail.com";
       
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      console.log("Summary sent successfully");
-    } catch (error) {
-      console.error("Email send failed:", error);
-    }
+      try {
+        console.log("Sending email to backend...");
+        const response = await fetch("http://localhost:3000/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: currentDate, summary, insights, userEmail })
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}, ${errorText}`);
+        }
+        
+        // Record successful send
+        emailHistory[currentDate] = new Date().toISOString();
+        chrome.storage.local.set({ emailHistory });
+        
+        console.log("Summary sent successfully");
+        resolve();
+      } catch (error) {
+        console.error("Email send failed:", error);
+        
+        // Record failed attempt
+        emailHistory[currentDate] = {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        };
+        chrome.storage.local.set({ emailHistory });
+        reject(error);
+      }
+    });
   });
 }
+
+// Message handler
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Test email request
+  if (request.action === "testEmail") {
+    console.log("Test email requested");
+    sendDailySummary()
+      .then(() => sendResponse({ status: "success" }))
+      .catch(error => sendResponse({ status: "error", error: error.message }));
+    return true; // Indicates async response
+  }
+  
+  // Update category request
+  if (request.action === "updateCategory") {
+    const { domain, category } = request;
+    siteCategories[domain] = category;
+    saveSiteCategories();
+    console.log(`Updated category for ${domain}: ${category}`);
+    sendResponse({ status: "success" });
+    return true;
+  }
+  
+  // Send feedback request
+  if (request.action === "sendFeedback") {
+    const { message } = request;
+    console.log("Feedback received:", message);
+    
+    // Send to backend
+    fetch("http://localhost:3000/send-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        sendResponse({ status: "success" });
+      } else {
+        sendResponse({ status: "error", error: "Failed to send feedback" });
+      }
+    })
+    .catch(error => {
+      sendResponse({ status: "error", error: error.message });
+    });
+    
+    return true; // Indicates async response
+  }
+});
 
 // Helper function
 function formatDuration(seconds) {
@@ -191,5 +292,5 @@ function formatDuration(seconds) {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-// Keep service worker alive during development
+// Keep service worker alive
 setInterval(() => console.log("Background active"), 4 * 60 * 1000);
