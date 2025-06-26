@@ -1,68 +1,122 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>TimeMachine Pro</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TimeMachine</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="chart.min.js"></script>
 </head>
 <body>
-  <div class="splash-screen" id="splashScreen">
-    <img src="icon128.png" alt="TimeMachine Logo" class="logo">
-    <h1>TimeMachine</h1>
-    <p>Transform your browsing into productivity insights</p>
-    <button id="enterBtn" class="cta-btn">View Dashboard</button>
-  </div>
-  
-  <div class="container hidden" id="statsContainer">
-    <div class="header">
-      <button id="backBtn" class="icon-btn" title="Back to Home">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      <img src="icon48.png" alt="TimeMachine Icon" class="header-icon">
-      <h1>Dashboard</h1>
-      <div class="theme-toggle">
-        <input type="checkbox" id="themeToggle">
-        <label for="themeToggle"></label>
+  <div id="splashScreen" class="splash-screen">
+    <div class="splash-content">
+      <div class="logo-container">
+        <img src="icon128.png" alt="TimeMachine Logo" class="splash-logo">
       </div>
-    </div>
-    
-    <div class="feedback-toast" id="feedbackToast"></div>
-    
-    <div class="card">
-      <h2>Email Settings</h2>
-      <div class="email-section">
-        <input type="email" id="userEmail" placeholder="your@email.com">
-        <button id="saveEmailBtn" class="primary-btn">Save</button>
-      </div>
-      <div id="emailStatus" style="font-size: 14px; margin-top: 10px;"></div>
-      <button id="testEmailBtn" class="secondary-btn">Send Test Report</button>
-    </div>
-    
-    <div class="card">
-      <h2>Today's Activity</h2>
-      <div id="stats" class="stats-container"></div>
-    </div>
-    
-    <div class="card">
-      <h2>Time Distribution</h2>
-      <canvas id="statsChart" width="280" height="220"></canvas>
-    </div>
-    
-    <!-- New: Feedback form -->
-    <div class="card">
-      <h2>Send Feedback</h2>
-      <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">
-        Help improve TimeMachine! Share your suggestions or report issues.
-      </p>
-      <textarea id="feedbackMessage" rows="3" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px;" placeholder="Your feedback..."></textarea>
-      <button id="sendFeedbackBtn" class="primary-btn">Send Feedback</button>
+      <h1>TimeMachine</h1>
+      <p>Track your digital habits, boost productivity</p>
+      <button id="enterBtn" class="btn primary">View Dashboard</button>
     </div>
   </div>
 
-  <script src="chart.min.js"></script>
+  <div id="statsContainer" class="hidden">
+    <div class="container">
+      <div class="header">
+        <button id="backBtn" class="icon-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M15 18l-6-6 6-6"></path>
+          </svg>
+        </button>
+        <h1 class="title">TimeMachine</h1>
+        <div class="header-actions">
+          <button id="refreshBtn" class="icon-btn" title="Refresh">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M21 12a9 9 0 00-9-9 9.75 9.75 0 00-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+              <path d="M3 12a9 9 0 009 9 9.75 9.75 0 006.74-2.74L21 16"></path>
+              <path d="M16 16h5v5"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="daily">Daily</button>
+        <button class="tab-btn" data-tab="weekly">Weekly</button>
+        <button class="tab-btn" data-tab="monthly">Monthly</button>
+      </div>
+
+      <div id="tabContent" class="tab-content">
+        <div class="card">
+          <h2>Time Distribution</h2>
+          <canvas id="statsChart"></canvas>
+        </div>
+
+        <div class="card">
+          <h2>Today's Activity</h2>
+          <div id="stats"></div>
+        </div>
+
+        <div class="card">
+          <h2>Productivity Score</h2>
+          <div class="score-container">
+            <div class="score-circle" id="focusScore">
+              <span class="score-value">0%</span>
+              <span class="score-label">Focus</span>
+            </div>
+            <div class="score-details">
+              <div class="score-metric">
+                <span class="metric-label">Total Time</span>
+                <span class="metric-value" id="totalTime">0m</span>
+              </div>
+              <div class="score-metric">
+                <span class="metric-label">Sessions</span>
+                <span class="metric-value" id="sessionCount">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Settings</h2>
+          <div class="settings-group">
+            <label>Dark Mode</label>
+            <label class="switch">
+              <input type="checkbox" id="themeToggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+          
+          <div class="settings-group">
+            <label>Email Reports</label>
+            <div class="email-settings">
+              <span id="emailDisplay" class="hidden"></span>
+              <input type="email" id="userEmail" placeholder="your@email.com" class="hidden">
+              <div class="email-buttons">
+                <button id="saveEmailBtn" class="btn secondary small hidden">Save</button>
+                <button id="editEmailBtn" class="btn secondary small">Edit</button>
+              </div>
+            </div>
+          </div>
+          
+          <div id="emailStatus" class="email-status"></div>
+          <button id="testEmailBtn" class="btn secondary">Send Test Report</button>
+        </div>
+
+        <div class="card">
+          <h2>Feedback</h2>
+          <p class="feedback-description">Help us improve TimeMachine</p>
+          <textarea id="feedbackMessage" placeholder="What do you like? What can we improve?" maxlength="500"></textarea>
+          <div class="feedback-footer">
+            <span id="charCount">0/500</span>
+            <button id="sendFeedbackBtn" class="btn primary">Send Feedback</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="feedbackToast" class="feedback-toast"></div>
   <script src="popup.js"></script>
 </body>
 </html>
