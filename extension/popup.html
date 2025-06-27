@@ -8,25 +8,22 @@
   <script src="chart.min.js"></script>
 </head>
 <body>
-  <div id="splashScreen" class="splash-screen">
-    <div class="splash-content">
+  <div id="emailPrompt" class="email-prompt">
+    <div class="prompt-content">
       <div class="logo-container">
         <img src="icon128.png" alt="TimeMachine Logo" class="splash-logo">
       </div>
-      <h1>TimeMachine</h1>
-      <p>Track your digital habits, boost productivity</p>
-      <button id="enterBtn" class="btn primary">View Dashboard</button>
+      <h1>Welcome to TimeMachine</h1>
+      <p>Enter your email to start tracking your productivity</p>
+      <input type="email" id="userEmailInput" placeholder="your@email.com">
+      <button id="saveEmailBtn" class="btn primary">Save & Continue</button>
+      <p id="emailError" class="error-text hidden"></p>
     </div>
   </div>
 
-  <div id="statsContainer" class="hidden">
+  <div id="dashboard" class="hidden">
     <div class="container">
       <div class="header">
-        <button id="backBtn" class="icon-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M15 18l-6-6 6-6"></path>
-          </svg>
-        </button>
         <h1 class="title">TimeMachine</h1>
         <div class="header-actions">
           <button id="refreshBtn" class="icon-btn" title="Refresh">
@@ -35,6 +32,11 @@
               <path d="M3 3v5h5"></path>
               <path d="M3 12a9 9 0 009 9 9.75 9.75 0 006.74-2.74L21 16"></path>
               <path d="M16 16h5v5"></path>
+            </svg>
+          </button>
+          <button id="toggleThemeBtn" class="icon-btn" title="Toggle Theme">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
             </svg>
           </button>
         </div>
@@ -80,25 +82,16 @@
         <div class="card">
           <h2>Settings</h2>
           <div class="settings-group">
-            <label>Dark Mode</label>
-            <label class="switch">
-              <input type="checkbox" id="themeToggle">
-              <span class="slider"></span>
-            </label>
-          </div>
-          
-          <div class="settings-group">
             <label>Email Reports</label>
             <div class="email-settings">
-              <span id="emailDisplay" class="hidden"></span>
+              <span id="emailDisplay"></span>
               <input type="email" id="userEmail" placeholder="your@email.com" class="hidden">
               <div class="email-buttons">
-                <button id="saveEmailBtn" class="btn secondary small hidden">Save</button>
+                <button id="updateEmailBtn" class="btn secondary small hidden">Save</button>
                 <button id="editEmailBtn" class="btn secondary small">Edit</button>
               </div>
             </div>
           </div>
-          
           <div id="emailStatus" class="email-status"></div>
           <button id="testEmailBtn" class="btn secondary">Send Test Report</button>
         </div>
