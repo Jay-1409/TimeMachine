@@ -1,16 +1,12 @@
 const mongoose = require('mongoose');
 
-const sessionSchema = new mongoose.Schema({
-  start: String,
-  end: String,
-  duration: Number,
-});
-
 const timeDataSchema = new mongoose.Schema({
   userEmail: { type: String, required: true },
   date: { type: String, required: true },
   domain: { type: String, required: true },
-  sessions: [sessionSchema],
+  totalTime: { type: Number, required: true, default: 0 } 
 });
+
+timeDataSchema.index({ userEmail: 1, date: 1, domain: 1 });
 
 module.exports = mongoose.model('TimeData', timeDataSchema);

@@ -4,8 +4,8 @@ const emailHistorySchema = new mongoose.Schema({
   userEmail: { type: String, required: true },
   date: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
-  status: { type: String, default: 'sent' },
-  error: String,
+  status: { type: String, enum: ['generated', 'failed'], default: 'generated' },
+  error: String
 });
 
 module.exports = mongoose.model('EmailHistory', emailHistorySchema);

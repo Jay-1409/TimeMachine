@@ -3,31 +3,29 @@ const router = express.Router();
 const User = require('../models/User');
 
 router.post('/save-email', async (req, res) => {
-  const { email } = req.body;
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Invalid email' });
-  }
-
   try {
-    await User.findOneAndUpdate(
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+    const user = await User.findOneAndUpdate(
       { email },
       { email, lastUpdated: new Date() },
-      { upsert: true }
+      { upsert: true, new: true }
     );
-    res.status(200).json({ success: true });
+    res.json({ success: true, email: user.email });
   } catch (error) {
-    console.error('Error saving email:', error);
-    res.status(500).json({ error: 'Failed to save email' });
+    console.error('Save email error:', error.message, error.stack);
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
 router.get('/get-email/:email', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
-    res.status(200).json({ email: user?.email || null });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true, email: user.email });
   } catch (error) {
-    console.error('Error fetching email:', error);
-    res.status(500).json({ error: 'Failed to fetch email' });
+    console.error('Get email error:', error.message, error.stack);
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
