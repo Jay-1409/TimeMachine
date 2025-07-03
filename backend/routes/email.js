@@ -3,6 +3,7 @@ const router = express.Router();
 const TimeData = require('../models/TimeData');
 const EmailHistory = require('../models/EmailHistory');
 const Mailjet = require('node-mailjet');
+const PDFDocument = require('pdfkit');
 
 const mailjet = new Mailjet({
   apiKey: process.env.MAILJET_API_KEY,
@@ -16,7 +17,6 @@ async function sendEmailWithRetry(emailData, maxRetries = 3) {
   while (attempts < maxRetries) {
     try {
       const response = await mailjet.post('send', { version: 'v3.1' }).request(emailData);
-      console.log(`Email sent successfully after ${attempts + 1} attempts`);
       return response;
     } catch (error) {
       attempts++;
@@ -24,7 +24,7 @@ async function sendEmailWithRetry(emailData, maxRetries = 3) {
       if (attempts < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
       } else {
-        throw new Error(`Failed to send email after ${maxRetries} attempts: ${error.message}`);
+        throw error;
       }
     }
   }
@@ -39,27 +39,41 @@ function formatDuration(seconds) {
 
 router.post('/send', async (req, res) => {
   const { date, userEmail } = req.body;
+  
   if (!date || !userEmail) {
     return res.status(400).json({ error: 'Date and userEmail are required' });
   }
 
   try {
-    // Fetch all time data for the user and date
-    const timeDataList = await TimeData.find({ userEmail, date });
-    if (!timeDataList || timeDataList.length === 0) {
-      await EmailHistory.create({ userEmail, date, status: 'failed', error: 'No data found' });
+    // Fetch time data for the user and date
+    const timeData = await TimeData.find({ userEmail, date });
+    
+    if (!timeData || timeData.length === 0) {
+      await EmailHistory.create({ 
+        userEmail, 
+        date, 
+        status: 'failed', 
+        error: 'No data found' 
+      });
       return res.status(404).json({ error: 'No data found' });
     }
 
     // Aggregate time by domain
     const domainTimes = {};
-    timeDataList.forEach(data => {
+    timeData.forEach(data => {
       const totalTime = data.sessions.reduce((sum, session) => sum + (session.duration || 0), 0);
-      domainTimes[data.domain] = (domainTimes[data.domain] || 0) + totalTime;
+      if (totalTime > 0) {
+        domainTimes[data.domain] = (domainTimes[data.domain] || 0) + totalTime;
+      }
     });
 
     if (Object.keys(domainTimes).length === 0) {
-      await EmailHistory.create({ userEmail, date, status: 'failed', error: 'No valid session data' });
+      await EmailHistory.create({ 
+        userEmail, 
+        date, 
+        status: 'failed', 
+        error: 'No valid session data' 
+      });
       return res.status(404).json({ error: 'No valid session data' });
     }
 
@@ -74,81 +88,86 @@ router.post('/send', async (req, res) => {
       `).join('');
 
     const formattedDate = new Date(date).toLocaleDateString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric'
     });
-
-    const emailHtml = `
-      <div style="font-family: system-ui; max-width: 600px; margin: 0 auto; padding: 24px; background: #f0fdf4; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-        <div style="text-align: center; margin-bottom: 16px;">
-          <img src="${logoBase64}" alt="TimeMachine Logo" style="width: 64px; display: inline-block; vertical-align: middle; margin-bottom: 16px;" />
-          <h1 style="font-size: 24px; color: #166534; margin: 0 0 8px;">TimeMachine Report</h1>
-          <p style="font-size: 16px; color: #4b5563;">${formattedDate}</p>
-        </div>
-        <div style="background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 24px;">
-          <h2 style="font-size: 18px; color: #166534; margin: 0 0 16px; border-bottom: 1px solid #d1fae5; padding-bottom: 8px;">Top Sites</h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="background: #ecfdf5;">
-                <th style="padding: 10px; font-size: 14px; color: #166534; text-align: left;">Site</th>
-                <th style="padding: 10px; font-size: 14px; color: #166534; text-align: left;">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sitesHtml}
-            </tbody>
-          </table>
-        </div>
-        <div style="text-align: center; padding: 16px; background: #ecfdf5; border-radius: 8px;">
-          <p style="font-size: 14px; color: #4b5563; margin: 0;">
-            Sent by TimeMachine | Optimize your time with daily insights
-          </p>
-        </div>
-      </div>
-    `;
 
     const totalMinutes = Object.values(domainTimes).reduce((sum, time) => sum + time / 60, 0);
 
     const emailData = {
-      Messages: [
-        {
-          From: { Email: process.env.FROM_EMAIL, Name: 'TimeMachine' },
-          To: [{ Email: userEmail, Name: 'User' }],
-          Subject: `Daily TimeMachine Report - ${formattedDate}`,
-          HTMLPart: emailHtml,
-          TextPart: `TimeMachine Report for ${formattedDate}\nTotal Time: ${totalMinutes.toFixed(1)} min`,
+      Messages: [{
+        From: { 
+          Email: process.env.FROM_EMAIL, 
+          Name: 'TimeMachine' 
         },
-      ],
+        To: [{ 
+          Email: userEmail, 
+          Name: 'User' 
+        }],
+        Subject: `Your TimeMachine Report - ${formattedDate}`,
+        HTMLPart: `
+          <div style="font-family: system-ui; max-width: 600px; margin: 0 auto; padding: 24px; background: #f0fdf4; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 16px;">
+              <img src="${logoBase64}" alt="TimeMachine Logo" style="width: 64px; display: inline-block; vertical-align: middle; margin-bottom: 16px;" />
+              <h1 style="font-size: 24px; color: #166534; margin: 0 0 8px;">TimeMachine Report</h1>
+              <p style="font-size: 16px; color: #4b5563;">${formattedDate}</p>
+              <p style="font-size: 16px; color: #166534; font-weight: 500;">
+                Total Time Tracked: ${totalMinutes.toFixed(1)} minutes
+              </p>
+            </div>
+            <div style="background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 24px;">
+              <h2 style="font-size: 18px; color: #166534; margin: 0 0 16px; border-bottom: 1px solid #d1fae5; padding-bottom: 8px;">Your Activity</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: #ecfdf5;">
+                    <th style="padding: 10px; font-size: 14px; color: #166534; text-align: left;">Site</th>
+                    <th style="padding: 10px; font-size: 14px; color: #166534; text-align: left;">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${sitesHtml}
+                </tbody>
+              </table>
+            </div>
+            <div style="text-align: center; padding: 16px; background: #ecfdf5; border-radius: 8px;">
+              <p style="font-size: 14px; color: #4b5563; margin: 0;">
+                Sent by TimeMachine | Optimize your time with daily insights
+              </p>
+            </div>
+          </div>
+        `,
+        TextPart: `TimeMachine Report for ${formattedDate}\n\nTotal Time: ${totalMinutes.toFixed(1)} minutes\n\n${Object.entries(domainTimes)
+          .sort((a, b) => b[1] - a[1])
+          .map(([domain, time]) => `${domain}: ${formatDuration(time)}`)
+          .join('\n')}`
+      }]
     };
 
     await sendEmailWithRetry(emailData);
-    await EmailHistory.create({ userEmail, date, status: 'sent' });
+    await EmailHistory.create({ 
+      userEmail, 
+      date, 
+      status: 'sent' 
+    });
+    
+    // Delete the data after successful email
     await TimeData.deleteMany({ userEmail, date });
 
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Email error:', error.message);
-    await EmailHistory.create({ userEmail, date, status: 'failed', error: error.message });
-    res.status(500).json({ error: 'Failed to send email', details: error.message });
-  }
-});
-
-router.post('/send-all', async (req, res) => {
-  try {
-    const users = await require('../models/User').find({}, 'email');
-    const date = new Date().toISOString().split('T')[0];
-    const results = [];
-    for (const user of users) {
-      const response = await fetch(`${process.env.BACKEND_URL}/api/email/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, userEmail: user.email }),
-      });
-      results.push({ email: user.email, success: response.ok });
-    }
-    res.status(200).json({ success: true, results });
-  } catch (error) {
-    console.error('Send all error:', error.message);
-    res.status(500).json({ error: 'Failed to send emails', details: error.message });
+    console.error('Email error:', error);
+    await EmailHistory.create({ 
+      userEmail, 
+      date, 
+      status: 'failed', 
+      error: error.message 
+    });
+    res.status(500).json({ 
+      error: 'Failed to send email', 
+      details: error.message 
+    });
   }
 });
 
