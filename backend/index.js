@@ -22,7 +22,11 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI,{
+  serverSelectionTimeoutMS: 15000, // Timeout for initial server discovery (15 seconds)
+  socketTimeoutMS: 45000, // Timeout for operations on a socket (45 seconds)
+  connectTimeoutMS: 15000 // Timeout for initial connection establishment (15 seconds)
+})
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
