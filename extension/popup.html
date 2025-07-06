@@ -9,7 +9,6 @@
     <script src="popup.js" defer></script>
   </head>
   <body class="theme-light">
-    <!-- Email Prompt - Shown initially if no email is set -->
     <div id="emailPrompt" class="email-prompt">
       <div class="prompt-content">
         <div class="logo-container">
@@ -28,7 +27,6 @@
       </div>
     </div>
 
-    <!-- Main Dashboard - Shown after email is set -->
     <div id="mainApp" class="container hidden">
       <div class="header">
         <button
@@ -58,15 +56,14 @@
         </button>
       </div>
 
-      <!-- Top-level tabs for Insights and Settings -->
       <div class="main-tabs">
-        <button class="main-tab-btn active" data-main-tab="insights">Insights</button>
+        <button class="main-tab-btn active" data-main-tab="insights">
+          Insights
+        </button>
         <button class="main-tab-btn" data-main-tab="settings">Settings</button>
       </div>
 
-      <!-- Insights Tab Content -->
       <div id="insightsTabContent" class="tab-content">
-        <!-- Daily/Weekly/Monthly tabs (existing) -->
         <div class="tabs">
           <button class="tab-btn active" data-tab="daily">Daily</button>
           <button class="tab-btn" data-tab="weekly">Weekly</button>
@@ -83,7 +80,6 @@
             <div class="chart-container h-64">
               <canvas id="timeChart"></canvas>
             </div>
-            <!-- Wrapper for scrollable site list -->
             <div class="site-list-wrapper">
               <div class="site-list"></div>
             </div>
@@ -91,7 +87,6 @@
         </div>
       </div>
 
-      <!-- Settings Tab Content -->
       <div id="settingsTabContent" class="tab-content hidden">
         <div class="card">
           <h2>Email Settings</h2>
@@ -107,14 +102,13 @@
               <button id="updateEmailBtn" class="btn primary small hidden">
                 Save
               </button>
-              <button id="editEmailBtn" class="btn secondary small">Edit</button>
+              <button id="editEmailBtn" class="btn secondary small">
+                Edit
+              </button>
             </div>
             <div class="email-buttons mt-2">
               <button id="downloadReport" class="btn primary small">
                 Download Report
-              </button>
-              <button id="testEmailBtn" class="btn secondary small">
-                Test Email
               </button>
             </div>
           </div>

@@ -1075,3 +1075,15 @@ body.theme-vivid .prompt-content input:focus { border-color: var(--accent-vivid)
 .hidden {
   display: none !important;
 }
+
+.bg-green-500 {
+  background-color: #10b981;
+}
+
+.bg-yellow-500 {
+  background-color: #f59e0b;
+}
+
+.bg-red-500 {
+  background-color: #ef4444;
+}
