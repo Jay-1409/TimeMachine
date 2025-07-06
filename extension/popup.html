@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TimeMachine</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="chart.min.js"></script>
+    <script src="popup.js" defer></script>
+  </head>
+  <body class="theme-light">
+    <div id="emailPrompt" class="email-prompt">
+      <div class="prompt-content">
+        <div class="logo-container">
+          <img src="icon48.png" alt="TimeMachine Logo" class="splash-logo" />
+        </div>
+        <h1>Welcome to TimeMachine</h1>
+        <p>Enter your email to start tracking your productivity</p>
+        <input
+          id="userEmailInput"
+          type="email"
+          placeholder="Enter your email"
+          class="w-full p-2 rounded border"
+        />
+        <p id="emailError" class="error-text hidden"></p>
+        <button id="saveEmailBtn" class="btn primary">Save & Continue</button>
+      </div>
+    </div>
+
+    <div id="mainApp" class="container hidden">
+      <div class="header">
+        <button
+          id="toggleThemeBtn"
+          class="icon-btn"
+          title="Switch Theme"
+          aria-label="Switch Theme"
+        >
+          <span class="theme-icon">🎨</span>
+        </button>
+
+        <h1 class="title">TimeMachine</h1>
+        <button id="refreshBtn" class="icon-btn">
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            ></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="main-tabs">
+        <button class="main-tab-btn active" data-main-tab="insights">
+          Insights
+        </button>
+        <button class="main-tab-btn" data-main-tab="settings">Settings</button>
+      </div>
+
+      <div id="insightsTabContent" class="tab-content">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="daily">Daily</button>
+          <button class="tab-btn" data-tab="weekly">Weekly</button>
+          <button class="tab-btn" data-tab="monthly">Monthly</button>
+        </div>
+
+        <div class="card">
+          <div class="flex justify-between items-center mb-4">
+            <h2>Your Productivity</h2>
+            <div id="productivityScore" class="score-badge">0%</div>
+          </div>
+          <div id="errorDisplay" class="error-text hidden"></div>
+          <div id="stats" class="grid grid-cols-1 gap-6">
+            <div class="chart-container h-64">
+              <canvas id="timeChart"></canvas>
+            </div>
+            <div class="site-list-wrapper">
+              <div class="site-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="settingsTabContent" class="tab-content hidden">
+        <div class="card">
+          <h2>Email Settings</h2>
+          <div class="settings-group">
+            <label>Email</label>
+            <div id="emailDisplay"></div>
+            <input
+              id="userEmail"
+              type="email"
+              class="hidden w-full p-2 rounded border"
+            />
+            <div class="email-buttons">
+              <button id="updateEmailBtn" class="btn primary small hidden">
+                Save
+              </button>
+              <button id="editEmailBtn" class="btn secondary small">
+                Edit
+              </button>
+            </div>
+            <div class="email-buttons mt-2">
+              <button id="downloadReport" class="btn primary small">
+                Download Report
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Feedback</h2>
+          <p class="feedback-description">Help us improve TimeMachine</p>
+          <textarea
+            id="feedbackMessage"
+            rows="4"
+            maxlength="500"
+            placeholder="Your feedback..."
+          ></textarea>
+          <div class="feedback-footer">
+            <span id="charCount" class="text-sm">0/500</span>
+            <button id="sendFeedbackBtn" class="btn primary small">
+              Send Feedback
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="feedbackToast" class="feedback-toast"></div>
+    </div>
+  </body>
+</html>
