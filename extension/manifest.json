@@ -1,17 +1,20 @@
 {
   "manifest_version": 3,
   "name": "TimeMachine",
-  "version": "1.0",
-  "description": "Track your browsing habits and boost productivity",
+  "version": "1.0.0",
+  "description": "Track your browsing habits and boost productivity with insightful stats.",
   "permissions": [
     "tabs",
     "activeTab",
     "storage",
     "alarms",
-    "idle"
+    "idle",
+    "windows",
+    "notifications"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://timemachine-1.onrender.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -25,8 +28,12 @@
     "service_worker": "background.js"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 https://timemachine-1.onrender.com"
   },
+  "web_accessible_resources": [{
+    "resources": ["chart.min.js"],
+    "matches": ["<all_urls>"]
+  }],
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
