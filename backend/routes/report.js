@@ -27,24 +27,20 @@ router.post("/generate", async (req, res) => {
     const timeDataList = await TimeData.find({
       userEmail,
       date: { $gte: new Date(startOfDay), $lte: new Date(endOfDay) },
-    }).select('domain totalTime category'); // Select only relevant fields
+    }).select('domain totalTime category');
+    console.log(`Raw timeDataList for ${userEmail} on ${date}:`, JSON.stringify(timeDataList, null, 2));
 
     if (!timeDataList || timeDataList.length === 0) {
       return res.status(404).json({ error: "No data found" });
     }
 
     const domainTimes = {};
-    const categoryTimes = {
-      Work: 0,
-      Social: 0,
-      Entertainment: 0,
-      Professional: 0,
-      Other: 0,
-    };
+    const categoryTimes = { Work: 0, Social: 0, Entertainment: 0, Professional: 0, Other: 0 };
     const domainCategories = {};
 
     timeDataList.forEach((data) => {
-      const totalTime = Math.min(data.totalTime ? Math.floor(data.totalTime / 1000) : 0, 86400); // Convert ms to s, cap at 24h
+      const totalTime = Math.min(data.totalTime ? Math.floor(data.totalTime / 1000) : 0, 86400);
+      console.log(`Domain: ${data.domain}, Raw totalTime: ${data.totalTime}ms, Converted: ${totalTime}s`);
       if (totalTime > 0) {
         domainTimes[data.domain] = (domainTimes[data.domain] || 0) + totalTime;
         const category = data.category && categoryTimes.hasOwnProperty(data.category) ? data.category : "Other";
