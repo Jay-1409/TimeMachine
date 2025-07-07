@@ -113,63 +113,69 @@ class TimeTracker {
   }
 
   async saveSession(domain, startTime, endTime, duration, category = null) {
-    try {
-      // Enhanced validation at the entry point of saveSession
-      if (!domain || typeof domain !== 'string' || domain.trim() === '' || typeof duration !== 'number' || duration <= 0) {
-        console.warn(`Skipping saveSession for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`);
-        return;
-      }
-
-      const currentDate = new Date(startTime).toISOString().split("T")[0];
-      const { userEmail } = await chrome.storage.local.get(["userEmail"]);
-      if (!userEmail) {
-        console.warn("No userEmail set, cannot save session to backend. Storing locally.");
-        await this.storeSessionLocally(domain, startTime, endTime, duration, category);
-        return;
-      }
-
-      const payload = {
-        userEmail,
-        date: currentDate,
-        domain,
-        sessions: [{ startTime, endTime, duration }],
-        category: category || this.siteCategories[domain] || "Other",
-      };
-
-      console.log(`Attempting to save session for ${domain} to backend:`, payload);
-
-      const response = await fetch("https://timemachine-1.onrender.com/api/time-data/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      let responseBody;
-      try {
-        responseBody = await response.json();
-      } catch (jsonError) {
-        const text = await response.text();
-        console.error(`Non-JSON response for ${domain} on ${currentDate} from /api/time-data/sync:`, {
-          status: response.status,
-          statusText: response.statusText,
-          body: text.slice(0, 200) + (text.length > 200 ? '...' : ''),
-          error: jsonError.message
-        });
-        await this.storeSessionLocally(domain, startTime, endTime, duration, category);
-        return;
-      }
-
-      if (!response.ok) {
-        console.error(`Backend sync failed for ${domain} on ${currentDate}: ${response.status} - ${JSON.stringify(responseBody)}. Storing locally.`, payload);
-        await this.storeSessionLocally(domain, startTime, endTime, duration, category);
-      } else {
-        console.log(`Session saved successfully for ${domain} on ${currentDate}. Response:`, responseBody);
-      }
-    } catch (error) {
-      console.error(`Critical error saving session for ${domain}:`, error);
-      await this.storeSessionLocally(domain, startTime, endTime, duration, category);
+  try {
+    // Enhanced validation at the entry point of saveSession
+    if (!domain || typeof domain !== 'string' || domain.trim() === '' || typeof duration !== 'number' || duration <= 0) {
+      console.warn(`Skipping saveSession for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`);
+      return;
     }
+
+    const currentDate = new Date(startTime).toISOString().split("T")[0];
+    const { userEmail } = await chrome.storage.local.get(["userEmail"]);
+    if (!userEmail) {
+      console.warn("No userEmail set, cannot save session to backend. Storing locally.");
+      await this.storeSessionLocally(domain, startTime, endTime, duration, category);
+      return;
+    }
+
+    const payload = {
+      userEmail,
+      date: currentDate,
+      domain,
+      sessions: [{ startTime, endTime, duration }],
+      category: category || this.siteCategories[domain] || "Other",
+    };
+
+    console.log(`Attempting to save session for ${domain} to backend:`, payload);
+
+    const response = await fetch("https://timemachine-1.onrender.com/api/time-data/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    // --- FIX APPLIED HERE ---
+    // Read the response body as text FIRST. This consumes the stream once.
+    const responseText = await response.text();
+
+    let responseBody;
+    try {
+      // Now, try to parse the text content as JSON.
+      responseBody = JSON.parse(responseText);
+    } catch (jsonParseError) {
+      // If JSON parsing fails, we already have the `responseText` for logging.
+      console.error(`Non-JSON response for ${domain} on ${currentDate} from /api/time-data/sync:`, {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText.slice(0, 200) + (responseText.length > 200 ? '...' : ''), // Log snippet of non-JSON body
+        error: jsonParseError.message
+      });
+      await this.storeSessionLocally(domain, startTime, endTime, duration, category);
+      return; // Exit as the response was not valid JSON
+    }
+    // --- END FIX ---
+
+    if (!response.ok) {
+      console.error(`Backend sync failed for ${domain} on ${currentDate}: ${response.status} - ${JSON.stringify(responseBody)}. Storing locally.`, payload);
+      await this.storeSessionLocally(domain, startTime, endTime, duration, category);
+    } else {
+      console.log(`Session saved successfully for ${domain} on ${currentDate}. Response:`, responseBody);
+    }
+  } catch (error) {
+    console.error(`Critical error saving session for ${domain}:`, error);
+    await this.storeSessionLocally(domain, startTime, endTime, duration, category);
   }
+}
 
   async storeSessionLocally(domain, start, end, duration, category = null) {
     try {

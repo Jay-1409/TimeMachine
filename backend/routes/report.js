@@ -6,16 +6,13 @@ const QuickChart = require("quickchart-js");
 
 function formatDuration(seconds) {
   if (isNaN(seconds) || seconds <= 0) return "0m";
+  if (seconds > 86400) {
+    console.warn(`Unusually large time value: ${seconds} seconds`);
+  }
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${secs}s`;
-  }
-  return `${secs}s`;
+  return hours > 0 ? `${hours}h ${minutes}m` : minutes > 0 ? `${minutes}m ${secs}s` : `${secs}s`;
 }
 
 router.post("/generate", async (req, res) => {
@@ -25,29 +22,28 @@ router.post("/generate", async (req, res) => {
   }
 
   try {
-    const timeDataList = await TimeData.find({ userEmail, date });
+    const startOfDay = new Date(date).setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date).setHours(23, 59, 59, 999);
+    const timeDataList = await TimeData.find({
+      userEmail,
+      date: { $gte: new Date(startOfDay), $lte: new Date(endOfDay) },
+    }).select('domain totalTime category');
+    console.log(`Raw timeDataList for ${userEmail} on ${date}:`, JSON.stringify(timeDataList, null, 2));
+
     if (!timeDataList || timeDataList.length === 0) {
       return res.status(404).json({ error: "No data found" });
     }
 
     const domainTimes = {};
-    const categoryTimes = {
-      Work: 0,
-      Social: 0,
-      Entertainment: 0,
-      Professional: 0,
-      Other: 0,
-    };
+    const categoryTimes = { Work: 0, Social: 0, Entertainment: 0, Professional: 0, Other: 0 };
     const domainCategories = {};
 
     timeDataList.forEach((data) => {
-      const totalTime = data.totalTime || 0;
+      const totalTime = Math.min(data.totalTime ? Math.floor(data.totalTime / 1000) : 0, 86400);
+      console.log(`Domain: ${data.domain}, Raw totalTime: ${data.totalTime}ms, Converted: ${totalTime}s`);
       if (totalTime > 0) {
         domainTimes[data.domain] = (domainTimes[data.domain] || 0) + totalTime;
-        const category =
-          data.category && categoryTimes.hasOwnProperty(data.category)
-            ? data.category
-            : "Other";
+        const category = data.category && categoryTimes.hasOwnProperty(data.category) ? data.category : "Other";
         categoryTimes[category] += totalTime;
         domainCategories[data.domain] = category;
       }
@@ -57,13 +53,8 @@ router.post("/generate", async (req, res) => {
       return res.status(404).json({ error: "No valid time data" });
     }
 
-    const sortedDomainTimes = Object.entries(domainTimes).sort(
-      (a, b) => b[1] - a[1]
-    );
-    const totalTimeOverall = Object.values(domainTimes).reduce(
-      (sum, time) => sum + time,
-      0
-    );
+    const sortedDomainTimes = Object.entries(domainTimes).sort((a, b) => b[1] - a[1]);
+    const totalTimeOverall = Object.values(domainTimes).reduce((sum, time) => sum + time, 0);
 
     const categoryChart = new QuickChart();
     categoryChart.setConfig({
@@ -73,13 +64,7 @@ router.post("/generate", async (req, res) => {
         datasets: [
           {
             data: Object.values(categoryTimes),
-            backgroundColor: [
-              "#3b82f6",
-              "#ef4444",
-              "#60a5fa",
-              "#10b981",
-              "#d1d5db",
-            ],
+            backgroundColor: ["#3b82f6", "#ef4444", "#60a5fa", "#10b981", "#d1d5db"],
             borderWidth: 0,
           },
         ],
@@ -99,10 +84,7 @@ router.post("/generate", async (req, res) => {
         cutout: "65%",
       },
     });
-    const categoryChartBuffer = Buffer.from(
-      (await categoryChart.toDataUrl()).split(",")[1],
-      "base64"
-    );
+    const categoryChartBuffer = Buffer.from((await categoryChart.toDataUrl()).split(",")[1], "base64");
 
     const allSitesBarChart = new QuickChart();
     allSitesBarChart.setConfig({
@@ -112,7 +94,7 @@ router.post("/generate", async (req, res) => {
         datasets: [
           {
             label: "Time Spent",
-            data: sortedDomainTimes.map((site) => site[1]),
+            data: sortedDomainTimes.map((site) => site[1]), // Already in seconds
             backgroundColor: sortedDomainTimes.map((_, index) => {
               if (index === 0) return "#ff0000";
               if (index === 1) return "#ffa500";
@@ -130,9 +112,7 @@ router.post("/generate", async (req, res) => {
           tooltip: {
             callbacks: {
               label: function (context) {
-                return `${context.dataset.label}: ${formatDuration(
-                  context.raw
-                )}`;
+                return `${context.dataset.label}: ${formatDuration(context.raw)}`;
               },
             },
           },
@@ -147,54 +127,29 @@ router.post("/generate", async (req, res) => {
         },
       },
     });
-    const allSitesChartBuffer = Buffer.from(
-      (await allSitesBarChart.toDataUrl()).split(",")[1],
-      "base64"
-    );
+    const allSitesChartBuffer = Buffer.from((await allSitesBarChart.toDataUrl()).split(",")[1], "base64");
 
     const doc = new PDFDocument({ margin: 50 });
     const buffers = [];
     doc.on("data", buffers.push.bind(buffers));
 
     doc.fontSize(20).text("TimeMachine Daily Report", { align: "center" });
-    doc
-      .fontSize(12)
-      .text(`Date: ${new Date(date).toLocaleDateString("en-US")}`, {
-        align: "center",
-      });
+    doc.fontSize(12).text(`Date: ${new Date(date).toLocaleDateString("en-US")}`, { align: "center" });
     doc.text(`User: ${userEmail}`, { align: "center" });
     doc.moveDown();
-    doc
-      .fontSize(14)
-      .text(`Total Time Tracked: ${formatDuration(totalTimeOverall)}`, {
-        align: "center",
-      });
+    doc.fontSize(14).text(`Total Time Tracked: ${formatDuration(totalTimeOverall)}`, { align: "center" });
     doc.moveDown();
 
     doc.fontSize(12).text("Key Insights:", { underline: true });
     doc.moveDown(0.5);
-    doc.text(
-      `- You spent a total of ${formatDuration(totalTimeOverall)} online today.`
-    );
+    doc.text(`- You spent a total of ${formatDuration(totalTimeOverall)} online today.`);
     if (sortedDomainTimes.length > 0) {
       const [topSite, topSiteTime] = sortedDomainTimes[0];
-      const topSitePercentage = (
-        (topSiteTime / totalTimeOverall) *
-        100
-      ).toFixed(2);
-      doc.text(
-        `- Top site: ${topSite} (${formatDuration(
-          topSiteTime
-        )}, ${topSitePercentage}%).`
-      );
+      const topSitePercentage = ((topSiteTime / totalTimeOverall) * 100).toFixed(2);
+      doc.text(`- Top site: ${topSite} (${formatDuration(topSiteTime)}, ${topSitePercentage}%).`);
     }
-    const topCategory = Object.keys(categoryTimes).reduce((a, b) =>
-      categoryTimes[a] > categoryTimes[b] ? a : b
-    );
-    const topCategoryPercentage = (
-      (categoryTimes[topCategory] / totalTimeOverall) *
-      100
-    ).toFixed(2);
+    const topCategory = Object.keys(categoryTimes).reduce((a, b) => (categoryTimes[a] > categoryTimes[b] ? a : b));
+    const topCategoryPercentage = ((categoryTimes[topCategory] / totalTimeOverall) * 100).toFixed(2);
     doc.text(`- Main activity: ${topCategory} (${topCategoryPercentage}%).`);
     doc.text(`- Unique domains: ${Object.keys(domainTimes).length}`);
     doc.moveDown();
@@ -209,31 +164,12 @@ router.post("/generate", async (req, res) => {
     const colWidths = [50, 250, 100, 100];
 
     const drawTableHeader = () => {
-      doc
-        .rect(
-          startX,
-          y,
-          colWidths.reduce((a, b) => a + b, 0),
-          rowHeight
-        )
-        .fill("#f3f4f6");
-      doc
-        .fillColor("#000000")
+      doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#f3f4f6");
+      doc.fillColor("#000000")
         .text("Rank", startX + 5, y + 5, { width: colWidths[0], align: "left" })
-        .text("Domain", startX + colWidths[0] + 5, y + 5, {
-          width: colWidths[1],
-          align: "left",
-        })
-        .text("Time Spent", startX + colWidths[0] + colWidths[1] + 5, y + 5, {
-          width: colWidths[2],
-          align: "left",
-        })
-        .text(
-          "Category",
-          startX + colWidths[0] + colWidths[1] + colWidths[2] + 5,
-          y + 5,
-          { width: colWidths[3], align: "left" }
-        );
+        .text("Domain", startX + colWidths[0] + 5, y + 5, { width: colWidths[1], align: "left" })
+        .text("Time Spent", startX + colWidths[0] + colWidths[1] + 5, y + 5, { width: colWidths[2], align: "left" })
+        .text("Category", startX + colWidths[0] + colWidths[1] + colWidths[2] + 5, y + 5, { width: colWidths[3], align: "left" });
       y += rowHeight;
     };
 
@@ -249,76 +185,19 @@ router.post("/generate", async (req, res) => {
         drawTableHeader();
       }
 
-      if (i === 0)
-        doc
-          .rect(
-            startX,
-            y,
-            colWidths.reduce((a, b) => a + b, 0),
-            rowHeight
-          )
-          .fill("#ffdddd");
-      else if (i === 1)
-        doc
-          .rect(
-            startX,
-            y,
-            colWidths.reduce((a, b) => a + b, 0),
-            rowHeight
-          )
-          .fill("#ffeacc");
-      else if (i === 2)
-        doc
-          .rect(
-            startX,
-            y,
-            colWidths.reduce((a, b) => a + b, 0),
-            rowHeight
-          )
-          .fill("#ddffdd");
-      else if (i % 2 === 0)
-        doc
-          .rect(
-            startX,
-            y,
-            colWidths.reduce((a, b) => a + b, 0),
-            rowHeight
-          )
-          .fill("#ffffff");
-      else
-        doc
-          .rect(
-            startX,
-            y,
-            colWidths.reduce((a, b) => a + b, 0),
-            rowHeight
-          )
-          .fill("#f9f9f9");
+      if (i === 0) doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#ffdddd");
+      else if (i === 1) doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#ffeacc");
+      else if (i === 2) doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#ddffdd");
+      else if (i % 2 === 0) doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#ffffff");
+      else doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#f9f9f9");
 
-      doc
-        .fillColor("#000000")
+      doc.fillColor("#000000")
         .font("Helvetica")
         .fontSize(9)
-        .text((i + 1).toString(), startX + 5, y + 5, {
-          width: colWidths[0],
-          align: "left",
-        })
-        .text(domain, startX + colWidths[0] + 5, y + 5, {
-          width: colWidths[1],
-          align: "left",
-        })
-        .text(
-          formatDuration(time),
-          startX + colWidths[0] + colWidths[1] + 5,
-          y + 5,
-          { width: colWidths[2], align: "left" }
-        )
-        .text(
-          category,
-          startX + colWidths[0] + colWidths[1] + colWidths[2] + 5,
-          y + 5,
-          { width: colWidths[3], align: "left" }
-        );
+        .text((i + 1).toString(), startX + 5, y + 5, { width: colWidths[0], align: "left" })
+        .text(domain, startX + colWidths[0] + 5, y + 5, { width: colWidths[1], align: "left" })
+        .text(formatDuration(time), startX + colWidths[0] + colWidths[1] + 5, y + 5, { width: colWidths[2], align: "left" })
+        .text(category, startX + colWidths[0] + colWidths[1] + colWidths[2] + 5, y + 5, { width: colWidths[3], align: "left" });
 
       y += rowHeight;
     }
@@ -337,9 +216,7 @@ router.post("/generate", async (req, res) => {
 
     doc.end();
 
-    const pdfBuffer = await new Promise((resolve) =>
-      doc.on("end", () => resolve(Buffer.concat(buffers)))
-    );
+    const pdfBuffer = await new Promise((resolve) => doc.on("end", () => resolve(Buffer.concat(buffers))));
 
     res.set({
       "Content-Type": "application/pdf",
@@ -349,9 +226,7 @@ router.post("/generate", async (req, res) => {
     res.send(pdfBuffer);
   } catch (error) {
     console.error("Report generation error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to generate report", details: error.message });
+    res.status(500).json({ error: "Failed to generate report", details: error.message });
   }
 });
 

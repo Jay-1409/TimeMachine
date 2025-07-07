@@ -41,18 +41,30 @@ const CONFIG = {
 
 let timeChart = null;
 
-function formatDuration(seconds) {
-  if (isNaN(seconds) || seconds <= 0) return "0m";
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
+function formatDuration(milliseconds) {
+  // Ensure input is a valid positive number
+  if (isNaN(milliseconds) || milliseconds < 0) {
+    return "0m";
+  }
+
+  const totalSeconds = Math.floor(milliseconds / 1000); // First, convert milliseconds to seconds
+
+  if (totalSeconds === 0) {
+    return "0m"; // Handle very small durations
+  }
+
+  const hours = Math.floor(totalSeconds / 3600); // Calculate hours from total seconds
+  const minutes = Math.floor((totalSeconds % 3600) / 60); // Calculate remaining minutes
+  const seconds = totalSeconds % 60; // Calculate remaining seconds
 
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   } else if (minutes > 0) {
-    return `${minutes}m ${secs}s`;
+    // If less than an hour, display minutes and seconds
+    return `${minutes}m ${seconds}s`;
   }
-  return `${secs}s`;
+  // If less than a minute, display only seconds
+  return `${seconds}s`;
 }
 
 const CHART_CONFIG = {
@@ -108,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
     statsDiv: document.getElementById("stats"),
     productivityScore: document.getElementById("productivityScore"),
     siteList: document.querySelector(".site-list"),
-    sendReportBtn: document.getElementById('sendReportBtn'),
+    sendReportBtn: document.getElementById("sendReportBtn"),
   };
 
   const themes = ["light", "dark", "glass", "neumorphic", "vivid"];
@@ -447,8 +459,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!Array.isArray(timeData) || timeData.length === 0) {
-      elements.siteList.innerHTML = '<div class="empty-state">No data available</div>';
-      elements.productivityScore.textContent = '0%';
+      elements.siteList.innerHTML =
+        '<div class="empty-state">No data available</div>';
+      elements.productivityScore.textContent = "0%";
       return;
     }
 
@@ -457,77 +470,102 @@ document.addEventListener("DOMContentLoaded", () => {
       Social: 0,
       Entertainment: 0,
       Professional: 0,
-      Other: 0
+      Other: 0,
     };
 
     const domainTimes = {};
 
-    timeData.forEach(entry => {
-      if (!entry || typeof entry !== 'object' || !entry.domain) {
-        console.warn('Invalid timeData entry:', entry);
+    timeData.forEach((entry) => {
+      if (!entry || typeof entry !== "object" || !entry.domain) {
+        console.warn("Invalid timeData entry:", entry);
         return;
       }
-      const totalTime = entry.totalTime ||
-        (entry.sessions ? entry.sessions.reduce((sum, session) => sum + (session.duration || 0), 0) : 0);
-      const category = siteCategories[entry.domain] || entry.category || 'Other';
+      const totalTime = (entry.totalTime || 0);
+      const category =
+        siteCategories[entry.domain] || entry.category || "Other";
       categoryData[category] += totalTime;
       domainTimes[entry.domain] = { time: totalTime, category };
     });
 
     if (Object.keys(domainTimes).length === 0) {
-      elements.siteList.innerHTML = '<div class="empty-state">No valid data to display</div>';
-      elements.productivityScore.textContent = '0%';
+      elements.siteList.innerHTML =
+        '<div class="empty-state">No valid data to display</div>';
+      elements.productivityScore.textContent = "0%";
       return;
     }
 
-    const totalTime = Object.values(categoryData).reduce((sum, time) => sum + time, 0);
-    let productiveTime = categoryData.Work + categoryData.Professional + (categoryData.Other * 0.5);
-    const productivityScore = totalTime > 0 ? Math.round((productiveTime / totalTime) * 100) : 0;
+    const totalTime = Object.values(categoryData).reduce(
+      (sum, time) => sum + time,
+      0
+    );
+    let productiveTime =
+      categoryData.Work + categoryData.Professional + categoryData.Other * 0.5;
+    const productivityScore =
+      totalTime > 0 ? Math.round((productiveTime / totalTime) * 100) : 0;
     elements.productivityScore.textContent = `${productivityScore}%`;
 
     elements.productivityScore.className = `score-badge ${
-      productivityScore >= 70 ? 'bg-green-500' :
-      productivityScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+      productivityScore >= 70
+        ? "bg-green-500"
+        : productivityScore >= 40
+        ? "bg-yellow-500"
+        : "bg-red-500"
     }`;
 
-    const sortedDomainTimes = Object.entries(domainTimes)
-      .sort((a, b) => b[1].time - a[1].time);
+    const sortedDomainTimes = Object.entries(domainTimes).sort(
+      (a, b) => b[1].time - a[1].time
+    );
 
     elements.siteList.innerHTML = sortedDomainTimes
-      .map(([domain, data], index) => `
-        <div class="site-item ${index < 3 ? 'top-site' : ''}">
+      .map(
+        ([domain, data], index) => `
+        <div class="site-item ${index < 3 ? "top-site" : ""}">
           <div class="site-info">
             <span class="site-domain">${domain}</span>
             <select class="category-select" data-domain="${domain}">
-              <option value="Work" ${data.category === 'Work' ? 'selected' : ''}>Work</option>
-              <option value="Social" ${data.category === 'Social' ? 'selected' : ''}>Social</option>
-              <option value="Entertainment" ${data.category === 'Entertainment' ? 'selected' : ''}>Entertainment</option>
-              <option value="Professional" ${data.category === 'Professional' ? 'selected' : ''}>Professional</option>
-              <option value="Other" ${data.category === 'Other' ? 'selected' : ''}>Other</option>
+              <option value="Work" ${
+                data.category === "Work" ? "selected" : ""
+              }>Work</option>
+              <option value="Social" ${
+                data.category === "Social" ? "selected" : ""
+              }>Social</option>
+              <option value="Entertainment" ${
+                data.category === "Entertainment" ? "selected" : ""
+              }>Entertainment</option>
+              <option value="Professional" ${
+                data.category === "Professional" ? "selected" : ""
+              }>Professional</option>
+              <option value="Other" ${
+                data.category === "Other" ? "selected" : ""
+              }>Other</option>
             </select>
           </div>
           <span class="site-time">${formatDuration(data.time)}</span>
         </div>
-      `).join('');
+      `
+      )
+      .join("");
 
-    const ctx = document.getElementById('timeChart').getContext('2d');
+    const ctx = document.getElementById("timeChart").getContext("2d");
     const colors = CONFIG.CHART_COLORS[currentTheme];
 
     timeChart = new Chart(ctx, {
       ...CHART_CONFIG,
       data: {
         labels: Object.keys(categoryData),
-        datasets: [{
-          data: Object.values(categoryData),
-          backgroundColor: [
-            colors.work,
-            colors.social,
-            colors.entertainment,
-            colors.professional,
-            colors.other
-          ],
-          borderWidth: 0
-        }]
+        datasets: [
+          {
+            data: Object.values(categoryData),
+            backgroundColor: [
+              colors.work,
+              colors.social,
+              colors.entertainment,
+              colors.professional,
+              colors.other,
+            ],
+            borderWidth: 0,
+          },
+        ],
       },
       options: {
         ...CHART_CONFIG.options,
@@ -537,15 +575,15 @@ document.addEventListener("DOMContentLoaded", () => {
             ...CHART_CONFIG.options.plugins.legend,
             labels: {
               ...CHART_CONFIG.options.plugins.legend.labels,
-              color: getLegendColor()
-            }
-          }
-        }
-      }
+              color: getLegendColor(),
+            },
+          },
+        },
+      },
     });
 
-    document.querySelectorAll('.category-select').forEach(select => {
-      select.addEventListener('change', async (event) => {
+    document.querySelectorAll(".category-select").forEach((select) => {
+      select.addEventListener("change", async (event) => {
         const domain = event.target.dataset.domain;
         const newCategory = event.target.value;
         await updateSiteCategory(domain, newCategory);
