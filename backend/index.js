@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
+
 const timeDataRoutes = require("./routes/timeData");
 const feedbackRoutes = require("./routes/feedback");
 const reportRoutes = require("./routes/report");
@@ -11,6 +12,7 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+
 app.use(
   cors({
     origin: [
@@ -22,12 +24,14 @@ app.use(
     allowedHeaders: ["Content-Type"],
   })
 );
+
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
-// Connect to MongoDB without blocking server start
+// Connect to MongoDB
 mongoose
   .connect(process.env.MONGODB_URI, {
     serverSelectionTimeoutMS: 15000,
@@ -43,12 +47,19 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/api/report", reportRoutes);
 app.use("/api/user", userRoutes);
 
-// Health check
+// Health check routes
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "healthy", timestamp: new Date() });
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+  });
 });
 
-// Error handling
+app.head("/health", (req, res) => {
+  res.sendStatus(200);
+});
+
+// Global error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
   res
@@ -56,6 +67,7 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
+// Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
