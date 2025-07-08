@@ -1,50 +1,59 @@
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
-require('dotenv').config();
-const timeDataRoutes = require('./routes/timeData');
-const feedbackRoutes = require('./routes/feedback');
-const reportRoutes = require('./routes/report');
-const userRoutes = require('./routes/user');
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+require("dotenv").config();
+const timeDataRoutes = require("./routes/timeData");
+const feedbackRoutes = require("./routes/feedback");
+const reportRoutes = require("./routes/report");
+const userRoutes = require("./routes/user");
 
 const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors({
-  origin: ['chrome-extension://bkochhokedlbefkobaccicmpphbgeiab', 'https://timemachine-1.onrender.com', 'http://localhost:8080'],
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
-}));
+app.use(
+  cors({
+    origin: [
+      "chrome-extension://bkochhokedlbefkobaccicmpphbgeiab",
+      "https://timemachine-1.onrender.com",
+      "http://localhost:8080",
+    ],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI,{
-  serverSelectionTimeoutMS: 15000, // Timeout for initial server discovery (15 seconds)
-  socketTimeoutMS: 45000, // Timeout for operations on a socket (45 seconds)
-  connectTimeoutMS: 15000 // Timeout for initial connection establishment (15 seconds)
-})
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Connect to MongoDB without blocking server start
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 15000,
+    socketTimeoutMS: 45000,
+    connectTimeoutMS: 15000,
+  })
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
-app.use('/api/time-data', timeDataRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/report', reportRoutes);
-app.use('/api/user', userRoutes);
+app.use("/api/time-data", timeDataRoutes);
+app.use("/api/feedback", feedbackRoutes);
+app.use("/api/report", reportRoutes);
+app.use("/api/user", userRoutes);
 
 // Health check
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date() });
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy", timestamp: new Date() });
 });
 
 // Error handling
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error', details: err.message });
+  console.error("Server error:", err);
+  res
+    .status(500)
+    .json({ error: "Internal server error", details: err.message });
 });
 
 const PORT = process.env.PORT || 3000;
