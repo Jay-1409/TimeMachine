@@ -9,8 +9,7 @@
     "storage",
     "alarms",
     "idle",
-    "windows",
-    "notifications"
+    "windows"
   ],
   "host_permissions": [
     "http://localhost:3000/*",
