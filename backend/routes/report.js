@@ -32,11 +32,11 @@ router.post("/generate", async (req, res) => {
   }
 
   try {
-    // CORRECTED QUERY: Match the date string directly as it's stored as a String in MongoDB
+    // Query with sessions data included
     const timeDataList = await TimeData.find({
       userEmail,
-      date: date // Directly use the date string from req.body
-    }).select('domain totalTime category'); // Select only necessary fields for performance
+      date: date
+    }).select('domain totalTime category sessions'); // Include sessions in selection
 
     // Log the raw data fetched for debugging
     console.log(`Raw timeDataList for ${userEmail} on ${date}:`, JSON.stringify(timeDataList, null, 2));
@@ -54,10 +54,10 @@ router.post("/generate", async (req, res) => {
       Other: 0,
     };
     const domainCategories = {};
+    const domainSessions = {}; // Store session details for each domain
 
     timeDataList.forEach((data) => {
-      // CORRECTED TIME CONVERSION: Convert totalTime from milliseconds (from DB) to seconds
-      // Also, cap the totalTime for a single domain to a maximum of 24 hours (86400 seconds)
+      // totalTime is already in milliseconds, convert to seconds for display
       const totalTimeInSeconds = Math.min(data.totalTime ? Math.floor(data.totalTime / 1000) : 0, 86400);
       console.log(`Domain: ${data.domain}, Raw totalTime: ${data.totalTime}ms, Converted: ${totalTimeInSeconds}s`);
 
@@ -69,6 +69,15 @@ router.post("/generate", async (req, res) => {
             : "Other";
         categoryTimes[category] += totalTimeInSeconds;
         domainCategories[data.domain] = category;
+        
+        // Store session information for detailed reporting
+        if (data.sessions && Array.isArray(data.sessions)) {
+          domainSessions[data.domain] = data.sessions.map(session => ({
+            startTime: new Date(session.startTime).toLocaleTimeString(),
+            endTime: new Date(session.endTime).toLocaleTimeString(),
+            duration: Math.floor(session.duration / 1000) // Convert to seconds
+          }));
+        }
       }
     });
 
@@ -225,15 +234,15 @@ router.post("/generate", async (req, res) => {
     doc.text(`- Unique domains: ${Object.keys(domainTimes).length}`);
     doc.moveDown();
 
-    // Detailed Activity Log Table
+    // Detailed Activity Log Table with Sessions
     doc.fontSize(16).text("Detailed Activity Log");
     doc.moveDown();
     doc.font("Helvetica-Bold").fontSize(10);
 
     const startX = 50;
     let y = doc.y;
-    const rowHeight = 20;
-    const colWidths = [50, 250, 100, 100]; // Rank, Domain, Time Spent, Category
+    const rowHeight = 25; // Increased for session info
+    const colWidths = [40, 180, 80, 80, 120]; // Rank, Domain, Time, Category, Sessions
 
     // Function to draw table header (can be called on new pages)
     const drawTableHeader = () => {
@@ -252,25 +261,30 @@ router.post("/generate", async (req, res) => {
           width: colWidths[1],
           align: "left",
         })
-        .text("Time Spent", startX + colWidths[0] + colWidths[1] + 5, y + 5, {
+        .text("Time", startX + colWidths[0] + colWidths[1] + 5, y + 5, {
           width: colWidths[2],
           align: "left",
         })
+        .text("Category", startX + colWidths[0] + colWidths[1] + colWidths[2] + 5, y + 5, {
+          width: colWidths[3],
+          align: "left",
+        })
         .text(
-          "Category",
-          startX + colWidths[0] + colWidths[1] + colWidths[2] + 5,
+          "Sessions",
+          startX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 5,
           y + 5,
-          { width: colWidths[3], align: "left" }
+          { width: colWidths[4], align: "left" }
         );
       y += rowHeight;
     };
 
     drawTableHeader(); // Draw initial header
 
-    // Populate table with sorted domain times
+    // Populate table with sorted domain times and session info
     for (let i = 0; i < sortedDomainTimes.length; i++) {
       const [domain, time] = sortedDomainTimes[i];
       const category = domainCategories[domain] || "Other";
+      const sessions = domainSessions[domain] || [];
 
       // Check if a new page is needed before drawing the next row
       if (y + rowHeight > doc.page.height - 50) { // 50 is bottom margin
@@ -286,11 +300,24 @@ router.post("/generate", async (req, res) => {
       else if (i % 2 === 0) doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#ffffff"); // Even rows: White
       else doc.rect(startX, y, colWidths.reduce((a, b) => a + b, 0), rowHeight).fill("#f9f9f9"); // Odd rows: Light gray
 
+      // Prepare session summary text
+      let sessionText = "No sessions";
+      if (sessions.length > 0) {
+        if (sessions.length === 1) {
+          sessionText = `${sessions[0].startTime}-${sessions[0].endTime}`;
+        } else {
+          sessionText = `${sessions.length} sessions\n${sessions[0].startTime}-${sessions[0].endTime}`;
+          if (sessions.length > 1) {
+            sessionText += `\n...+${sessions.length - 1} more`;
+          }
+        }
+      }
+
       // Fill row content
       doc
         .fillColor("#000000")
         .font("Helvetica")
-        .fontSize(9)
+        .fontSize(8) // Smaller font to fit more content
         .text((i + 1).toString(), startX + 5, y + 5, {
           width: colWidths[0],
           align: "left",
@@ -310,6 +337,12 @@ router.post("/generate", async (req, res) => {
           startX + colWidths[0] + colWidths[1] + colWidths[2] + 5,
           y + 5,
           { width: colWidths[3], align: "left" }
+        )
+        .text(
+          sessionText,
+          startX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 5,
+          y + 5,
+          { width: colWidths[4], align: "left" }
         );
 
       y += rowHeight; // Move to next row position

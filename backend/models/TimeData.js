@@ -5,6 +5,13 @@ const timeDataSchema = new mongoose.Schema({
   date: { type: String, required: true },
   domain: { type: String, required: true },
   totalTime: { type: Number, required: true, default: 0 },
+  sessions: [
+    {
+      startTime: { type: Number, required: true },
+      endTime: { type: Number, required: true },
+      duration: { type: Number, required: true },
+    },
+  ],
   category: {
     type: String,
     enum: ["Work", "Social", "Entertainment", "Professional", "Other"],

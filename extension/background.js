@@ -144,32 +144,19 @@ class TimeTracker {
       body: JSON.stringify(payload),
     });
 
-    // --- FIX APPLIED HERE ---
-    // Read the response body as text FIRST. This consumes the stream once.
-    const responseText = await response.text();
-
-    let responseBody;
-    try {
-      // Now, try to parse the text content as JSON.
-      responseBody = JSON.parse(responseText);
-    } catch (jsonParseError) {
-      // If JSON parsing fails, we already have the `responseText` for logging.
-      console.error(`Non-JSON response for ${domain} on ${currentDate} from /api/time-data/sync:`, {
-        status: response.status,
-        statusText: response.statusText,
-        body: responseText.slice(0, 200) + (responseText.length > 200 ? '...' : ''), // Log snippet of non-JSON body
-        error: jsonParseError.message
-      });
-      await this.storeSessionLocally(domain, startTime, endTime, duration, category);
-      return; // Exit as the response was not valid JSON
-    }
-    // --- END FIX ---
-
     if (!response.ok) {
-      console.error(`Backend sync failed for ${domain} on ${currentDate}: ${response.status} - ${JSON.stringify(responseBody)}. Storing locally.`, payload);
+      const errorText = await response.text();
+      console.error(`Backend sync failed for ${domain} on ${currentDate}: ${response.status} - ${errorText}. Storing locally.`);
       await this.storeSessionLocally(domain, startTime, endTime, duration, category);
     } else {
-      console.log(`Session saved successfully for ${domain} on ${currentDate}. Response:`, responseBody);
+      let responseBody;
+      try {
+        responseBody = await response.json();
+        console.log(`Session saved successfully for ${domain} on ${currentDate}. Response:`, responseBody);
+      } catch (jsonError) {
+        console.warn(`Response was successful but not JSON for ${domain}:`, jsonError.message);
+        console.log(`Session saved successfully for ${domain} on ${currentDate}.`);
+      }
     }
   } catch (error) {
     console.error(`Critical error saving session for ${domain}:`, error);
@@ -295,25 +282,19 @@ class TimeTracker {
             body: JSON.stringify(payload),
           });
 
-          let responseBody;
-          try {
-            responseBody = await response.json();
-          } catch (jsonError) {
-            const text = await response.text();
-            console.error(`Non-JSON response from /api/time-data/sync for ${domain} on ${date}:`, {
-              status: response.status,
-              statusText: response.statusText,
-              body: text.slice(0, 200) + (text.length > 200 ? '...' : ''),
-              error: jsonError.message
-            });
-            continue; // Keep the data locally if backend response is not valid JSON
-          }
-
           if (response.ok) {
-            console.log(`Successfully synced ${domain} on ${date}, category: ${category}. Response:`, responseBody);
+            let responseBody;
+            try {
+              responseBody = await response.json();
+              console.log(`Successfully synced ${domain} on ${date}, category: ${category}. Response:`, responseBody);
+            } catch (jsonError) {
+              console.warn(`Response was successful but not JSON for ${domain} on ${date}:`, jsonError.message);
+              console.log(`Successfully synced ${domain} on ${date}, category: ${category}.`);
+            }
             delete dataToSync[date][domain]; // Remove successfully synced data
           } else {
-            console.error(`Sync failed for ${domain} on ${date}: ${response.status} - ${JSON.stringify(responseBody)}. Payload sent:`, payload);
+            const errorText = await response.text();
+            console.error(`Sync failed for ${domain} on ${date}: ${response.status} - ${errorText}. Payload sent:`, payload);
             // Keep the data in dataToSync so it can be retried later
           }
         }
@@ -457,7 +438,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
 
       sendResponse({ status: "success" }); // Respond immediately as local update is done
 
-      const endpoint = "https://timemachine-1.onrender.com/api/time-data/category";
+      const endpoint = "http://localhost:3000/api/time-data/category";
       const payload = { userEmail, date, domain, category };
 
       const response = await fetch(endpoint, {
@@ -500,7 +481,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
 
   if (request.action === "sendFeedback") {
     const { message, userEmail } = request;
-    fetch("https://timemachine-1.onrender.com/api/feedback/store", {
+    fetch("http://localhost:3000/api/feedback/store", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, userEmail }),

@@ -20,7 +20,7 @@ app.use(
       "https://timemachine-1.onrender.com",
       "http://localhost:8080",
     ],
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   })
 );

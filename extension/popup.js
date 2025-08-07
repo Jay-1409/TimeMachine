@@ -1,40 +1,60 @@
 const CONFIG = {
-  BACKEND_URL: "https://timemachine-1.onrender.com",
+  BACKEND_URL: "http://localhost:3000",
+  // Users can optionally configure their own email service
+  EMAIL_CONFIG: {
+    enabled: false,
+    service: null, // 'emailjs' or 'smtp'
+    settings: {}
+  },
   CHART_COLORS: {
     light: {
       work: "#3b82f6",
-      social: "#ef4444",
-      entertainment: "#60a5fa",
-      ieprofessional: "#10b981",
-      other: "#d1d5db",
-    },
-    dark: {
-      work: "#8b5cf6",
-      social: "#f472b6",
-      entertainment: "#a78bfa",
-      professional: "#22d3ee",
+      social: "#ef4444", 
+      entertainment: "#8b5cf6",
+      professional: "#10b981",
       other: "#6b7280",
     },
-    glass: {
-      work: "#22d3ee",
-      social: "#ec4899",
-      entertainment: "#4dd4f7",
-      professional: "#06b6d4",
-      other: "#bae6fd",
+    dark: {
+      work: "#60a5fa",
+      social: "#f87171",
+      entertainment: "#a78bfa", 
+      professional: "#34d399",
+      other: "#9ca3af",
     },
-    neumorphic: {
-      work: "#10b981",
+    cyberpunk: {
+      work: "#00ff9f",
+      social: "#ff0080",
+      entertainment: "#00d4ff",
+      professional: "#ffff00",
+      other: "#8000ff",
+    },
+    minimal: {
+      work: "#1f2937",
+      social: "#7c3aed",
+      entertainment: "#059669", 
+      professional: "#dc2626",
+      other: "#64748b",
+    },
+    ocean: {
+      work: "#0ea5e9",
+      social: "#06b6d4",
+      entertainment: "#3b82f6",
+      professional: "#0891b2",
+      other: "#64748b",
+    },
+    sunset: {
+      work: "#f59e0b",
       social: "#ef4444",
-      entertainment: "#34d399",
-      professional: "#059669",
-      other: "#a7f3d0",
+      entertainment: "#f97316",
+      professional: "#eab308",
+      other: "#6b7280",
     },
-    vivid: {
-      work: "#ec4899",
-      social: "#f472b6",
-      entertainment: "#db2777",
-      professional: "#9333ea",
-      other: "#d8b4fe",
+    forest: {
+      work: "#059669",
+      social: "#dc2626", 
+      entertainment: "#16a34a",
+      professional: "#15803d",
+      other: "#6b7280",
     },
   },
 };
@@ -103,6 +123,11 @@ document.addEventListener("DOMContentLoaded", () => {
     errorDisplay: document.getElementById("errorDisplay"),
     refreshBtn: document.getElementById("refreshBtn"),
     toggleThemeBtn: document.getElementById("toggleThemeBtn"),
+    themeDropdown: document.getElementById("themeDropdown"),
+    themeOptions: document.querySelectorAll(".theme-option"),
+    updateNotification: document.getElementById("updateNotification"),
+    closeNotification: document.getElementById("closeNotification"),
+    updateMessage: document.getElementById("updateMessage"),
     feedbackToast: document.getElementById("feedbackToast"),
     emailDisplay: document.getElementById("emailDisplay"),
     userEmailSettings: document.getElementById("userEmail"),
@@ -121,9 +146,15 @@ document.addEventListener("DOMContentLoaded", () => {
     productivityScore: document.getElementById("productivityScore"),
     siteList: document.querySelector(".site-list"),
     sendReportBtn: document.getElementById("sendReportBtn"),
+    emailServiceSelect: document.getElementById("emailServiceSelect"),
+    emailjsConfig: document.getElementById("emailjsConfig"),
+    emailjsServiceId: document.getElementById("emailjsServiceId"),
+    emailjsTemplateId: document.getElementById("emailjsTemplateId"),
+    emailjsPublicKey: document.getElementById("emailjsPublicKey"),
+    saveEmailConfig: document.getElementById("saveEmailConfig"),
   };
 
-  const themes = ["light", "dark", "glass", "neumorphic", "vivid"];
+  const themes = ["light", "dark", "cyberpunk", "minimal", "ocean", "sunset", "forest"];
   let currentSubTab = "daily";
   let currentMainTab = "insights";
   let siteCategories = {};
@@ -149,6 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
       timeChart.options.plugins.legend.labels.color = getLegendColor();
       timeChart.update();
     }
+    updateThemeDropdownUI();
   }
 
   function getLegendColor() {
@@ -157,12 +189,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return "#1e293b";
       case "dark":
         return "#f1f5f9";
-      case "glass":
+      case "cyberpunk":
+        return "#e0e7ff";
+      case "minimal":
         return "#1e293b";
-      case "neumorphic":
-        return "#374151";
-      case "vivid":
-        return "#f5f3ff";
+      case "ocean":
+        return "#0f172a";
+      case "sunset":
+        return "#451a03";
+      case "forest":
+        return "#1a2e05";
       default:
         return "#1e293b";
     }
@@ -171,7 +207,18 @@ document.addEventListener("DOMContentLoaded", () => {
   function setupEventListeners() {
     elements.saveEmailBtn.addEventListener("click", saveEmail);
     elements.refreshBtn.addEventListener("click", refreshData);
-    elements.toggleThemeBtn.addEventListener("click", toggleTheme);
+    elements.toggleThemeBtn.addEventListener("click", toggleThemeDropdown);
+    elements.themeOptions.forEach(option => {
+      option.addEventListener("click", () => selectTheme(option.dataset.theme));
+    });
+    elements.closeNotification?.addEventListener("click", hideUpdateNotification);
+    
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".theme-selector")) {
+        elements.themeDropdown.classList.add("hidden");
+      }
+    });
     elements.updateEmailBtn.addEventListener("click", updateEmail);
     elements.editEmailBtn.addEventListener("click", () => {
       elements.emailDisplay.classList.add("hidden");
@@ -181,8 +228,12 @@ document.addEventListener("DOMContentLoaded", () => {
       elements.userEmailSettings.focus();
     });
     elements.downloadReportBtn.addEventListener("click", downloadReport);
+    elements.testEmailBtn.addEventListener("click", sendTestEmail);
+    elements.sendReportBtn.addEventListener("click", sendDailyReport);
     elements.feedbackMessage.addEventListener("input", updateCharCount);
     elements.sendFeedbackBtn.addEventListener("click", sendFeedback);
+    elements.emailServiceSelect.addEventListener("change", handleEmailServiceChange);
+    elements.saveEmailConfig.addEventListener("click", saveEmailConfiguration);
 
     elements.tabButtons.forEach((btn) =>
       btn.addEventListener("click", () => switchSubTab(btn.dataset.tab))
@@ -193,13 +244,55 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  function toggleTheme() {
-    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-    currentTheme = themes[currentThemeIndex];
+  function toggleThemeDropdown() {
+    elements.themeDropdown.classList.toggle("hidden");
+    updateThemeDropdownUI();
+  }
+
+  function selectTheme(themeName) {
+    currentTheme = themeName;
+    currentThemeIndex = themes.indexOf(themeName);
     localStorage.setItem("theme", currentTheme);
     initTheme();
+    updateThemeDropdownUI();
+    elements.themeDropdown.classList.add("hidden");
+    
     if (currentMainTab === "insights" && timeChart) {
       loadStats();
+    }
+  }
+
+  function updateThemeDropdownUI() {
+    elements.themeOptions.forEach(option => {
+      if (option.dataset.theme === currentTheme) {
+        option.classList.add("active");
+      } else {
+        option.classList.remove("active");
+      }
+    });
+  }
+
+  // Update notification system
+  function checkForUpdates() {
+    const lastVersion = localStorage.getItem("lastKnownVersion") || "1.0.0";
+    const currentVersion = "1.1.0"; // Update this when you add new features
+    
+    if (lastVersion !== currentVersion) {
+      showUpdateNotification("New modern themes and improved UI!");
+      localStorage.setItem("lastKnownVersion", currentVersion);
+    }
+  }
+
+  function showUpdateNotification(message) {
+    if (elements.updateNotification && elements.updateMessage) {
+      elements.updateMessage.textContent = message;
+      elements.updateNotification.classList.remove("hidden");
+    }
+  }
+
+  function hideUpdateNotification() {
+    if (elements.updateNotification) {
+      elements.updateNotification.classList.add("hidden");
     }
   }
 
@@ -266,6 +359,190 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error updating email:", error);
       showError(error.message);
     }
+  }
+
+  async function sendTestEmail() {
+    try {
+      const { userEmail, emailConfig } = await chrome.storage.local.get(["userEmail", "emailConfig"]);
+      if (!userEmail) {
+        showError("Please set an email first");
+        elements.emailPrompt.classList.remove("hidden");
+        elements.mainApp.classList.add("hidden");
+        return;
+      }
+
+      if (!emailConfig || !emailConfig.enabled) {
+        showFeedback("Email not configured. Set up your own email service in settings or download PDF reports instead.", false);
+        return;
+      }
+
+      showFeedback("Sending test email using your configuration...", false);
+      
+      if (emailConfig.service === 'emailjs') {
+        await sendEmailViaEmailJS({
+          to_email: userEmail,
+          subject: "TimeMachine Test Email",
+          message: "Test email sent successfully from your TimeMachine extension!"
+        }, emailConfig.settings);
+        showFeedback("Test email sent successfully!");
+      } else {
+        showFeedback("SMTP and other services coming soon. Use EmailJS for now.", false);
+      }
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      showError("Error sending test email: " + error.message);
+    }
+  }
+
+  async function sendDailyReport() {
+    try {
+      const { userEmail, emailConfig } = await chrome.storage.local.get(["userEmail", "emailConfig"]);
+      if (!userEmail) {
+        showError("Please set an email first");
+        elements.emailPrompt.classList.remove("hidden");
+        elements.mainApp.classList.add("hidden");
+        return;
+      }
+
+      if (!emailConfig || !emailConfig.enabled) {
+        showFeedback("Email not configured. Set up your own email service in settings or download PDF reports instead.", false);
+        return;
+      }
+
+      showFeedback("Generating daily report...", false);
+      const date = new Date().toISOString().split("T")[0];
+      
+      // Get today's data for the email
+      const response = await fetch(
+        `${CONFIG.BACKEND_URL}/api/time-data/report/${encodeURIComponent(
+          userEmail
+        )}?date=${date}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to get data for report");
+      }
+
+      const timeData = await response.json();
+      const reportContent = generateEmailReport(timeData, date);
+      
+      showFeedback("Sending daily report using your configuration...", false);
+      
+      if (emailConfig.service === 'emailjs') {
+        await sendEmailViaEmailJS({
+          to_email: userEmail,
+          subject: `TimeMachine Daily Report - ${new Date().toLocaleDateString()}`,
+          message: reportContent
+        }, emailConfig.settings);
+        showFeedback("Daily report sent successfully!");
+      } else {
+        showFeedback("SMTP and other services coming soon. Use EmailJS for now.", false);
+      }
+    } catch (error) {
+      console.error("Error sending daily report:", error);
+      showError("Error sending daily report: " + error.message);
+    }
+  }
+
+  // Helper function to send email via user's EmailJS configuration
+  async function sendEmailViaEmailJS(templateParams, userSettings) {
+    if (!userSettings || !userSettings.serviceId || !userSettings.templateId || !userSettings.publicKey) {
+      throw new Error("EmailJS not configured. Please set up your EmailJS credentials in settings.");
+    }
+
+    // Send email using EmailJS REST API directly
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        service_id: userSettings.serviceId,
+        template_id: userSettings.templateId,
+        user_id: userSettings.publicKey,
+        template_params: templateParams
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`EmailJS failed with status: ${response.status} - ${errorText}`);
+    }
+    
+    return response;
+  }
+
+  // Helper function to generate email report content
+  function generateEmailReport(timeData, date) {
+    if (!Array.isArray(timeData) || timeData.length === 0) {
+      return `TimeMachine Daily Report - ${new Date(date).toLocaleDateString()}
+
+No activity tracked for today.
+
+Stay productive!
+TimeMachine Extension`;
+    }
+
+    const categoryData = {
+      Work: 0,
+      Social: 0,
+      Entertainment: 0,
+      Professional: 0,
+      Other: 0,
+    };
+
+    let totalTime = 0;
+    const domainTimes = [];
+
+    timeData.forEach((entry) => {
+      if (entry && entry.domain && entry.totalTime) {
+        const time = entry.totalTime;
+        totalTime += time;
+        domainTimes.push({ domain: entry.domain, time, category: entry.category || "Other" });
+        categoryData[entry.category || "Other"] += time;
+      }
+    });
+
+    domainTimes.sort((a, b) => b.time - a.time);
+
+    const productiveTime = categoryData.Work + categoryData.Professional + categoryData.Other * 0.5;
+    const productivityScore = totalTime > 0 ? Math.round((productiveTime / totalTime) * 100) : 0;
+
+    let report = `TimeMachine Daily Report - ${new Date(date).toLocaleDateString()}
+
+📊 DAILY SUMMARY:
+Total Time Online: ${formatDuration(totalTime)}
+Productivity Score: ${productivityScore}%
+Unique Sites: ${domainTimes.length}
+
+🏆 TOP SITES:`;
+
+    domainTimes.slice(0, 5).forEach((site, index) => {
+      const percentage = totalTime > 0 ? ((site.time / totalTime) * 100).toFixed(1) : 0;
+      report += `\n${index + 1}. ${site.domain}: ${formatDuration(site.time)} (${percentage}%)`;
+    });
+
+    report += `\n\n📈 BY CATEGORY:`;
+    Object.entries(categoryData).forEach(([category, time]) => {
+      if (time > 0) {
+        const percentage = ((time / totalTime) * 100).toFixed(1);
+        report += `\n${category}: ${formatDuration(time)} (${percentage}%)`;
+      }
+    });
+
+    const insight = productivityScore >= 70 
+      ? "🎉 Great job! You had a highly productive day."
+      : productivityScore >= 40 
+      ? "💪 Good work! There's room for improvement."
+      : "🎯 Focus time! Try to spend more time on productive activities.";
+
+    report += `\n\n💡 INSIGHT: ${insight}
+
+Keep tracking your time to improve your productivity!
+
+Sent via TimeMachine Extension`;
+
+    return report;
   }
 
   async function downloadReport() {
@@ -387,12 +664,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function initEmailPrompt() {
     try {
-      const { userEmail } = await chrome.storage.local.get(["userEmail"]);
+      const { userEmail, emailConfig } = await chrome.storage.local.get(["userEmail", "emailConfig"]);
       if (userEmail && validateEmail(userEmail)) {
         elements.emailPrompt.classList.add("hidden");
         elements.mainApp.classList.remove("hidden");
         updateEmailUI(userEmail);
+        loadEmailConfiguration(emailConfig);
         switchMainTab("insights");
+        checkForUpdates(); // Check for updates when app loads
       } else {
         elements.emailPrompt.classList.remove("hidden");
         elements.mainApp.classList.add("hidden");
@@ -400,6 +679,55 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error("Error initializing email prompt:", error);
       showError("Error checking email");
+    }
+  }
+
+  function handleEmailServiceChange() {
+    const service = elements.emailServiceSelect.value;
+    elements.emailjsConfig.classList.toggle("hidden", service !== "emailjs");
+  }
+
+  async function saveEmailConfiguration() {
+    const service = elements.emailServiceSelect.value;
+    
+    if (service === "emailjs") {
+      const serviceId = elements.emailjsServiceId.value.trim();
+      const templateId = elements.emailjsTemplateId.value.trim();
+      const publicKey = elements.emailjsPublicKey.value.trim();
+      
+      if (!serviceId || !templateId || !publicKey) {
+        showError("Please fill in all EmailJS fields");
+        return;
+      }
+      
+      const emailConfig = {
+        enabled: true,
+        service: "emailjs",
+        settings: {
+          serviceId,
+          templateId,
+          publicKey
+        }
+      };
+      
+      await chrome.storage.local.set({ emailConfig });
+      showFeedback("EmailJS configuration saved! You can now send email reports.");
+    } else {
+      await chrome.storage.local.set({ emailConfig: { enabled: false } });
+      showFeedback("Email service disabled.");
+    }
+  }
+
+  function loadEmailConfiguration(emailConfig) {
+    if (emailConfig && emailConfig.enabled) {
+      elements.emailServiceSelect.value = emailConfig.service || "";
+      
+      if (emailConfig.service === "emailjs" && emailConfig.settings) {
+        elements.emailjsServiceId.value = emailConfig.settings.serviceId || "";
+        elements.emailjsTemplateId.value = emailConfig.settings.templateId || "";
+        elements.emailjsPublicKey.value = emailConfig.settings.publicKey || "";
+        elements.emailjsConfig.classList.remove("hidden");
+      }
     }
   }
 
