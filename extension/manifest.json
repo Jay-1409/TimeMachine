@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeMachine",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Track your browsing habits and boost productivity with insightful stats.",
   "permissions": [
     "tabs",

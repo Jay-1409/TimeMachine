@@ -7,11 +7,43 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  min-height: 100vh;
-  width: 400px; /* Fixed width for extension popup */
+  min-height: 400px; /* Chrome Web Store screenshot height */
+  width: 640px; /* Chrome Web Store screenshot width */
+  max-width: 640px;
+  max-height: 400px;
   padding: 16px;
   overflow-x: hidden;
+  overflow-y: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+/* Media query for smaller screens or when extension is in compact mode */
+@media (max-width: 640px) {
+  body {
+    width: 400px;
+    max-width: 400px;
+  }
+  
+  .site-name {
+    max-width: 180px !important;
+  }
+  
+  .score-badge {
+    max-width: 150px !important;
+  }
+  
+  .feedback-toast {
+    max-width: 350px !important;
+  }
+  
+  .prompt-content {
+    max-width: 350px !important;
+  }
+  
+  .theme-dropdown {
+    min-width: 240px !important;
+  }
 }
 
 /* Theme Variables */
@@ -168,8 +200,11 @@ body.theme-forest {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  min-height: 100vh;
+  min-height: 400px; /* Chrome Web Store screenshot height */
+  max-height: 400px;
   width: 100%;
+  max-width: 640px;
+  overflow-y: auto;
 }
 
 /* Header */
@@ -498,14 +533,14 @@ body.theme-forest .card h2 { color: var(--accent-forest); }
 .chart-container {
   position: relative;
   width: 100%;
-  height: 200px; /* Reduced height for extension popup */
+  height: 160px; /* Reduced height for Chrome Web Store screenshot dimensions */
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
 /* Site List Wrapper for Scrollbar */
 .site-list-wrapper {
-  max-height: 200px; /* Max height for scrollbar */
+  max-height: 160px; /* Max height for scrollbar - Chrome Web Store screenshot dimensions */
   overflow-y: auto; /* Enable vertical scrolling */
   padding-right: 8px; /* Space for scrollbar */
 }
@@ -616,7 +651,7 @@ body.theme-forest .site-item:hover { background: var(--accent-secondary-forest);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px; /* Adjusted for extension popup width */
+  max-width: 300px; /* Adjusted for Chrome Web Store screenshot width */
 }
 
 .site-time {
@@ -639,7 +674,7 @@ body.theme-forest .site-time { color: var(--accent-forest); }
   border-radius: var(--radius-sm);
   border: 1px solid;
   width: 100%;
-  max-width: 150px; /* Adjusted for extension popup width */
+  max-width: 200px; /* Adjusted for Chrome Web Store screenshot width */
   cursor: pointer;
   transition: var(--transition);
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.05));
@@ -764,7 +799,7 @@ textarea {
   resize: none;
   margin-bottom: 0.75rem;
   transition: var(--transition);
-  min-height: 120px;
+  min-height: 80px; /* Reduced for Chrome Web Store screenshot dimensions */
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.05));
 }
 
@@ -952,7 +987,7 @@ body.theme-forest .icon-btn:hover { background: var(--accent-secondary-forest); 
   opacity: 0;
   transition: var(--transition);
   z-index: 1000;
-  max-width: 350px; /* Adjusted for extension popup width */
+  max-width: 580px; /* Adjusted for Chrome Web Store screenshot width */
   text-align: center;
   box-shadow: var(--shadow-md-light);
   animation: fadeIn 0.5s ease-out;
@@ -1030,9 +1065,11 @@ body.theme-ocean .empty-state { color: var(--accent-ocean); }
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: 400px; /* Chrome Web Store screenshot height */
+  max-height: 400px;
   padding: 1rem;
   width: 100%;
+  overflow-y: auto;
 }
 
 .prompt-content {
@@ -1044,7 +1081,7 @@ body.theme-ocean .empty-state { color: var(--accent-ocean); }
   padding: 2rem;
   border-radius: var(--radius);
   width: 100%;
-  max-width: 350px; /* Adjusted for extension popup width */
+  max-width: 580px; /* Adjusted for Chrome Web Store screenshot width */
   transition: var(--transition);
   animation: fadeIn 0.5s ease-out;
 }
@@ -1332,7 +1369,7 @@ body.theme-ocean .prompt-content input:focus { border-color: var(--accent-ocean)
   margin-top: 8px;
   border-radius: var(--radius);
   padding: 16px;
-  min-width: 240px;
+  min-width: 280px; /* Increased for Chrome Web Store screenshot width */
   box-shadow: var(--shadow-md-light);
   animation: fadeIn 0.3s ease-out;
 }

@@ -1,293 +1,176 @@
 # ⏱️ TimeMachine - Productivity Time Tracker
 
-[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Open Source](https://img.shields.io/badge/Open%20Source-❤️-red.svg)](https://github.com/HarshDev625/TimeMachine)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij) [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/HarshDev625/TimeMachine) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Open Source](https://img.shields.io/badge/Open%20Source-❤️-red.svg)](https://github.com/HarshDev625/TimeMachine)
 
 **TimeMachine** is a powerful, privacy-first Chrome extension that automatically tracks your browsing time across websites and provides detailed productivity insights. Take control of your digital habits with beautiful visualizations, comprehensive reports, and smart analytics.
 
 ## 🚀 Quick Start
 
-### Option 1: Install from Chrome Web Store (Recommended)
-**[📥 Install TimeMachine](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)**
-
-### Option 2: Developer Installation
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/HarshDev625/TimeMachine.git
-   ```
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable **Developer Mode**
-4. Click **Load unpacked** and select the `extension` folder
+**[📥 Install from Chrome Web Store](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)** | **[🔧 Developer Installation](#developer-installation)**
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-### 🔍 **Automatic Time Tracking**
-- 📊 Real-time monitoring of active tabs and browsing time
-- ⏱️ Precise session tracking with start/end timestamps  
-- 🎯 Smart idle detection to ensure accuracy
-- 🌐 Domain-based categorization for better insights
-
-### 📱 **Beautiful Modern UI**
-- 🎨 **7 Stunning Themes**: Light, Dark, Cyberpunk, Minimal, Ocean, Sunset, Forest
-- 📊 Interactive charts with Chart.js
-- 🔄 Theme dropdown selector for quick switching
-- 📱 Responsive design optimized for extension popup
-
-### 📈 **Comprehensive Analytics**
-- 📅 **Daily, Weekly, Monthly** views
-- 🧠 **Productivity Score** calculation 
-- 📊 **Category breakdown**: Work, Social, Entertainment, Professional, Other
-- 🔍 **Detailed session logs** with individual visit tracking
-
-### 📄 **Professional Reports**
-- 📥 **PDF Report Generation** with embedded charts
-- 📧 **Optional Email Reports** (user-configured EmailJS)
-- 📊 **Session-level details** showing individual visit patterns
-- 🎨 **Beautiful formatting** with visual charts and insights
-
-### 🔒 **Privacy-First Design**
-- 🛡️ **Local storage** - your data stays on your device
-- 🔐 **No tracking** - extension doesn't monitor users
-- ⚙️ **Optional backend sync** for advanced features
-- 📧 **User-controlled email** - configure your own email service
-
----
+| 🔍 **Auto Tracking** | 📱 **Modern UI** | 📈 **Analytics** | 📄 **Reports** |
+|---------------------|-----------------|-----------------|----------------|
+| Real-time monitoring | 7 Beautiful themes | Daily/Weekly/Monthly views | PDF generation |
+| Session timestamps | Interactive charts | Productivity scoring | Email reports (optional) |
+| Smart idle detection | Theme selector | Category breakdown | Session details |
+| Domain categorization | Responsive design | Detailed logs | Visual charts |
 
 ## 🎨 Themes Gallery
 
-| Light Theme | Dark Theme | Cyberpunk Theme |
-|-------------|------------|-----------------|
-| ![Light](https://img.shields.io/badge/Theme-Light-blue) | ![Dark](https://img.shields.io/badge/Theme-Dark-purple) | ![Cyberpunk](https://img.shields.io/badge/Theme-Cyberpunk-magenta) |
-
-| Minimal Theme | Ocean Theme | Sunset Theme | Forest Theme |
-|---------------|-------------|--------------|--------------|
-| ![Minimal](https://img.shields.io/badge/Theme-Minimal-gray) | ![Ocean](https://img.shields.io/badge/Theme-Ocean-cyan) | ![Sunset](https://img.shields.io/badge/Theme-Sunset-orange) | ![Forest](https://img.shields.io/badge/Theme-Forest-green) |
+<table>
+<tr>
+<td align="center"><img src="https://img.shields.io/badge/Light-Theme-blue" alt="Light"/><br/><b>Light</b></td>
+<td align="center"><img src="https://img.shields.io/badge/Dark-Theme-purple" alt="Dark"/><br/><b>Dark</b></td>
+<td align="center"><img src="https://img.shields.io/badge/Cyberpunk-Theme-magenta" alt="Cyberpunk"/><br/><b>Cyberpunk</b></td>
+<td align="center"><img src="https://img.shields.io/badge/Minimal-Theme-gray" alt="Minimal"/><br/><b>Minimal</b></td>
+</tr>
+<tr>
+<td align="center"><img src="https://img.shields.io/badge/Ocean-Theme-cyan" alt="Ocean"/><br/><b>Ocean</b></td>
+<td align="center"><img src="https://img.shields.io/badge/Sunset-Theme-orange" alt="Sunset"/><br/><b>Sunset</b></td>
+<td align="center"><img src="https://img.shields.io/badge/Forest-Theme-green" alt="Forest"/><br/><b>Forest</b></td>
+<td align="center"><img src="https://img.shields.io/badge/More-Coming-lightgray" alt="More"/><br/><b>More Soon</b></td>
+</tr>
+</table>
 
 ---
 
-## 📧 Email Setup (100% Optional)
+## 🔒 Privacy-First Design & Setup
 
-TimeMachine works perfectly without any email configuration! Email reports are completely optional.
+### 🛡️ **Your Data, Your Control**
+- **Local Storage**: All data stays on your device by default
+- **No Tracking**: Extension doesn't monitor or collect user data  
+- **Optional Sync**: Choose to enable backend sync for advanced features
+- **User-Controlled Email**: Configure your own email service (or skip entirely)
 
-### Option 1: PDF Reports Only (No Setup Required)
-- ✅ **Download PDF reports** anytime from Settings
-- ✅ **Beautiful formatted reports** with charts and session details  
-- ✅ **Zero configuration** needed
-- ✅ **Complete privacy** - no external services
+### ⚙️ **Easy Setup**
+1. **Install** → Click the Chrome Web Store link above
+2. **Enter Email** → Used as identifier (stored locally)
+3. **Start Browsing** → Automatic tracking begins immediately  
+4. **View Reports** → Check popup for real-time insights
 
-### Option 2: Email Reports (Optional Setup)
-- ✅ **Everything from Option 1** PLUS email delivery
-- ✅ **Use your own EmailJS account** (free)
-- ✅ **Send reports to yourself** 
-- ✅ **Test email functionality**
-
-📖 **Detailed setup guide**: [EMAILJS_SETUP.md](EMAILJS_SETUP.md)
+### 📧 **Email Reports (100% Optional)**
+- **PDF Only**: Download reports anytime (no setup needed)
+- **Email Option**: Configure your own free EmailJS account
+- **Complete Guide**: See [EMAILJS_SETUP.md](EMAILJS_SETUP.md) for details
 
 ---
 
 ## 🛠️ How It Works
 
-### **Background Tracking**
-- Runs silently in the background using Chrome's service worker
-- Monitors active tabs and tracks time spent on each domain
-- Handles tab switches, window changes, and idle detection
-- Stores data locally using `chrome.storage.local`
+**Background Tracking** → **Smart Categorization** → **Beautiful Insights** → **Actionable Reports**
 
-### **Data Structure**
 ```javascript
+// Your data structure (stored locally)
 {
   "2025-08-08": {
     "github.com": {
-      "sessions": [
-        {
-          "startTime": 1691389200000,  // Unix timestamp
-          "endTime": 1691391000000,    // Unix timestamp  
-          "duration": 1800000          // Duration in milliseconds (30 min)
-        }
-      ],
-      "category": "Work",
-      "totalTime": 1800000
+      "sessions": [{"startTime": 1691389200000, "endTime": 1691391000000, "duration": 1800000}],
+      "category": "Work", "totalTime": 1800000
     }
   }
 }
 ```
 
-### **Smart Categories**
+### 🎯 **Smart Categories**
 - **Work**: GitHub, Stack Overflow, CodeChef, ChatGPT
 - **Social**: Instagram, Reddit, Twitter
-- **Professional**: LinkedIn
-- **Entertainment**: YouTube, Netflix  
-- **Other**: Everything else (user can recategorize)
-
-### **Productivity Scoring**
-```javascript
-productivityScore = (workTime + professionalTime + otherTime * 0.5) / totalTime * 100
-```
+- **Professional**: LinkedIn  
+- **Entertainment**: YouTube, Netflix
+- **Other**: Everything else (customizable)
 
 ---
 
-## 🔧 Tech Stack
+## 🚀 Roadmap & Contributing
 
-### **Frontend (Extension)**
-- **Manifest V3**: Modern Chrome extension architecture
-- **Vanilla JavaScript**: ES6+ with async/await
-- **Chart.js**: Beautiful interactive charts
-- **CSS3**: Modern theming system with CSS variables
-- **Chrome APIs**: Storage, Tabs, Idle, Alarms
+### **📋 Next Features** ([View Full Roadmap](FEATURE_ROADMAP.md))
+- ⏰ **Smart Break Reminders** with Pomodoro integration
+- 📊 **Time Goals & Limits** with achievement badges
+- ⚡ **Quick Actions** & keyboard shortcuts
+- 🚫 **Focus Mode** with website blocking
 
-### **Backend (Optional)**
-- **Node.js**: Runtime environment
-- **Express.js**: RESTful API server
-- **MongoDB**: Database for data synchronization
-- **PDFKit**: Professional PDF report generation
-- **QuickChart**: Chart generation for PDF reports
-
-### **Email Integration (Optional)**
-- **EmailJS**: User-configured email service
-- **User's own account**: Complete privacy and control
-- **No developer credentials**: Zero exposure of sensitive data
+### **🤝 Open Source Contributions Welcome!**
+- 🐛 **Report Issues**: [GitHub Issues](https://github.com/HarshDev625/TimeMachine/issues)
+- 💡 **Feature Requests**: Share your ideas
+- 🔧 **Pull Requests**: Code contributions appreciated
+- 📖 **Documentation**: Help improve guides and docs
 
 ---
 
-## 🔐 Permissions Explained
+## 📊 Technical Details
 
+### **🔧 Tech Stack**
+- **Frontend**: Manifest V3, Vanilla JS, Chart.js, CSS3
+- **Backend**: Node.js, Express, MongoDB (optional)
+- **Privacy**: Local-first with optional cloud sync
+- **Email**: User-configured EmailJS (optional)
+
+### **🔐 Permissions**
 ```json
-{
-  "permissions": [
-    "tabs",        // Monitor active tabs for time tracking
-    "activeTab",   // Access currently active tab information
-    "storage",     // Store tracking data locally
-    "idle",        // Detect when user is away/idle
-    "alarms",      // Background scheduling and timers
-    "windows"      // Handle window focus changes
-  ]
-}
+{"permissions": ["tabs", "activeTab", "storage", "idle", "alarms", "windows"]}
 ```
-
-**Why these permissions?**
-- **Tabs & ActiveTab**: Essential for tracking which websites you visit
-- **Storage**: Keep your data locally on your device
-- **Idle**: Pause tracking when you're away from computer
-- **Alarms**: Background scheduling for data sync
-- **Windows**: Handle multiple windows correctly
+**Why?** Monitor browsing, store data locally, detect idle time, handle background tasks
 
 ---
 
-## 🚀 Roadmap
+## 📄 Documentation & Support
 
-We have an exciting roadmap planned! Check out our detailed plans:
-
-📋 **[Complete Feature Roadmap](FEATURE_ROADMAP.md)**
-
-### **Phase 1: Productivity Essentials** (Next 2-3 weeks)
-- ⏰ Smart Break Reminders with Pomodoro integration
-- 📊 Time Goals & Limits with achievement badges
-- ⚡ Quick Actions & Keyboard Shortcuts
-- 🔔 Enhanced Notifications
-
-### **Phase 2: Advanced Analytics** (Following 3-4 weeks)
-- 🔥 Detailed Time Patterns with heatmaps
-- 🚫 Focus Sessions & Website Blocking
-- 📁 Project Time Tracking
-- 📊 Advanced Reporting with custom date ranges
-
-### **Future Phases**
-- 🤖 AI-powered insights and recommendations
-- 👥 Team features and collaboration
-- ☁️ Cross-device synchronization
-- 🔌 API and third-party integrations
+| 📖 **Guides** | 🔗 **Links** |
+|---------------|-------------|
+| Complete Functionality | [FUNCTIONALITY_OVERVIEW.md](FUNCTIONALITY_OVERVIEW.md) |
+| Email Setup (Optional) | [EMAILJS_SETUP.md](EMAILJS_SETUP.md) |
+| Feature Roadmap | [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) |
+| Report Issues | [GitHub Issues](https://github.com/HarshDev625/TimeMachine/issues) |
+| Discussions | [GitHub Discussions](https://github.com/HarshDev625/TimeMachine/discussions) |
 
 ---
 
-## 🧑‍💻 Contributing
+## Developer Installation
 
-We welcome contributions from the open source community! 
+1. **Clone Repository**
+   ```bash
+   git clone https://github.com/HarshDev625/TimeMachine.git
+   cd TimeMachine
+   ```
 
-### **Ways to Contribute**
-- 🐛 **Report bugs** via GitHub Issues
-- 💡 **Suggest features** for our roadmap
-- 🔧 **Submit pull requests** with improvements
-- 📖 **Improve documentation**
-- 🎨 **Design new themes** or UI improvements
+2. **Load Extension**
+   - Open Chrome → `chrome://extensions/`
+   - Enable **Developer Mode**
+   - Click **Load unpacked** → Select `extension` folder
 
-### **Development Setup**
-1. Fork this repository
-2. Clone your fork locally
-3. Install dependencies: `cd backend && npm install`
-4. Load extension in Chrome developer mode
-5. Make your changes and test thoroughly
-6. Submit a pull request with detailed description
-
-### **Contribution Guidelines**
-- Follow existing code style and patterns
-- Add tests for new features
-- Update documentation as needed
-- Ensure browser compatibility
-- Respect user privacy and security
+3. **Optional Backend Setup**
+   ```bash
+   cd backend
+   npm install
+   cp .env.example .env  # Configure MongoDB URI
+   npm start
+   ```
 
 ---
 
-## 📄 Documentation
+## � Project Stats
 
-- 📖 **[Complete Functionality Overview](FUNCTIONALITY_OVERVIEW.md)** - Technical deep dive
-- 📧 **[Email Setup Guide](EMAILJS_SETUP.md)** - Optional email configuration
-- 🚀 **[Feature Roadmap](FEATURE_ROADMAP.md)** - Planned features and timeline
-- 🐛 **[Troubleshooting](https://github.com/HarshDev625/TimeMachine/issues)** - Common issues and solutions
+![GitHub stars](https://img.shields.io/github/stars/HarshDev625/TimeMachine?style=social) ![GitHub forks](https://img.shields.io/github/forks/HarshDev625/TimeMachine?style=social) ![GitHub issues](https://img.shields.io/github/issues/HarshDev625/TimeMachine) ![GitHub last commit](https://img.shields.io/github/last-commit/HarshDev625/TimeMachine)
 
 ---
 
-## 🙏 Acknowledgments
+## �📄 License
 
-- **Chart.js** - Beautiful charts and visualizations
-- **EmailJS** - Client-side email functionality
-- **MongoDB** - Flexible data storage
-- **Chrome Extension APIs** - Powerful browser integration
-- **Open Source Community** - Inspiration and contributions
+**MIT License © 2025 [Harsh Dev](https://github.com/HarshDev625)**
 
----
-
-## 📞 Support
-
-- 🌟 **Star this repo** if you find TimeMachine useful!
-- 🐛 **Report issues** on [GitHub Issues](https://github.com/HarshDev625/TimeMachine/issues)
-- 💬 **Join discussions** in our [GitHub Discussions](https://github.com/HarshDev625/TimeMachine/discussions)
-- 📧 **Contact**: Available through GitHub profile
-
----
-
-## 📊 Stats
-
-![GitHub stars](https://img.shields.io/github/stars/HarshDev625/TimeMachine?style=social)
-![GitHub forks](https://img.shields.io/github/forks/HarshDev625/TimeMachine?style=social)
-![GitHub issues](https://img.shields.io/github/issues/HarshDev625/TimeMachine)
-![GitHub last commit](https://img.shields.io/github/last-commit/HarshDev625/TimeMachine)
-
----
-
-## 📄 License
-
-MIT License © 2025 [Harsh Dev](https://github.com/HarshDev625)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
 
 ---
 
 <div align="center">
 
+**🌟 Star this repo if you find TimeMachine useful! 🌟**
+
 **Made with ❤️ by [Harsh Dev](https://github.com/HarshDev625)**
 
-**⭐ Star this repo if you find it useful! ⭐**
+**[📥 Install from Chrome Web Store](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij) | [📖 View Documentation](FUNCTIONALITY_OVERVIEW.md) | [🚀 Feature Roadmap](FEATURE_ROADMAP.md)**
 
 </div>
