@@ -73,8 +73,16 @@ router.post("/generate", async (req, res) => {
         // Store session information for detailed reporting
         if (data.sessions && Array.isArray(data.sessions)) {
           domainSessions[data.domain] = data.sessions.map(session => ({
-            startTime: new Date(session.startTime).toLocaleTimeString(),
-            endTime: new Date(session.endTime).toLocaleTimeString(),
+            startTime: new Date(session.startTime).toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: true 
+            }),
+            endTime: new Date(session.endTime).toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: true 
+            }),
             duration: Math.floor(session.duration / 1000) // Convert to seconds
           }));
         }
@@ -241,8 +249,8 @@ router.post("/generate", async (req, res) => {
 
     const startX = 50;
     let y = doc.y;
-    const rowHeight = 25; // Increased for session info
-    const colWidths = [40, 180, 80, 80, 120]; // Rank, Domain, Time, Category, Sessions
+    const rowHeight = 30; // Increased for session info with duration
+    const colWidths = [30, 160, 70, 70, 170]; // Rank, Domain, Time, Category, Sessions
 
     // Function to draw table header (can be called on new pages)
     const drawTableHeader = () => {
@@ -304,7 +312,8 @@ router.post("/generate", async (req, res) => {
       let sessionText = "No sessions";
       if (sessions.length > 0) {
         if (sessions.length === 1) {
-          sessionText = `${sessions[0].startTime}-${sessions[0].endTime}`;
+          const session = sessions[0];
+          sessionText = `${session.startTime}-${session.endTime}\n(${formatDuration(session.duration)})`;
         } else {
           sessionText = `${sessions.length} sessions\n${sessions[0].startTime}-${sessions[0].endTime}`;
           if (sessions.length > 1) {
@@ -313,30 +322,30 @@ router.post("/generate", async (req, res) => {
         }
       }
 
-      // Fill row content
+      // Fill row content with improved styling
       doc
         .fillColor("#000000")
         .font("Helvetica")
-        .fontSize(8) // Smaller font to fit more content
-        .text((i + 1).toString(), startX + 5, y + 5, {
+        .fontSize(9) // Slightly larger font for better readability
+        .text((i + 1).toString(), startX + 5, y + 8, {
           width: colWidths[0],
-          align: "left",
+          align: "center",
         })
-        .text(domain, startX + colWidths[0] + 5, y + 5, {
+        .text(domain, startX + colWidths[0] + 5, y + 8, {
           width: colWidths[1],
           align: "left",
         })
         .text(
           formatDuration(time),
           startX + colWidths[0] + colWidths[1] + 5,
-          y + 5,
-          { width: colWidths[2], align: "left" }
+          y + 8,
+          { width: colWidths[2], align: "center" }
         )
         .text(
           category,
           startX + colWidths[0] + colWidths[1] + colWidths[2] + 5,
-          y + 5,
-          { width: colWidths[3], align: "left" }
+          y + 8,
+          { width: colWidths[3], align: "center" }
         )
         .text(
           sessionText,

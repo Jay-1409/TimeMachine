@@ -88,7 +88,7 @@ body {
   --bg-card-cyberpunk: #0f1419;
   --bg-input-cyberpunk: #16213e;
   --text-primary-cyberpunk: #00ff9f;
-  --text-secondary-cyberpunk: #00d4ff;
+  --text-secondary-cyberpunk: #ffffff; /* Changed from #00d4ff for better readability */
   --text-tertiary-cyberpunk: #8000ff;
   --accent-cyberpunk: #ff0080;
   --accent-secondary-cyberpunk: #ffff00;
@@ -133,7 +133,7 @@ body {
   --bg-card-sunset: #ff5722;
   --bg-input-sunset: #ff8c42;
   --text-primary-sunset: #ffffff;
-  --text-secondary-sunset: #fff3e0;
+  --text-secondary-sunset: #000000; /* Changed from #fff3e0 for better contrast */
   --text-tertiary-sunset: #ffcc80;
   --accent-sunset: #ffd23f;
   --accent-secondary-sunset: #ffab00;
@@ -844,6 +844,46 @@ body.theme-sunset #charCount { color: var(--text-tertiary-sunset); }
 body.theme-forest #charCount { color: var(--text-tertiary-forest); }
 
 #charCount.text-red-500 { color: #ef4444; }
+
+/* Enhanced text visibility for all themes */
+body.theme-light .site-name,
+body.theme-light .site-time,
+body.theme-light .site-category { color: var(--text-primary-light); }
+
+body.theme-dark .site-name,
+body.theme-dark .site-time,
+body.theme-dark .site-category { color: var(--text-primary-dark); }
+
+body.theme-cyberpunk .site-name,
+body.theme-cyberpunk .site-time,
+body.theme-cyberpunk .site-category { color: #ffffff; text-shadow: 0 0 2px rgba(0, 255, 159, 0.8); }
+
+body.theme-minimal .site-name,
+body.theme-minimal .site-time,
+body.theme-minimal .site-category { color: var(--text-primary-minimal); }
+
+body.theme-ocean .site-name,
+body.theme-ocean .site-time,
+body.theme-ocean .site-category { color: var(--text-primary-ocean); }
+
+body.theme-sunset .site-name,
+body.theme-sunset .site-time,
+body.theme-sunset .site-category { color: #000000; font-weight: 600; text-shadow: 0 0 2px rgba(255, 255, 255, 0.8); }
+
+body.theme-forest .site-name,
+body.theme-forest .site-time,
+body.theme-forest .site-category { color: var(--text-primary-forest); }
+
+/* Enhanced button text visibility */
+body.theme-cyberpunk .btn { color: #ffffff !important; text-shadow: 0 0 2px rgba(0, 255, 159, 0.8); }
+body.theme-sunset .btn { color: #000000 !important; font-weight: 700; text-shadow: 0 0 2px rgba(255, 255, 255, 0.8); }
+
+/* Enhanced tab button visibility */
+body.theme-cyberpunk .tab-btn,
+body.theme-cyberpunk .main-tab-btn { color: #ffffff; text-shadow: 0 0 2px rgba(0, 255, 159, 0.8); }
+
+body.theme-sunset .tab-btn,
+body.theme-sunset .main-tab-btn { color: #000000; font-weight: 600; text-shadow: 0 0 2px rgba(255, 255, 255, 0.8); }
 
 /* Buttons */
 .btn {
