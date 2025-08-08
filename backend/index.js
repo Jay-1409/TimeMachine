@@ -1,12 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const { initializeCronJobs } = require("./utils/cronJobs");
 require("dotenv").config();
 
 const timeDataRoutes = require("./routes/timeData");
 const feedbackRoutes = require("./routes/feedback");
 const reportRoutes = require("./routes/report");
 const userRoutes = require("./routes/user");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 
@@ -38,7 +40,12 @@ mongoose
     socketTimeoutMS: 45000,
     connectTimeoutMS: 15000,
   })
-  .then(() => console.log("Connected to MongoDB"))
+  .then(() => {
+    console.log("Connected to MongoDB");
+    
+    // Initialize cron jobs after successful DB connection
+    initializeCronJobs();
+  })
   .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
@@ -46,6 +53,7 @@ app.use("/api/time-data", timeDataRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/report", reportRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Health check routes
 app.get("/health", (req, res) => {
