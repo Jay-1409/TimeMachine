@@ -1,5 +1,5 @@
 const CONFIG = {
-  BACKEND_URL: "http://localhost:3000",
+  BACKEND_URL: "https://timemachine-1.onrender.com",
   // Users can optionally configure their own email service
   EMAIL_CONFIG: {
     enabled: false,

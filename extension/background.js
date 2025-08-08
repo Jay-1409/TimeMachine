@@ -438,7 +438,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
 
       sendResponse({ status: "success" }); // Respond immediately as local update is done
 
-      const endpoint = "http://localhost:3000/api/time-data/category";
+      const endpoint = "https://timemachine-1.onrender.com/api/time-data/category";
       const payload = { userEmail, date, domain, category };
 
       const response = await fetch(endpoint, {
@@ -481,7 +481,7 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
 
   if (request.action === "sendFeedback") {
     const { message, userEmail } = request;
-    fetch("http://localhost:3000/api/feedback/store", {
+    fetch("https://timemachine-1.onrender.com/api/feedback/store", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, userEmail }),
