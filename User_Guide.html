@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TimeMachine User Guide</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #2563eb;
+    }
+    h2 {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 8px;
+      margin-top: 28px;
+      color: #1e40af;
+    }
+    h3 {
+      margin-top: 20px;
+      color: #1e3a8a;
+    }
+    code {
+      background-color: #f1f5f9;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .container {
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+    hr {
+      border: 0;
+      border-top: 1px solid #e5e7eb;
+      margin: 30px 0;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #1e293b;
+        color: #f1f5f9;
+      }
+      .container {
+        background-color: #0f172a;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      }
+      h1 {
+        color: #60a5fa;
+      }
+      h2 {
+        color: #93c5fd;
+        border-bottom-color: #334155;
+      }
+      h3 {
+        color: #bfdbfe;
+      }
+      code {
+        background-color: #334155;
+        color: #e2e8f0;
+      }
+      a {
+        color: #60a5fa;
+      }
+      hr {
+        border-top-color: #334155;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TimeMachine User Guide</h1>
+    
+    <p>This guide provides quick setup instructions for your TimeMachine browser extension.</p>
+
+    <h2>Setting Up Email</h2>
+
+    <h3>Basic Email Setup</h3>
+    <ol>
+      <li>Click the TimeMachine icon in your browser toolbar</li>
+      <li>Enter your email address when prompted</li>
+      <li>Click "Save & Continue"</li>
+      <li>Verify your device (one-time only) by entering the code sent to your email</li>
+    </ol>
+
+    <h3>Email Reports Setup</h3>
+    <p>To receive automated productivity reports by email:</p>
+    <ol>
+      <li>Click the gear icon (⚙️) in the top-right corner</li>
+      <li>Under "Email Service", select "EmailJS (Free - Recommended)"</li>
+      <li>Create a free account at <a href="https://www.emailjs.com/" target="_blank">EmailJS</a></li>
+      <li>In EmailJS dashboard, create an Email Service and Email Template</li>
+      <li>Copy your Service ID, Template ID, and Public Key</li>
+      <li>Enter these details in the TimeMachine settings</li>
+      <li>Click "Save Email Config"</li>
+      <li>Click "Test Email" to verify your setup</li>
+    </ol>
+
+    <h3>Report Scheduling</h3>
+    <ol>
+      <li>In settings, scroll down to "Automated Reports"</li>
+      <li>Toggle the switch to enable automated reports</li>
+      <li>Choose your preferred frequency (Daily, Weekly, Monthly)</li>
+      <li>Set the time when you want to receive reports</li>
+      <li>Toggle "No Activity" if you want reports even on days with no tracking</li>
+    </ol>
+
+    <h2>Customizing Your Experience</h2>
+
+    <h3>Change Theme</h3>
+    <ol>
+      <li>Click the palette icon (🎨) in the top-left corner</li>
+      <li>Choose from 7 beautiful themes:
+        <ul>
+          <li>Light (default)</li>
+          <li>Dark</li>
+          <li>Cyberpunk</li>
+          <li>Minimal</li>
+          <li>Ocean</li>
+          <li>Sunset</li>
+          <li>Forest</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h3>Using Focus Timer</h3>
+    <ol>
+      <li>On the main dashboard, find the "Focus Timer" card</li>
+      <li>Click "Start Focus" to begin a 25-minute focus session</li>
+      <li>Work until the timer ends</li>
+      <li>Take a 5-minute break</li>
+      <li>Repeat as needed</li>
+    </ol>
+
+    <h2>Device Security</h2>
+
+    <p>Your account is protected by device verification:</p>
+    <ul>
+      <li>Each device requires verification via email</li>
+      <li>You can access your data across multiple devices</li>
+      <li>If you get a new device, you'll need to verify it once</li>
+    </ul>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Email Reports Not Arriving</h3>
+    <ol>
+      <li>Check your spam folder</li>
+      <li>Verify your EmailJS configuration in settings</li>
+      <li>Make sure your template includes the required variables:
+        <ul>
+          <li><code>{{to_email}}</code>, <code>{{subject}}</code>, <code>{{message}}</code></li>
+        </ul>
+      </li>
+      <li>Try sending a test email</li>
+    </ol>
+
+    <h3>Other Issues</h3>
+    <p>If you encounter any problems:</p>
+    <ol>
+      <li>Click the gear icon (⚙️) to access settings</li>
+      <li>Scroll down to "Feedback"</li>
+      <li>Describe the issue and click "Send Feedback"</li>
+    </ol>
+
+    <hr>
+
+    <p>For more detailed information, visit our <a href="https://github.com/HarshDev625/TimeMachine" target="_blank">GitHub repository</a>.</p>
+  </div>
+</body>
+</html>

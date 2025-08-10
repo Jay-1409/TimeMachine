@@ -5,6 +5,7 @@ const timeDataSchema = new mongoose.Schema({
   date: { type: String, required: true },
   domain: { type: String, required: true },
   totalTime: { type: Number, required: true, default: 0 },
+  timezone: { type: Number, default: 0 }, // Store timezone offset in minutes
   sessions: [
     {
       startTime: { type: Number, required: true },

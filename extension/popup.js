@@ -1,6 +1,7 @@
+import reportScheduler from './report-scheduler.js';
+
 const CONFIG = {
-  BACKEND_URL: "https://timemachine-1.onrender.com",
-  // Users can optionally configure their own email service
+  // BACKEND_URL removed in favor of dynamic TMConfig
   EMAIL_CONFIG: {
     enabled: false,
     service: null, // 'emailjs' or 'smtp'
@@ -66,6 +67,13 @@ function formatDuration(milliseconds) {
   if (isNaN(milliseconds) || milliseconds < 0) {
     return "0m";
   }
+  
+  // Cap unrealistic durations (maximum 24 hours)
+  const MAX_DISPLAY_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  if (milliseconds > MAX_DISPLAY_DURATION) {
+    console.warn(`Capping displayed duration from ${milliseconds}ms to ${MAX_DISPLAY_DURATION}ms`);
+    milliseconds = MAX_DISPLAY_DURATION;
+  }
 
   const totalSeconds = Math.floor(milliseconds / 1000); // First, convert milliseconds to seconds
 
@@ -113,6 +121,23 @@ const CHART_CONFIG = {
   },
 };
 
+// Dynamically resolve backend base URL (production vs development)
+async function resolveBackendUrl() {
+  try {
+    if (window.TMConfig) {
+      await window.TMConfig.loadOverrides();
+      return window.TMConfig.current.backendBaseUrl;
+    }
+  } catch (e) {
+    console.warn("resolveBackendUrl fallback due to error:", e);
+  }
+  // Fallback chain
+  return "https://timemachine-1.onrender.com";
+}
+
+// Make functions available globally for scheduler
+window.resolveBackendUrl = resolveBackendUrl;
+
 document.addEventListener("DOMContentLoaded", () => {
   const elements = {
     emailPrompt: document.getElementById("emailPrompt"),
@@ -121,7 +146,6 @@ document.addEventListener("DOMContentLoaded", () => {
     saveEmailBtn: document.getElementById("saveEmailBtn"),
     emailError: document.getElementById("emailError"),
     errorDisplay: document.getElementById("errorDisplay"),
-    refreshBtn: document.getElementById("refreshBtn"),
     toggleThemeBtn: document.getElementById("toggleThemeBtn"),
     themeDropdown: document.getElementById("themeDropdown"),
     themeOptions: document.querySelectorAll(".theme-option"),
@@ -132,6 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
     emailDisplay: document.getElementById("emailDisplay"),
     userEmailSettings: document.getElementById("userEmail"),
     updateEmailBtn: document.getElementById("updateEmailBtn"),
+    helpBtn: document.getElementById("helpBtn"),
     editEmailBtn: document.getElementById("editEmailBtn"),
     downloadReportBtn: document.getElementById("downloadReport"),
     testEmailBtn: document.getElementById("testEmailBtn"),
@@ -152,6 +177,10 @@ document.addEventListener("DOMContentLoaded", () => {
     emailjsTemplateId: document.getElementById("emailjsTemplateId"),
     emailjsPublicKey: document.getElementById("emailjsPublicKey"),
     saveEmailConfig: document.getElementById("saveEmailConfig"),
+    pomodoroToggle: document.getElementById("pomodoroToggle"),
+    pomodoroStatus: document.getElementById("pomodoroStatus"),
+    settingsBtn: document.getElementById("settingsBtn"),
+    backToInsightsBtn: document.getElementById("backToInsightsBtn"),
   };
 
   const themes = ["light", "dark", "cyberpunk", "minimal", "ocean", "sunset", "forest"];
@@ -173,6 +202,17 @@ document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   initEmailPrompt();
   setupEventListeners();
+  
+  // Initialize device authentication
+  if (typeof DeviceAuth !== 'undefined') {
+    DeviceAuth.init();
+    console.log('Device authentication initialized');
+  } else {
+    console.warn('DeviceAuth not found. Device authentication will not be available.');
+  }
+  
+  // Initialize report scheduler
+  initReportScheduler();
 
   function initTheme() {
     document.body.className = `theme-${currentTheme}`;
@@ -206,12 +246,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setupEventListeners() {
     elements.saveEmailBtn.addEventListener("click", saveEmail);
-    elements.refreshBtn.addEventListener("click", refreshData);
     elements.toggleThemeBtn.addEventListener("click", toggleThemeDropdown);
     elements.themeOptions.forEach(option => {
       option.addEventListener("click", () => selectTheme(option.dataset.theme));
     });
     elements.closeNotification?.addEventListener("click", hideUpdateNotification);
+    
+    // Set up navigation pill buttons (daily, weekly, monthly)
+    document.querySelectorAll('.nav-pill').forEach(pill => {
+      pill.addEventListener('click', () => switchSubTab(pill.dataset.tab));
+    });
     
     // Close dropdown when clicking outside
     document.addEventListener("click", (e) => {
@@ -234,6 +278,22 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.sendFeedbackBtn.addEventListener("click", sendFeedback);
     elements.emailServiceSelect.addEventListener("change", handleEmailServiceChange);
     elements.saveEmailConfig.addEventListener("click", saveEmailConfiguration);
+    elements.pomodoroToggle?.addEventListener('click', togglePomodoro);
+    
+    // Navigation between main tabs
+    elements.settingsBtn?.addEventListener("click", () => {
+      if (currentMainTab === "settings") {
+        switchMainTab("insights");
+      } else {
+        switchMainTab("settings");
+      }
+    });
+    
+    elements.helpBtn?.addEventListener("click", () => {
+      // Open the User Guide in a new tab
+      chrome.tabs.create({ url: chrome.runtime.getURL("../User_Guide.html") });
+    });
+    elements.backToInsightsBtn?.addEventListener("click", () => switchMainTab("insights"));
 
     elements.tabButtons.forEach((btn) =>
       btn.addEventListener("click", () => switchSubTab(btn.dataset.tab))
@@ -272,13 +332,67 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Pomodoro integration (Phase 1 scaffold)
+  async function refreshPomodoro() {
+    try {
+      const state = await chrome.runtime.sendMessage({ action: 'getPomodoroState' });
+      if (!state || !elements.pomodoroStatus) return;
+      const { state: s, defaults } = state;
+      
+      const timerEl = document.querySelector('.timer-label');
+      const card = document.getElementById('pomodoroCard');
+      
+      if (!s.running) {
+        // Default display when idle
+        elements.pomodoroStatus.textContent = `${defaults.workMinutes.toString().padStart(2, '0')}:00`;
+        elements.pomodoroToggle.textContent = 'Start Focus';
+        if (timerEl) timerEl.textContent = 'Focus Session';
+        card.classList.remove('break-mode', 'active-timer');
+      } else {
+        // Active timer display
+        const remaining = Math.max(0, s.endsAt - Date.now());
+        const mm = Math.floor(remaining/60000).toString().padStart(2,'0');
+        const ss = Math.floor((remaining%60000)/1000).toString().padStart(2,'0');
+        elements.pomodoroStatus.textContent = `${mm}:${ss}`;
+        elements.pomodoroToggle.textContent = 'Stop';
+        
+        // Update mode display with appropriate labels
+        if (timerEl) {
+          if (s.mode === 'work') {
+            timerEl.textContent = 'Focus Session';
+          } else {
+            timerEl.textContent = 'Break Time';
+          }
+        }
+        
+        // Apply special styling for break/work modes
+        card.classList.add('active-timer');
+        if (s.mode === 'break') {
+          card.classList.add('break-mode');
+        } else {
+          card.classList.remove('break-mode');
+        }
+      }
+    } catch (e) {
+      console.log('Error refreshing pomodoro:', e);
+    }
+  }
+
+  async function togglePomodoro() {
+    await chrome.runtime.sendMessage({ action: 'togglePomodoro' });
+    refreshPomodoro();
+  }
+
+  setInterval(refreshPomodoro, 1000);
+  refreshPomodoro();
+
   // Update notification system
   function checkForUpdates() {
     const lastVersion = localStorage.getItem("lastKnownVersion") || "1.0.0";
-    const currentVersion = "1.1.0"; // Update this when you add new features
+    const currentVersion = "1.2.0"; // Update this when you add new features
     
     if (lastVersion !== currentVersion) {
-      showUpdateNotification("New modern themes and improved UI!");
+      showUpdateNotification("NEW: Scheduled Reports! Set daily, weekly or monthly automated reports");
       localStorage.setItem("lastKnownVersion", currentVersion);
     }
   }
@@ -304,14 +418,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await fetch(
-        `${CONFIG.BACKEND_URL}/api/user/save-email`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        }
-      );
+      // First verify this device for the email
+      const isVerified = await DeviceAuth.verifyDevice(email);
+      if (!isVerified) {
+        showError("Device verification required to continue", elements.emailError);
+        return;
+      }
+      
+      const backend = await resolveBackendUrl();
+      const response = await fetch(`${backend}/api/user/save-email`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Device-ID": DeviceAuth.getDeviceId() // Include device ID in request
+        },
+        body: JSON.stringify({ email }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -338,14 +460,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const response = await fetch(
-        `${CONFIG.BACKEND_URL}/api/user/save-email`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+      // First verify this device for the email if it's different from the current email
+      const currentEmail = await chrome.storage.local.get(['userEmail']).then(data => data.userEmail);
+      
+      if (email !== currentEmail) {
+        const isVerified = await DeviceAuth.verifyDevice(email);
+        if (!isVerified) {
+          showError("Device verification required to update email");
+          return;
         }
-      );
+      }
+      
+      const backend = await resolveBackendUrl();
+      const response = await fetch(`${backend}/api/user/save-email`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Device-ID": DeviceAuth.getDeviceId() // Include device ID in request
+        },
+        body: JSON.stringify({ email }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -395,54 +529,35 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function sendDailyReport() {
-    try {
-      const { userEmail, emailConfig } = await chrome.storage.local.get(["userEmail", "emailConfig"]);
-      if (!userEmail) {
-        showError("Please set an email first");
-        elements.emailPrompt.classList.remove("hidden");
-        elements.mainApp.classList.add("hidden");
-        return;
-      }
-
-      if (!emailConfig || !emailConfig.enabled) {
-        showFeedback("Email not configured. Set up your own email service in settings or download PDF reports instead.", false);
-        return;
-      }
-
-      showFeedback("Generating daily report...", false);
-      const date = new Date().toISOString().split("T")[0];
-      
-      // Get today's data for the email
-      const response = await fetch(
-        `${CONFIG.BACKEND_URL}/api/time-data/report/${encodeURIComponent(
-          userEmail
-        )}?date=${date}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to get data for report");
-      }
-
-      const timeData = await response.json();
-      const reportContent = generateEmailReport(timeData, date);
-      
-      showFeedback("Sending daily report using your configuration...", false);
-      
-      if (emailConfig.service === 'emailjs') {
-        await sendEmailViaEmailJS({
-          to_email: userEmail,
-          subject: `TimeMachine Daily Report - ${new Date().toLocaleDateString()}`,
-          message: reportContent
-        }, emailConfig.settings);
-        showFeedback("Daily report sent successfully!");
-      } else {
-        showFeedback("SMTP and other services coming soon. Use EmailJS for now.", false);
-      }
-    } catch (error) {
-      console.error("Error sending daily report:", error);
-      showError("Error sending daily report: " + error.message);
+    const { userEmail } = await chrome.storage.local.get(['userEmail']);
+    if (!userEmail) return showFeedback('Set email first');
+    const backend = await resolveBackendUrl();
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get the device ID for authentication
+    const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+    
+    const res = await fetch(`${backend}/api/report/generate`, { 
+      method:'POST', 
+      headers:{
+        'Content-Type':'application/json',
+        'X-Device-ID': deviceId || 'unknown'
+      }, 
+      body: JSON.stringify({ date: today, userEmail }) 
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json();
+      return showError(errorData.error || 'Failed to send daily report');
     }
+    
+    showFeedback('Daily report sent!');
+    return true;
   }
+  
+  // Make sendDailyReport available globally for the scheduler
+  window.sendDailyReport = sendDailyReport;
+  window.resolveBackendUrl = resolveBackendUrl;
 
   // Helper function to send email via user's EmailJS configuration
   async function sendEmailViaEmailJS(templateParams, userSettings) {
@@ -547,33 +662,32 @@ Sent via TimeMachine Extension`;
 
   async function downloadReport() {
     try {
-      const { userEmail } = await chrome.storage.local.get(["userEmail"]);
-      if (!userEmail) {
-        showError("Please set an email first");
-        elements.emailPrompt.classList.remove("hidden");
-        elements.mainApp.classList.add("hidden");
-        return;
+      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      if (!userEmail) return showFeedback('Set email first');
+      const backend = await resolveBackendUrl();
+      const today = new Date().toISOString().split('T')[0];
+      // Get the device ID for authentication
+      const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+      
+      const res = await fetch(`${backend}/api/report/generate`, {
+        method: 'POST', 
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Device-ID': deviceId || 'unknown'
+        }, 
+        body: JSON.stringify({ date: today, userEmail })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to generate report');
       }
 
-      const date = new Date().toISOString().split("T")[0];
-      const response = await fetch(
-        `${CONFIG.BACKEND_URL}/api/report/generate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, userEmail }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const blob = await response.blob();
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `daily_report_${date}.pdf`;
+      a.download = `daily_report_${today}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       showFeedback("Report downloaded!");
@@ -591,31 +705,27 @@ Sent via TimeMachine Extension`;
   }
 
   async function sendFeedback() {
-    const message = elements.feedbackMessage.value.trim();
-    const { userEmail } = await chrome.storage.local.get(["userEmail"]);
-
-    if (!userEmail) {
-      showError("Please set an email first");
-      elements.emailPrompt.classList.remove("hidden");
-      elements.mainApp.classList.add("hidden");
-      return;
-    }
-
-    if (message.length === 0 || message.length > 500) {
-      showError("Feedback must be 1-500 characters");
-      return;
-    }
-
     try {
-      const response = await fetch(`${CONFIG.BACKEND_URL}/api/feedback/store`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, userEmail }),
+      const message = elements.feedbackMessage.value.trim();
+      if (!message) return showFeedback('Enter feedback');
+      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      const backend = await resolveBackendUrl();
+      
+      // Get the device ID for authentication
+      const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+      
+      const res = await fetch(`${backend}/api/feedback/store`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Device-ID': deviceId || 'unknown'
+        },
+        body: JSON.stringify({ message, userEmail })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send feedback");
+      if (!res.ok) {
+        const errorData = await res.json();
+        return showError(errorData.error || 'Failed to send feedback');
       }
 
       elements.feedbackMessage.value = "";
@@ -627,12 +737,10 @@ Sent via TimeMachine Extension`;
     }
   }
 
+  // Auto-refresh function called when switching tabs
   function refreshData() {
     if (currentMainTab === "insights") {
-      showFeedback("Refreshing data...");
       loadStats();
-    } else {
-      showFeedback("Data refresh is only available on the Insights tab.");
     }
   }
 
@@ -641,6 +749,9 @@ Sent via TimeMachine Extension`;
     elements.tabButtons.forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === tab);
     });
+    
+    // Show loading state before fetching data
+    elements.siteList.innerHTML = '<div class="loading-text"><span class="loader"></span>Loading data...</div>';
     loadStats();
   }
 
@@ -732,28 +843,30 @@ Sent via TimeMachine Extension`;
   }
 
   async function loadStats() {
-    if (currentMainTab !== "insights") {
-      return;
-    }
-
+    if (currentMainTab !== 'insights') return;
     try {
-      const { userEmail } = await chrome.storage.local.get(["userEmail"]);
+      const { userEmail } = await chrome.storage.local.get(['userEmail']);
       if (!userEmail) {
-        showError("Please set an email first");
-        elements.emailPrompt.classList.remove("hidden");
-        elements.mainApp.classList.add("hidden");
+        showError('Please set an email first');
+        elements.emailPrompt.classList.remove('hidden');
+        elements.mainApp.classList.add('hidden');
         return;
       }
-
-      elements.siteList.innerHTML =
-        '<div class="loading-text"><span class="loader"></span>Loading data...</div>';
-      elements.errorDisplay.classList.add("hidden");
-
-      const { startDate } = getDateRangeForTab(currentSubTab);
+      elements.siteList.innerHTML = '<div class="loading-text"><span class="loader"></span>Loading data...</div>';
+      elements.errorDisplay.classList.add('hidden');
+      const backend = await resolveBackendUrl();
+      const { startDate, endDate, timezone } = getDateRangeForTab(currentSubTab);
+      
+      // Get the device ID for authentication
+      const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+      
       const response = await fetch(
-        `${CONFIG.BACKEND_URL}/api/time-data/report/${encodeURIComponent(
-          userEmail
-        )}?date=${startDate}`
+        `${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${startDate}&endDate=${endDate}&timezone=${timezone}`,
+        {
+          headers: {
+            'X-Device-ID': deviceId || 'unknown'
+          }
+        }
       );
 
       if (!response.ok) {
@@ -787,8 +900,18 @@ Sent via TimeMachine Extension`;
     }
 
     if (!Array.isArray(timeData) || timeData.length === 0) {
+      // Show more informative message based on current tab
+      let message = 'No data available';
+      if (currentSubTab === 'weekly') {
+        message = 'No data available for the past 7 days. Start browsing to track your activity.';
+      } else if (currentSubTab === 'monthly') {
+        message = 'No data available for the past 30 days. Continue using TimeMachine to build your productivity insights.';
+      } else {
+        message = 'No activity tracked today. Start browsing to collect data.';
+      }
+      
       elements.siteList.innerHTML =
-        '<div class="empty-state">No data available</div>';
+        `<div class="empty-state">${message}</div>`;
       elements.productivityScore.textContent = "0%";
       return;
     }
@@ -1003,6 +1126,7 @@ Sent via TimeMachine Extension`;
   }
 
   function getDateRangeForTab(tab) {
+    // Get user's local date, considering timezone
     const today = new Date();
     const endDate = today.toISOString().split("T")[0];
     let startDate = endDate;
@@ -1017,7 +1141,11 @@ Sent via TimeMachine Extension`;
       startDate = start.toISOString().split("T")[0];
     }
 
-    return { startDate, endDate };
+    return { 
+      startDate, 
+      endDate,
+      timezone: today.getTimezoneOffset() // Include timezone offset in minutes
+    };
   }
 
   function validateEmail(email) {
@@ -1050,4 +1178,143 @@ Sent via TimeMachine Extension`;
 
   // Initialize character count
   updateCharCount();
+  
+  // Report Scheduler Functions
+  async function initReportScheduler() {
+    // Initialize the scheduler backend
+    const settings = await reportScheduler.initialize();
+    
+    // Get UI elements
+    const scheduleToggle = document.getElementById('scheduleToggle');
+    const scheduleOptions = document.getElementById('scheduleOptions');
+    const scheduleFrequency = document.getElementById('scheduleFrequency');
+    const daySelector = document.getElementById('daySelector');
+    const scheduleDay = document.getElementById('scheduleDay');
+    const scheduleTime = document.getElementById('scheduleTime');
+    const scheduleInactiveToggle = document.getElementById('scheduleInactiveToggle');
+    const nextScheduled = document.getElementById('nextScheduled');
+    
+    if (!scheduleToggle) return; // Exit if elements not found
+    
+    // Set initial UI state based on settings
+    if (settings.enabled) {
+      scheduleToggle.classList.add('active');
+      scheduleOptions.classList.remove('hidden');
+    } else {
+      scheduleToggle.classList.remove('active');
+      scheduleOptions.classList.add('hidden');
+    }
+    
+    scheduleFrequency.value = settings.frequency;
+    scheduleTime.value = settings.time;
+    
+    if (settings.includeInactive) {
+      scheduleInactiveToggle.classList.add('active');
+    }
+    
+    // Configure day selector based on frequency
+    updateDaySelector(settings.frequency, settings.day);
+    
+    // Update next scheduled time
+    updateNextScheduledDisplay();
+    
+    // Event handlers
+    scheduleToggle.addEventListener('click', async () => {
+      const isEnabled = scheduleToggle.classList.toggle('active');
+      if (isEnabled) {
+        scheduleOptions.classList.remove('hidden');
+      } else {
+        scheduleOptions.classList.add('hidden');
+      }
+      await reportScheduler.saveSettings({ enabled: isEnabled });
+      updateNextScheduledDisplay();
+    });
+    
+    scheduleFrequency.addEventListener('change', async () => {
+      const frequency = scheduleFrequency.value;
+      updateDaySelector(frequency, 1); // Reset to default day when changing frequency
+      await reportScheduler.saveSettings({ frequency });
+      updateNextScheduledDisplay();
+    });
+    
+    scheduleDay.addEventListener('change', async () => {
+      const day = parseInt(scheduleDay.value, 10);
+      await reportScheduler.saveSettings({ day });
+      updateNextScheduledDisplay();
+    });
+    
+    scheduleTime.addEventListener('change', async () => {
+      const time = scheduleTime.value;
+      await reportScheduler.saveSettings({ time });
+      updateNextScheduledDisplay();
+    });
+    
+    scheduleInactiveToggle.addEventListener('click', async () => {
+      const includeInactive = scheduleInactiveToggle.classList.toggle('active');
+      await reportScheduler.saveSettings({ includeInactive });
+    });
+  }
+  
+  // Helper function to update the day selector based on frequency
+  function updateDaySelector(frequency, selectedDay) {
+    const daySelector = document.getElementById('daySelector');
+    const scheduleDay = document.getElementById('scheduleDay');
+    
+    if (!daySelector || !scheduleDay) return;
+    
+    // Clear existing options
+    scheduleDay.innerHTML = '';
+    
+    if (frequency === 'daily') {
+      daySelector.classList.add('hidden');
+      return;
+    }
+    
+    daySelector.classList.remove('hidden');
+    
+    if (frequency === 'weekly') {
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      days.forEach((day, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = day;
+        scheduleDay.appendChild(option);
+      });
+      scheduleDay.value = selectedDay || 1; // Default to Monday
+    } 
+    else if (frequency === 'monthly') {
+      for (let i = 1; i <= 28; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = `Day ${i}`;
+        scheduleDay.appendChild(option);
+      }
+      scheduleDay.value = selectedDay || 1; // Default to 1st day of month
+    }
+  }
+  
+  // Update the display showing the next scheduled report time
+  function updateNextScheduledDisplay() {
+    const nextScheduled = document.getElementById('nextScheduled');
+    if (!nextScheduled) return;
+    
+    const nextTime = reportScheduler.getNextScheduledTime();
+    
+    if (!nextTime) {
+      nextScheduled.textContent = '';
+      nextScheduled.classList.add('hidden');
+      return;
+    }
+    
+    const formattedDate = nextTime.toLocaleString('en-US', { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    nextScheduled.textContent = `Next report: ${formattedDate}`;
+    nextScheduled.classList.remove('hidden');
+  }
 });

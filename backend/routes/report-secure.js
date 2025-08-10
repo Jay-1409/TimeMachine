@@ -3,6 +3,18 @@ const router = express.Router();
 const TimeData = require("../models/TimeData");
 const PDFDocument = require("pdfkit");
 const QuickChart = require("quickchart-js");
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+
+/**
+ * Hashes an email for privacy
+ * @param {string} email - The email to hash
+ * @returns {string} - Hashed email
+ */
+function hashEmail(email) {
+  if (!email) return '';
+  return crypto.createHash('sha256').update(email.toLowerCase().trim()).digest('hex');
+}
 
 // Helper function to format duration from seconds to human-readable format
 function formatDuration(seconds) {
@@ -26,20 +38,49 @@ function formatDuration(seconds) {
 
 // Route to generate the PDF report
 router.post("/generate", async (req, res) => {
-  const { date, userEmail } = req.body; // 'date' is expected to be "YYYY-MM-DD" string
-  if (!date || !userEmail) {
-    return res.status(400).json({ error: "Date and userEmail are required" });
+  // Extract token from Authorization header
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: "Authentication required" });
   }
-
+  
+  // Verify token
   try {
-    // Query with sessions data included
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    if (!decoded || !decoded.hashedEmail) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
+    
+    const { date, userEmail } = req.body; // 'date' is expected to be "YYYY-MM-DD" string
+    if (!date) {
+      return res.status(400).json({ error: "Date is required" });
+    }
+
+    // Ensure the requesting user can only access their own data
+    const requestingUserHash = decoded.hashedEmail;
+    const requestedUserHash = hashEmail(userEmail);
+    
+    // Only allow access if the user is requesting their own data or is an admin
+    if (requestingUserHash !== requestedUserHash && decoded.role !== 'admin') {
+      return res.status(403).json({ error: "You can only access your own data" });
+    }
+    
+    // Query with sessions data included - look up by hashed email or original email (for compatibility)
     const timeDataList = await TimeData.find({
-      userEmail,
+      $or: [
+        { userEmail: requestedUserHash },
+        { userEmail: userEmail },  // For backward compatibility during migration
+        { originalEmail: userEmail } // For backward compatibility
+      ],
       date: date
     }).select('domain totalTime category'); // Don't include sessions in selection
 
-    // Log the raw data fetched for debugging
-    console.log(`Raw timeDataList for ${userEmail} on ${date}:`, JSON.stringify(timeDataList, null, 2));
+    // Obscure the actual email in logs
+    const obscuredEmail = userEmail.substring(0, 3) + "***@" + userEmail.split('@')[1];
+    console.log(`Raw timeDataList for ${obscuredEmail} on ${date}:`, 
+      `Found ${timeDataList ? timeDataList.length : 0} records`);
 
     if (!timeDataList || timeDataList.length === 0) {
       return res.status(404).json({ error: "No data found for the specified date and user." });
@@ -186,7 +227,12 @@ router.post("/generate", async (req, res) => {
       .text(`Date: ${new Date(date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}`, { // More readable date format
         align: "center",
       });
-    doc.text(`User: ${userEmail}`, { align: "center" });
+    
+    // Only show first 3 characters of email + domain for privacy
+    const emailParts = userEmail.split('@');
+    const obscuredEmailForPdf = `${emailParts[0].substring(0, 3)}***@${emailParts[1]}`;
+    
+    doc.text(`User: ${obscuredEmailForPdf}`, { align: "center" });
     doc.moveDown();
     doc
       .fontSize(14)
@@ -343,6 +389,11 @@ router.post("/generate", async (req, res) => {
     doc.fontSize(16).text("All Sites Time Spent (Bar Chart)");
     doc.moveDown();
     doc.image(allSitesChartBuffer, { fit: [400, 300], align: "center" });
+
+    // Add footer with privacy note
+    doc.fontSize(8).fillColor("#777777").text("Note: This report contains anonymized data. Your privacy is important to us.", {
+      align: "center"
+    });
 
     doc.end(); // Finalize PDF
 

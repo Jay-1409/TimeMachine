@@ -1,0 +1,483 @@
+/* Verification Modal Styles */
+.verification-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(3px);
+}
+
+.verification-content {
+  border-radius: var(--radius, 8px);
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+
+/* Theme-specific styles */
+body.theme-light .verification-content {
+  background-color: var(--bg-card-light);
+  color: var(--text-primary-light);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-light);
+}
+
+body.theme-dark .verification-content {
+  background-color: var(--bg-card-dark);
+  color: var(--text-primary-dark);
+  border: 1px solid var(--border-dark);
+  box-shadow: var(--shadow-dark);
+}
+
+body.theme-cyberpunk .verification-content {
+  background-color: var(--bg-card-cyberpunk);
+  color: var(--text-primary-cyberpunk);
+  border: 1px solid var(--border-cyberpunk);
+  box-shadow: var(--shadow-cyberpunk);
+}
+
+body.theme-minimal .verification-content {
+  background-color: var(--bg-card-minimal);
+  color: var(--text-primary-minimal);
+  border: 1px solid var(--border-minimal);
+  box-shadow: var(--shadow-minimal);
+}
+
+body.theme-ocean .verification-content {
+  background-color: var(--bg-card-ocean);
+  color: var(--text-primary-ocean);
+  border: 1px solid var(--border-ocean);
+  box-shadow: var(--shadow-ocean);
+}
+
+body.theme-sunset .verification-content {
+  background-color: var(--bg-card-sunset);
+  color: var(--text-primary-sunset);
+  border: 1px solid var(--border-sunset);
+  box-shadow: var(--shadow-sunset);
+}
+
+body.theme-forest .verification-content {
+  background-color: var(--bg-card-forest);
+  color: var(--text-primary-forest);
+  border: 1px solid var(--border-forest);
+  box-shadow: var(--shadow-forest);
+}
+
+.verification-title {
+  margin: 0 0 16px 0;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.verification-text {
+  margin-bottom: 20px;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.verification-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+/* Theme-specific input styles */
+body.theme-light .verification-input {
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-input-light);
+  color: var(--text-primary-light);
+}
+
+body.theme-dark .verification-input {
+  border: 1px solid var(--border-dark);
+  background-color: var(--bg-input-dark);
+  color: var(--text-primary-dark);
+}
+
+body.theme-cyberpunk .verification-input {
+  border: 1px solid var(--accent-cyberpunk);
+  background-color: var(--bg-input-cyberpunk);
+  color: var(--text-primary-cyberpunk);
+  box-shadow: 0 0 5px var(--accent-cyberpunk);
+}
+
+body.theme-minimal .verification-input {
+  border: 1px solid var(--border-minimal);
+  background-color: var(--bg-input-minimal);
+  color: var(--text-primary-minimal);
+}
+
+body.theme-ocean .verification-input {
+  border: 1px solid var(--border-ocean);
+  background-color: var(--bg-input-ocean);
+  color: var(--text-primary-ocean);
+}
+
+body.theme-sunset .verification-input {
+  border: 1px solid var(--border-sunset);
+  background-color: var(--bg-input-sunset);
+  color: var(--text-primary-sunset);
+}
+
+body.theme-forest .verification-input {
+  border: 1px solid var(--border-forest);
+  background-color: var(--bg-input-forest);
+  color: var(--text-primary-forest);
+}
+
+/* Focus states for input */
+body.theme-light .verification-input:focus {
+  border-color: var(--accent-light);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+}
+
+body.theme-dark .verification-input:focus {
+  border-color: var(--accent-dark);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+}
+
+body.theme-cyberpunk .verification-input:focus {
+  border-color: var(--accent-cyberpunk);
+  background-color: rgba(0, 0, 0, 0.2);
+  color: var(--text-primary-cyberpunk);
+  box-shadow: 0 0 5px var(--accent-cyberpunk), 0 0 10px rgba(255, 0, 128, 0.3);
+  text-shadow: 0 0 3px var(--accent-cyberpunk);
+}
+
+body.theme-minimal .verification-input:focus {
+  border-color: var(--accent-minimal);
+  outline: none;
+  box-shadow: var(--shadow-md-minimal);
+}
+
+body.theme-ocean .verification-input:focus {
+  border-color: var(--accent-ocean);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 204, 255, 0.3);
+}
+
+body.theme-sunset .verification-input:focus {
+  border-color: var(--accent-sunset);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.3);
+}
+
+body.theme-forest .verification-input:focus {
+  border-color: var(--accent-forest);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+}
+
+.verification-button-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.verification-button-container .btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Button hover ripple effect */
+.verification-button-container .btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.verification-button-container .btn:hover::after {
+  width: 200%;
+  height: 200%;
+}
+
+.verification-button-container .btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Theme-specific button styles */
+body.theme-light .verification-button-container .primary {
+  background-color: var(--accent-light);
+  color: white;
+  border: none;
+}
+
+body.theme-light .verification-button-container .secondary {
+  background-color: transparent;
+  color: var(--text-secondary-light);
+  border: 1px solid var(--border-light);
+}
+
+body.theme-dark .verification-button-container .primary {
+  background-color: var(--accent-dark);
+  color: white;
+  border: none;
+}
+
+body.theme-dark .verification-button-container .secondary {
+  background-color: transparent;
+  color: var(--text-secondary-dark);
+  border: 1px solid var(--border-dark);
+}
+
+body.theme-cyberpunk .verification-button-container .primary {
+  background-color: var(--accent-cyberpunk);
+  color: black;
+  border: none;
+  text-shadow: 0 0 5px var(--accent-cyberpunk);
+}
+
+body.theme-cyberpunk .verification-button-container .secondary {
+  background-color: transparent;
+  color: var(--text-primary-cyberpunk);
+  border: 1px solid var(--accent-cyberpunk);
+  box-shadow: 0 0 5px var(--accent-cyberpunk);
+}
+
+body.theme-minimal .verification-button-container .primary {
+  background-color: var(--accent-minimal);
+  color: white;
+  border: none;
+  border-radius: 0;
+}
+
+body.theme-minimal .verification-button-container .secondary {
+  background-color: transparent;
+  color: var(--text-primary-minimal);
+  border: 1px solid var(--border-minimal);
+  border-radius: 0;
+}
+
+body.theme-ocean .verification-button-container .primary {
+  background-color: var(--accent-ocean);
+  color: white;
+  border: none;
+}
+
+body.theme-ocean .verification-button-container .secondary {
+  background-color: transparent;
+  color: var(--text-primary-ocean);
+  border: 1px solid var(--border-ocean);
+}
+
+body.theme-sunset .verification-button-container .primary {
+  background-color: var(--accent-sunset);
+  color: white;
+  border: none;
+}
+
+body.theme-sunset .verification-button-container .secondary {
+  background-color: transparent;
+  color: var(--text-primary-sunset);
+  border: 1px solid var(--border-sunset);
+}
+
+body.theme-forest .verification-button-container .primary {
+  background-color: var(--accent-forest);
+  color: white;
+  border: none;
+}
+
+body.theme-forest .verification-button-container .secondary {
+  background-color: transparent;
+  color: var(--text-primary-forest);
+  border: 1px solid var(--border-forest);
+}
+
+/* Button disabled state */
+.verification-button-container .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.verification-error {
+  font-size: 14px;
+  margin-bottom: 16px;
+  display: none;
+  font-weight: 500;
+  text-align: center;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* Theme-specific error styles */
+body.theme-light .verification-error {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+body.theme-dark .verification-error {
+  color: #f87171;
+  background-color: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+body.theme-cyberpunk .verification-error {
+  color: #ff00ff;
+  background-color: rgba(255, 0, 255, 0.1);
+  border: 1px solid #ff00ff;
+  text-shadow: 0 0 5px #ff00ff;
+}
+
+body.theme-minimal .verification-error {
+  color: #000000;
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 1px solid #000000;
+  border-radius: 0;
+}
+
+body.theme-ocean .verification-error {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+body.theme-sunset .verification-error {
+  color: #b91c1c;
+  background-color: rgba(185, 28, 28, 0.1);
+  border: 1px solid rgba(185, 28, 28, 0.3);
+}
+
+body.theme-forest .verification-error {
+  color: #b91c1c;
+  background-color: rgba(185, 28, 28, 0.1);
+  border: 1px solid rgba(185, 28, 28, 0.3);
+}
+
+.verification-resend {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 16px;
+  padding: 8px 16px;
+  display: block;
+  width: 100%;
+  text-align: center;
+  border-radius: var(--radius-sm, 4px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+.verification-resend::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Theme-specific resend button styles */
+body.theme-light .verification-resend {
+  color: var(--accent-light);
+}
+
+body.theme-dark .verification-resend {
+  color: var(--accent-dark);
+}
+
+body.theme-cyberpunk .verification-resend {
+  color: var(--accent-cyberpunk);
+}
+
+body.theme-minimal .verification-resend {
+  color: var(--accent-minimal);
+}
+
+body.theme-ocean .verification-resend {
+  color: var(--accent-ocean);
+}
+
+body.theme-sunset .verification-resend {
+  color: var(--accent-sunset);
+}
+
+body.theme-forest .verification-resend {
+  color: var(--accent-forest);
+}
+
+.verification-resend:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.verification-resend:hover::after {
+  width: 200%;
+  height: 200%;
+}
+
+.verification-resend:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-20px) scale(0.98);
+    filter: blur(5px);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .verification-content {
+    width: 95%;
+    padding: 15px;
+  }
+  
+  .verification-button-container {
+    flex-direction: column;
+  }
+}

@@ -9,6 +9,7 @@ const feedbackRoutes = require("./routes/feedback");
 const reportRoutes = require("./routes/report");
 const userRoutes = require("./routes/user");
 const adminRoutes = require("./routes/admin");
+const deviceManagementRoutes = require("./routes/device-management");
 
 const app = express();
 
@@ -22,8 +23,8 @@ app.use(
       "https://timemachine-1.onrender.com",
       "http://localhost:8080",
     ],
-    methods: ["GET", "POST", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Device-ID"],
   })
 );
 
@@ -54,6 +55,7 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/api/report", reportRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/device-management", deviceManagementRoutes);
 
 // Health check routes
 app.get("/health", (req, res) => {

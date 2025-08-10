@@ -1,5 +1,105 @@
 console.log("Background script loaded");
 
+// Dynamic backend resolution (mirrors popup config approach)
+let _backendCache = null;
+async function resolveBackendUrl() {
+  if (_backendCache) return _backendCache;
+  try {
+    // Allow override via stored config (set by options/popup if present)
+    const { TMConfigOverrides } = await chrome.storage.local.get(['TMConfigOverrides']);
+    if (TMConfigOverrides?.backendBaseUrl) {
+      _backendCache = TMConfigOverrides.backendBaseUrl.replace(/\/$/, '');
+      return _backendCache;
+    }
+  } catch (e) {
+    console.warn('resolveBackendUrl (background) override load failed:', e);
+  }
+  // Heuristic: if localhost host permission exists, prefer production unless explicit override
+  _backendCache = 'https://timemachine-1.onrender.com';
+  return _backendCache;
+}
+
+async function backendFetch(path, options = {}) {
+  const base = await resolveBackendUrl();
+  const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+  return fetch(url, options);
+}
+
+// --- Phase 1 Scaffolding: Pomodoro & Goals ---
+const POMODORO_DEFAULTS = { workMinutes: 25, breakMinutes: 5 };
+let pomodoroState = { running: false, mode: 'work', endsAt: null };
+let pomodoroInterval = null;
+
+async function loadProductivitySettings() {
+  const { pomodoroConfig, timeGoals } = await chrome.storage.local.get(['pomodoroConfig','timeGoals']);
+  if (pomodoroConfig) Object.assign(POMODORO_DEFAULTS, pomodoroConfig);
+  return { timeGoals: timeGoals || {} };
+}
+
+function notify(id, title, message) {
+  chrome.notifications?.create(id, {
+    type: 'basic',
+    iconUrl: 'icon48.png',
+    title,
+    message,
+    priority: 1
+  }, ()=>{});
+}
+
+function startPomodoroCycle() {
+  if (pomodoroState.running) return;
+  pomodoroState.running = true;
+  pomodoroState.mode = 'work';
+  pomodoroState.endsAt = Date.now() + POMODORO_DEFAULTS.workMinutes * 60000;
+  schedulePomodoroTick();
+  notify('tm_pomo_start','Focus Started',`Focus for ${POMODORO_DEFAULTS.workMinutes} minutes.`);
+}
+
+function stopPomodoroCycle() {
+  pomodoroState = { running: false, mode: 'work', endsAt: null };
+  if (pomodoroInterval) clearInterval(pomodoroInterval);
+  pomodoroInterval = null;
+  notify('tm_pomo_stop','Pomodoro Stopped','Timer stopped.');
+}
+
+function schedulePomodoroTick() {
+  if (pomodoroInterval) clearInterval(pomodoroInterval);
+  pomodoroInterval = setInterval(()=>{
+    if (!pomodoroState.running) return;
+    const remaining = pomodoroState.endsAt - Date.now();
+    if (remaining <= 0) {
+      if (pomodoroState.mode === 'work') {
+        notify('tm_pomo_break','Break Time','Great job! Take a short break.');
+        pomodoroState.mode = 'break';
+        pomodoroState.endsAt = Date.now() + POMODORO_DEFAULTS.breakMinutes * 60000;
+      } else {
+        notify('tm_pomo_focus','Focus Time','Break over! Back to focus.');
+        pomodoroState.mode = 'work';
+        pomodoroState.endsAt = Date.now() + POMODORO_DEFAULTS.workMinutes * 60000;
+      }
+    }
+  }, 1000);
+}
+
+chrome.commands?.onCommand.addListener(cmd => {
+  if (cmd === 'tm_toggle_pomodoro') {
+    pomodoroState.running ? stopPomodoroCycle() : startPomodoroCycle();
+  }
+});
+
+// Expose state for popup queries
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.action === 'getPomodoroState') {
+    sendResponse({ state: pomodoroState, defaults: POMODORO_DEFAULTS });
+    return true;
+  }
+  if (msg?.action === 'togglePomodoro') {
+    pomodoroState.running ? stopPomodoroCycle() : startPomodoroCycle();
+    sendResponse({ state: pomodoroState });
+    return true;
+  }
+});
+
 // Allowed categories (keeping this as it's used elsewhere)
 const ALLOWED_CATEGORIES = ['Work', 'Social', 'Entertainment', 'Professional', 'Other'];
 
@@ -119,12 +219,23 @@ class TimeTracker {
       console.warn(`Skipping saveSession for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`);
       return;
     }
-
+    
+    // Calculate user's timezone offset in minutes
+    const timezoneOffsetMinutes = new Date().getTimezoneOffset();
+    
+    // Cap unrealistic session duration (max 12 hours per session)
+    const MAX_SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+    if (duration > MAX_SESSION_DURATION) {
+      console.warn(`Capping extremely long session duration for ${domain}: ${duration}ms -> ${MAX_SESSION_DURATION}ms`);
+      duration = MAX_SESSION_DURATION;
+    }
+    
+    // Use local timezone for date calculation
     const currentDate = new Date(startTime).toISOString().split("T")[0];
     const { userEmail } = await chrome.storage.local.get(["userEmail"]);
     if (!userEmail) {
       console.warn("No userEmail set, cannot save session to backend. Storing locally.");
-      await this.storeSessionLocally(domain, startTime, endTime, duration, category);
+      await this.storeSessionLocally(domain, startTime, endTime, duration, category, timezoneOffsetMinutes);
       return;
     }
 
@@ -134,11 +245,12 @@ class TimeTracker {
       domain,
       sessions: [{ startTime, endTime, duration }],
       category: category || this.siteCategories[domain] || "Other",
+      timezone: timezoneOffsetMinutes, // Include timezone information
     };
 
     console.log(`Attempting to save session for ${domain} to backend:`, payload);
 
-    const response = await fetch("https://timemachine-1.onrender.com/api/time-data/sync", {
+  const response = await backendFetch("/api/time-data/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -164,14 +276,22 @@ class TimeTracker {
   }
 }
 
-  async storeSessionLocally(domain, start, end, duration, category = null) {
+  async storeSessionLocally(domain, start, end, duration, category = null, timezone = new Date().getTimezoneOffset()) {
     try {
       // Also add domain validation here, just in case
       if (!domain || typeof domain !== 'string' || domain.trim() === '' || typeof duration !== 'number' || duration <= 0) {
         console.warn(`Skipping storeSessionLocally for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`);
         return;
       }
+      
+      // Cap unrealistic session duration (max 12 hours per session)
+      const MAX_SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+      if (duration > MAX_SESSION_DURATION) {
+        console.warn(`Capping extremely long local session duration for ${domain}: ${duration}ms -> ${MAX_SESSION_DURATION}ms`);
+        duration = MAX_SESSION_DURATION;
+      }
 
+      // Use local time for date calculation
       const currentDate = new Date(start).toISOString().split("T")[0];
       const { timeData = {} } = await chrome.storage.local.get(["timeData"]);
       const effectiveCategory = category || this.siteCategories[domain] || "Other";
@@ -276,7 +396,7 @@ class TimeTracker {
 
           console.log(`Attempting to sync payload for ${domain} on ${date}:`, payload);
 
-          const response = await fetch("https://timemachine-1.onrender.com/api/time-data/sync", {
+          const response = await backendFetch("/api/time-data/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -436,15 +556,14 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       await tracker.saveSiteCategories();
       console.log(`Local category updated for ${domain} to ${category}`);
 
-      sendResponse({ status: "success" }); // Respond immediately as local update is done
+      // Respond immediately for UI responsiveness
+      sendResponse({ status: "success" });
 
-      const endpoint = "https://timemachine-1.onrender.com/api/time-data/category";
       const payload = { userEmail, date, domain, category };
-
-      const response = await fetch(endpoint, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      const response = await backendFetch('/api/time-data/category', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -479,18 +598,17 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     return true; // Indicates that sendResponse will be called asynchronously
   }
 
-  if (request.action === "sendFeedback") {
+  if (request.action === 'sendFeedback') {
     const { message, userEmail } = request;
-    fetch("https://timemachine-1.onrender.com/api/feedback/store", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, userEmail }),
+    const base = await resolveBackendUrl();
+    fetch(`${base}/api/feedback/store`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, userEmail })
     })
-      .then((response) => response.json())
-      .then((data) => sendResponse(data))
-      .catch((error) =>
-        sendResponse({ status: "error", error: error.message })
-      );
-    return true; // Indicates that sendResponse will be called asynchronously
+      .then(r => r.json())
+      .then(data => sendResponse(data))
+      .catch(error => sendResponse({ status: 'error', error: error.message }));
+    return true;
   }
 });

@@ -1,176 +1,226 @@
-# ⏱️ TimeMachine - Productivity Time Tracker
-
-[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij) [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/HarshDev625/TimeMachine) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Open Source](https://img.shields.io/badge/Open%20Source-❤️-red.svg)](https://github.com/HarshDev625/TimeMachine)
-
-**TimeMachine** is a powerful, privacy-first Chrome extension that automatically tracks your browsing time across websites and provides detailed productivity insights. Take control of your digital habits with beautiful visualizations, comprehensive reports, and smart analytics.
-
-## 🚀 Quick Start
-
-**[📥 Install from Chrome Web Store](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)** | **[🔧 Developer Installation](#developer-installation)**
-
----
-
-## ✨ Key Features
-
-| 🔍 **Auto Tracking** | 📱 **Modern UI** | 📈 **Analytics** | 📄 **Reports** |
-|---------------------|-----------------|-----------------|----------------|
-| Real-time monitoring | 7 Beautiful themes | Daily/Weekly/Monthly views | PDF generation |
-| Session timestamps | Interactive charts | Productivity scoring | Email reports (optional) |
-| Smart idle detection | Theme selector | Category breakdown | Session details |
-| Domain categorization | Responsive design | Detailed logs | Visual charts |
-
-## 🎨 Themes Gallery
-
-<table>
-<tr>
-<td align="center"><img src="https://img.shields.io/badge/Light-Theme-blue" alt="Light"/><br/><b>Light</b></td>
-<td align="center"><img src="https://img.shields.io/badge/Dark-Theme-purple" alt="Dark"/><br/><b>Dark</b></td>
-<td align="center"><img src="https://img.shields.io/badge/Cyberpunk-Theme-magenta" alt="Cyberpunk"/><br/><b>Cyberpunk</b></td>
-<td align="center"><img src="https://img.shields.io/badge/Minimal-Theme-gray" alt="Minimal"/><br/><b>Minimal</b></td>
-</tr>
-<tr>
-<td align="center"><img src="https://img.shields.io/badge/Ocean-Theme-cyan" alt="Ocean"/><br/><b>Ocean</b></td>
-<td align="center"><img src="https://img.shields.io/badge/Sunset-Theme-orange" alt="Sunset"/><br/><b>Sunset</b></td>
-<td align="center"><img src="https://img.shields.io/badge/Forest-Theme-green" alt="Forest"/><br/><b>Forest</b></td>
-<td align="center"><img src="https://img.shields.io/badge/More-Coming-lightgray" alt="More"/><br/><b>More Soon</b></td>
-</tr>
-</table>
-
----
-
-## 🔒 Privacy-First Design & Setup
-
-### 🛡️ **Your Data, Your Control**
-- **Local Storage**: All data stays on your device by default
-- **No Tracking**: Extension doesn't monitor or collect user data  
-- **Optional Sync**: Choose to enable backend sync for advanced features
-- **User-Controlled Email**: Configure your own email service (or skip entirely)
-
-### ⚙️ **Easy Setup**
-1. **Install** → Click the Chrome Web Store link above
-2. **Enter Email** → Used as identifier (stored locally)
-3. **Start Browsing** → Automatic tracking begins immediately  
-4. **View Reports** → Check popup for real-time insights
-
-### 📧 **Email Reports (100% Optional)**
-- **PDF Only**: Download reports anytime (no setup needed)
-- **Email Option**: Configure your own free EmailJS account
-- **Complete Guide**: See [EMAILJS_SETUP.md](EMAILJS_SETUP.md) for details
-
----
-
-## 🛠️ How It Works
-
-**Background Tracking** → **Smart Categorization** → **Beautiful Insights** → **Actionable Reports**
-
-```javascript
-// Your data structure (stored locally)
-{
-  "2025-08-08": {
-    "github.com": {
-      "sessions": [{"startTime": 1691389200000, "endTime": 1691391000000, "duration": 1800000}],
-      "category": "Work", "totalTime": 1800000
-    }
-  }
-}
-```
-
-### 🎯 **Smart Categories**
-- **Work**: GitHub, Stack Overflow, CodeChef, ChatGPT
-- **Social**: Instagram, Reddit, Twitter
-- **Professional**: LinkedIn  
-- **Entertainment**: YouTube, Netflix
-- **Other**: Everything else (customizable)
-
----
-
-## 🚀 Roadmap & Contributing
-
-### **📋 Next Features** ([View Full Roadmap](FEATURE_ROADMAP.md))
-- ⏰ **Smart Break Reminders** with Pomodoro integration
-- 📊 **Time Goals & Limits** with achievement badges
-- ⚡ **Quick Actions** & keyboard shortcuts
-- 🚫 **Focus Mode** with website blocking
-
-### **🤝 Open Source Contributions Welcome!**
-- 🐛 **Report Issues**: [GitHub Issues](https://github.com/HarshDev625/TimeMachine/issues)
-- 💡 **Feature Requests**: Share your ideas
-- 🔧 **Pull Requests**: Code contributions appreciated
-- 📖 **Documentation**: Help improve guides and docs
-
----
-
-## 📊 Technical Details
-
-### **🔧 Tech Stack**
-- **Frontend**: Manifest V3, Vanilla JS, Chart.js, CSS3
-- **Backend**: Node.js, Express, MongoDB (optional)
-- **Privacy**: Local-first with optional cloud sync
-- **Email**: User-configured EmailJS (optional)
-
-### **🔐 Permissions**
-```json
-{"permissions": ["tabs", "activeTab", "storage", "idle", "alarms", "windows"]}
-```
-**Why?** Monitor browsing, store data locally, detect idle time, handle background tasks
-
----
-
-## 📄 Documentation & Support
-
-| 📖 **Guides** | 🔗 **Links** |
-|---------------|-------------|
-| Complete Functionality | [FUNCTIONALITY_OVERVIEW.md](FUNCTIONALITY_OVERVIEW.md) |
-| Email Setup (Optional) | [EMAILJS_SETUP.md](EMAILJS_SETUP.md) |
-| Feature Roadmap | [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) |
-| Report Issues | [GitHub Issues](https://github.com/HarshDev625/TimeMachine/issues) |
-| Discussions | [GitHub Discussions](https://github.com/HarshDev625/TimeMachine/discussions) |
-
----
-
-## Developer Installation
-
-1. **Clone Repository**
-   ```bash
-   git clone https://github.com/HarshDev625/TimeMachine.git
-   cd TimeMachine
-   ```
-
-2. **Load Extension**
-   - Open Chrome → `chrome://extensions/`
-   - Enable **Developer Mode**
-   - Click **Load unpacked** → Select `extension` folder
-
-3. **Optional Backend Setup**
-   ```bash
-   cd backend
-   npm install
-   cp .env.example .env  # Configure MongoDB URI
-   npm start
-   ```
-
----
-
-## � Project Stats
-
-![GitHub stars](https://img.shields.io/github/stars/HarshDev625/TimeMachine?style=social) ![GitHub forks](https://img.shields.io/github/forks/HarshDev625/TimeMachine?style=social) ![GitHub issues](https://img.shields.io/github/issues/HarshDev625/TimeMachine) ![GitHub last commit](https://img.shields.io/github/last-commit/HarshDev625/TimeMachine)
-
----
-
-## �📄 License
-
-**MIT License © 2025 [Harsh Dev](https://github.com/HarshDev625)**
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.
-
----
+# TimeMachine
 
 <div align="center">
 
-**🌟 Star this repo if you find TimeMachine useful! 🌟**
-
-**Made with ❤️ by [Harsh Dev](https://github.com/HarshDev625)**
-
-**[📥 Install from Chrome Web Store](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij) | [📖 View Documentation](FUNCTIONALITY_OVERVIEW.md) | [🚀 Feature Roadmap](FEATURE_ROADMAP.md)**
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/HarshDev625/TimeMachine/pulls)
 
 </div>
+
+<p align="center">
+  <img src="extension/icon128.png" width="128" height="128" alt="TimeMachine Logo">
+</p>
+
+<h3 align="center">Track your online time and boost productivity</h3>
+
+<p align="center">
+  TimeMachine is a Chrome extension that helps you understand your browsing habits, visualize your online time, and increase productivity with actionable insights.
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#setup-and-configuration">Setup & Configuration</a> •
+  <a href="#development">Development</a> •
+  <a href="#security">Security</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#license">License</a>
+</p>
+
+## Features
+
+- 📊 **Automatic Time Tracking**: See where your online time goes with automatic website tracking
+- 🔍 **Insightful Categories**: Know if you're spending time on work, social media, entertainment, or other activities
+- 📱 **Multi-Device Support**: Securely access your data across multiple devices
+- 🔒 **Privacy-Focused**: Your data stays on your devices and our secure server
+- 📄 **Detailed Reports**: Generate and schedule PDF reports of your browsing habits
+- 🌓 **Multiple Themes**: Choose from 7 beautiful themes including Light, Dark, Cyberpunk, and more
+- ⏱️ **Focus Timer**: Built-in Pomodoro timer to boost productivity
+- 🔔 **Scheduled Reports**: Set up automatic email reports daily, weekly, or monthly
+
+## Installation
+
+### Chrome Web Store (Recommended)
+
+1. Visit the [TimeMachine Chrome Web Store page](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
+2. Click "Add to Chrome"
+3. Follow the setup instructions after installation
+
+### Manual Installation
+
+1. Download the latest release from [GitHub Releases](https://github.com/HarshDev625/TimeMachine/releases)
+2. Unzip the downloaded file
+3. Open Chrome and go to `chrome://extensions/`
+4. Enable "Developer mode" in the top right
+5. Click "Load unpacked" and select the unzipped folder
+6. The extension should now be installed and active
+
+## Screenshots
+
+<div align="center">
+  <img src="https://github.com/HarshDev625/TimeMachine/raw/main/screenshots/dashboard.png" width="600" alt="TimeMachine Dashboard">
+  <p><em>Daily productivity dashboard with time breakdown</em></p>
+  
+  <img src="https://github.com/HarshDev625/TimeMachine/raw/main/screenshots/themes.png" width="600" alt="TimeMachine Themes">
+  <p><em>Multiple themes to match your style</em></p>
+  
+  <img src="https://github.com/HarshDev625/TimeMachine/raw/main/screenshots/reports.png" width="600" alt="TimeMachine Reports">
+  <p><em>Detailed productivity reports</em></p>
+</div>
+
+## Setup and Configuration
+
+### First-Time Setup
+
+1. After installing the extension, click on the TimeMachine icon in your browser toolbar
+2. Enter your email address when prompted
+3. Complete the device verification process by entering the verification code sent to your email
+4. You're all set! TimeMachine will now track your browsing activity
+
+### Email Reports Configuration
+
+See [EMAIL_SETUP_GUIDE.md](EMAIL_SETUP_GUIDE.md) for detailed instructions on setting up email services for verification and reports.
+
+### Report Scheduling
+
+1. Open the TimeMachine extension
+2. Go to Settings
+3. Scroll to "Automated Reports"
+4. Toggle "Enable" to turn on automated reports
+5. Select your preferred frequency (Daily, Weekly, Monthly)
+6. Set the time when you want to receive reports
+7. Toggle "No Activity" if you want reports even on days with no tracking
+
+## Development
+
+### Backend Setup
+
+1. Clone the repository
+   ```
+   git clone https://github.com/HarshDev625/TimeMachine.git
+   cd TimeMachine/backend
+   ```
+
+2. Install dependencies
+   ```
+   npm install
+   ```
+
+3. Create a `.env` file with your configuration
+   ```
+   MONGODB_URI=your_mongodb_connection_string
+   JWT_SECRET=your_jwt_secret
+   EMAIL_SERVICE=gmail
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASSWORD=your_app_password
+   ```
+
+4. Start the development server
+   ```
+   npm run dev
+   ```
+
+### Architecture
+
+#### Frontend (Chrome Extension)
+
+- **background.js**: Core tracking logic for monitoring browser activity
+- **popup.js**: User interface and data visualization components
+- **config.js**: Environment configuration and backend URL management
+- **report-scheduler.js**: Scheduling logic for automated reports
+- **device-authentication.js**: Device verification and security
+
+#### Backend (Node.js)
+
+- **Models**:
+  - User.js: User account management
+  - TimeData.js: Time tracking data storage
+  - Feedback.js: User feedback collection
+
+- **Routes**:
+  - auth.js: Authentication endpoints
+  - timeData.js: Time tracking data endpoints
+  - report.js: Report generation endpoints
+  - device-management.js: Device authentication endpoints
+
+- **Utils**:
+  - cronJobs.js: Scheduled maintenance tasks
+  - dataCleanup.js: Data retention and cleanup
+
+### Extension Development
+
+1. Navigate to the extension directory
+   ```
+   cd TimeMachine/extension
+   ```
+
+2. Load the unpacked extension in Chrome
+   - Open Chrome and go to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked" and select the extension folder
+
+3. Make your changes and reload the extension to see them
+
+### API Documentation
+
+For detailed API documentation, see the [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) file.
+
+## Security
+
+TimeMachine implements multiple security measures to protect your data:
+
+### Device-Based Authentication
+
+- Each device generates a unique device ID
+- New devices require email verification
+- Users can manage and revoke access for any device
+- Prevents unauthorized access even if someone knows your email
+
+### Email Authentication
+
+- Verification codes sent via email
+- JWT tokens for secure API requests
+- Server-side verification of all requests
+
+### Data Privacy
+
+- Email addresses are hashed using SHA-256
+- Only the first 3 characters and domain are displayed in the UI
+- Data is only accessible to the verified user
+- Option to delete all your data at any time
+
+## Contributing
+
+We welcome contributions from everyone! Please see our [contributing guidelines](CONTRIBUTING.md) for more information on how to get started.
+
+### Areas We Need Help With
+
+- Firefox extension port
+- Improved data visualization
+- Additional productivity features
+- Test coverage
+- Documentation improvements
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [Chart.js](https://www.chartjs.org/) for data visualization
+- [EmailJS](https://www.emailjs.com/) for email functionality
+- All our open source contributors
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/HarshDev625">HarshDev625</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/HarshDev625/TimeMachine/issues">Report Bug</a> •
+  <a href="https://github.com/HarshDev625/TimeMachine/issues">Request Feature</a>
+</p>

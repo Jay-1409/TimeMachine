@@ -1,0 +1,183 @@
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+body.theme-dark::-webkit-scrollbar-track {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+body.theme-dark::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+body.theme-cyberpunk::-webkit-scrollbar-thumb {
+  background-color: var(--accent-cyberpunk);
+  box-shadow: 0 0 5px var(--accent-cyberpunk);
+}
+
+body.theme-ocean::-webkit-scrollbar-thumb {
+  background-color: var(--accent-ocean);
+}
+
+body.theme-sunset::-webkit-scrollbar-thumb {
+  background-color: var(--accent-sunset);
+}
+
+body.theme-forest::-webkit-scrollbar-thumb {
+  background-color: var(--accent-forest);
+}
+
+/* Navigation Pills - Replaces tabs */
+.nav-pills {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 12px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.nav-pill {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary-light);
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+body.theme-dark .nav-pill {
+  color: var(--text-secondary-dark);
+}
+
+body.theme-cyberpunk .nav-pill {
+  color: var(--text-secondary-cyberpunk);
+}
+
+.nav-pill::before {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background-color: var(--accent-light);
+  transition: width 0.2s ease;
+}
+
+.nav-pill:hover::before {
+  width: 50%;
+}
+
+.nav-pill.active::before {
+  width: 80%;
+}
+
+body.theme-dark .nav-pill::before {
+  background-color: var(--accent-dark);
+}
+
+body.theme-cyberpunk .nav-pill::before {
+  background-color: var(--accent-cyberpunk);
+  box-shadow: 0 0 5px var(--accent-cyberpunk);
+}
+
+body.theme-minimal .nav-pill::before {
+  background-color: var(--accent-minimal);
+}
+
+body.theme-ocean .nav-pill::before {
+  background-color: var(--accent-ocean);
+}
+
+body.theme-sunset .nav-pill::before {
+  background-color: var(--accent-sunset);
+}
+
+body.theme-forest .nav-pill::before {
+  background-color: var(--accent-forest);
+}
+
+.nav-pill.active {
+  color: var(--accent-light);
+  background-color: rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+body.theme-dark .nav-pill.active {
+  color: var(--accent-dark);
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+body.theme-cyberpunk .nav-pill.active {
+  color: var(--accent-cyberpunk);
+  background-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 8px var(--accent-cyberpunk);
+}
+
+body.theme-minimal .nav-pill.active {
+  color: var(--accent-minimal);
+}
+
+body.theme-ocean .nav-pill.active {
+  color: var(--accent-ocean);
+}
+
+body.theme-sunset .nav-pill.active {
+  color: var(--accent-sunset);
+}
+
+body.theme-forest .nav-pill.active {
+  color: var(--accent-forest);
+}
+
+/* Settings back button */
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.back-btn {
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.theme-dark .back-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.back-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  transform: translateX(-4px);
+}
+
+body.theme-dark .back-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
