@@ -3,7 +3,8 @@ const router = express.Router();
 const SecureUser = require('../models/User-secure');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+// No need for nodemailer since we're not using email
+// const nodemailer = require('nodemailer');
 const { authenticateToken } = require('./auth');
 
 // Middleware to validate request body fields for device verification
@@ -22,47 +23,25 @@ const validateVerificationFields = (req, res, next) => {
   next();
 };
 
-// Configure email transporter (setup with environment variables)
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-});
+// NOTE: No email service configuration needed
+// We'll use a direct verification approach instead of emails
+console.log('Using direct verification codes instead of email verification');
 
-// Helper function to send verification email
-async function sendVerificationEmail(email, code, deviceInfo) {
+// Helper function to handle verification (no email needed)
+async function handleVerificationCode(email, code, deviceInfo) {
   try {
-    // Format device info for email
-    const deviceDetails = `${deviceInfo.browser} on ${deviceInfo.operatingSystem} (${deviceInfo.deviceType})`;
-
-    // Send mail with defined transport object
-    await transporter.sendMail({
-      from: `"TimeMachine Security" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "TimeMachine - Device Verification Code",
-      text: `Your TimeMachine verification code is: ${code}.\n\nThis code was requested from a new device: ${deviceDetails}.\n\nIf you did not request this code, you can safely ignore this email.\n\nThe code will expire in 15 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-          <h2 style="color: #333;">TimeMachine Device Verification</h2>
-          <p>Your verification code is:</p>
-          <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; text-align: center; font-size: 24px; letter-spacing: 2px;">
-            <strong>${code}</strong>
-          </div>
-          <p style="margin-top: 20px;">This code was requested from a new device:</p>
-          <p><strong>${deviceDetails}</strong></p>
-          <p style="color: #777; margin-top: 30px; font-size: 14px;">
-            If you did not request this code, you can safely ignore this email.<br>
-            The code will expire in 15 minutes.
-          </p>
-        </div>
-      `
-    });
-
+    // Since we don't have an email service, we'll log the code to the console
+    // In a real production app, you might want to use a different notification system
+    console.log('========== VERIFICATION CODE ==========');
+    console.log(`Email: ${email}`);
+    console.log(`Device: ${deviceInfo.browser} on ${deviceInfo.operatingSystem} (${deviceInfo.deviceType})`);
+    console.log(`Code: ${code}`);
+    console.log('======================================');
+    
+    // Always return true since we're not actually sending emails
     return true;
   } catch (error) {
-    console.error("Error sending verification email:", error);
+    console.error("Error handling verification code:", error);
     return false;
   }
 }
@@ -154,16 +133,22 @@ router.post('/request-verification', validateVerificationFields, async (req, res
     // Save the user with the new verification code
     await user.save();
 
-    // Send verification email
-    const emailSent = await sendVerificationEmail(email, verificationCode, deviceInfo);
+    // Log the verification code instead of sending an email
+    await handleVerificationCode(email, verificationCode, deviceInfo);
 
-    if (!emailSent) {
-      return res.status(500).json({ error: "Failed to send verification email" });
-    }
-
+    // In development mode or for testing, you can return the code in the response
+    // REMOVE THIS IN PRODUCTION!
     res.status(200).json({
-      message: "Verification code sent",
-      success: true
+      message: "Verification code ready",
+      success: true,
+      // Include the code directly in the response for testing purposes
+      // In a real app, you'd use a different secure method to deliver this code
+      code: verificationCode,
+      deviceInfo: {
+        browser: deviceInfo.browser,
+        operatingSystem: deviceInfo.operatingSystem,
+        deviceType: deviceInfo.deviceType
+      }
     });
   } catch (error) {
     console.error("Error requesting verification:", error);
