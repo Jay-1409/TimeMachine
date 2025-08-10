@@ -334,17 +334,39 @@ body.theme-forest .verification-button-container .secondary {
   border-radius: 4px;
 }
 
-/* Theme-specific error styles */
+.verification-notice {
+  font-size: 16px;
+  margin: 10px 0 20px;
+  padding: 12px;
+  text-align: center;
+  border-radius: 4px;
+  letter-spacing: 2px;
+  font-family: monospace;
+}
+
+/* Theme-specific error and notice styles */
 body.theme-light .verification-error {
   color: #ef4444;
   background-color: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+body.theme-light .verification-notice {
+  color: var(--accent-light);
+  background-color: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
 body.theme-dark .verification-error {
   color: #f87171;
   background-color: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+body.theme-dark .verification-notice {
+  color: var(--accent-dark);
+  background-color: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 body.theme-cyberpunk .verification-error {
@@ -354,10 +376,25 @@ body.theme-cyberpunk .verification-error {
   text-shadow: 0 0 5px #ff00ff;
 }
 
+body.theme-cyberpunk .verification-notice {
+  color: var(--accent-cyberpunk);
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--accent-cyberpunk);
+  text-shadow: 0 0 5px var(--accent-cyberpunk);
+  box-shadow: 0 0 10px rgba(255, 0, 128, 0.5);
+}
+
 body.theme-minimal .verification-error {
   color: #000000;
   background-color: rgba(0, 0, 0, 0.05);
   border: 1px solid #000000;
+  border-radius: 0;
+}
+
+body.theme-minimal .verification-notice {
+  color: var(--accent-minimal);
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--accent-minimal);
   border-radius: 0;
 }
 
@@ -367,16 +404,34 @@ body.theme-ocean .verification-error {
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+body.theme-ocean .verification-notice {
+  color: var(--accent-ocean);
+  background-color: rgba(0, 204, 255, 0.1);
+  border: 1px solid rgba(0, 204, 255, 0.3);
+}
+
 body.theme-sunset .verification-error {
   color: #b91c1c;
   background-color: rgba(185, 28, 28, 0.1);
   border: 1px solid rgba(185, 28, 28, 0.3);
 }
 
+body.theme-sunset .verification-notice {
+  color: var(--accent-sunset);
+  background-color: rgba(255, 210, 63, 0.1);
+  border: 1px solid rgba(255, 210, 63, 0.3);
+}
+
 body.theme-forest .verification-error {
   color: #b91c1c;
   background-color: rgba(185, 28, 28, 0.1);
   border: 1px solid rgba(185, 28, 28, 0.3);
+}
+
+body.theme-forest .verification-notice {
+  color: var(--accent-forest);
+  background-color: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.3);
 }
 
 .verification-resend {

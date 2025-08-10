@@ -117,7 +117,7 @@ function createVerificationUI(email, onComplete) {
 
   // Create explanation text
   const explanation = document.createElement('p');
-  explanation.textContent = `For security reasons, we need to verify this device for your email (${email}). We've sent a verification code to your email address.`;
+  explanation.textContent = `For security reasons, we need to verify this device for your email (${email}). Please enter the verification code provided below.`;
   explanation.className = 'verification-text';
 
   // Create input for verification code
@@ -146,14 +146,14 @@ function createVerificationUI(email, onComplete) {
 
   // Create resend code link
   const resendLink = document.createElement('button');
-  resendLink.textContent = 'Resend verification code';
+  resendLink.textContent = 'Get new verification code';
   resendLink.className = 'verification-resend';
 
   // Event listeners
   verifyButton.addEventListener('click', async () => {
     const code = codeInput.value.trim();
     if (!code) {
-      showError('Please enter the verification code from your email');
+      showError('Please enter the verification code');
       return;
     }
 
@@ -184,18 +184,18 @@ function createVerificationUI(email, onComplete) {
 
   resendLink.addEventListener('click', async () => {
     resendLink.disabled = true;
-    resendLink.textContent = 'Sending...';
+    resendLink.textContent = 'Requesting...';
     try {
       await requestVerificationCode(email);
-      resendLink.textContent = 'Code sent!';
+      resendLink.textContent = 'Code received!';
       setTimeout(() => {
         resendLink.disabled = false;
-        resendLink.textContent = 'Resend verification code';
+        resendLink.textContent = 'Get new verification code';
       }, 30000); // 30s cooldown
     } catch (error) {
-      showError(error.message || 'Failed to send verification code');
+      showError(error.message || 'Failed to get verification code');
       resendLink.disabled = false;
-      resendLink.textContent = 'Resend verification code';
+      resendLink.textContent = 'Get new verification code';
     }
   });
 
@@ -246,8 +246,36 @@ async function requestVerificationCode(email) {
       throw new Error(errorData.error || 'Failed to request verification code');
     }
     
+    const data = await response.json();
+    
     // Mark that verification is in progress
     localStorage.setItem(STORAGE_KEYS.VERIFICATION_IN_PROGRESS, email);
+    
+    // Display the verification code to the user directly (since we're not using email)
+    if (data.code) {
+      // Auto-fill the verification code if it exists in the response
+      const codeInput = document.querySelector('#tm-verification-modal .verification-input');
+      if (codeInput) {
+        codeInput.value = data.code;
+        
+        // Add a notice to the explanation
+        const notice = document.createElement('div');
+        notice.className = 'verification-notice';
+        notice.textContent = `Verification Code: ${data.code}`;
+        notice.style.background = '#f0f7ff';
+        notice.style.padding = '10px';
+        notice.style.borderRadius = '4px';
+        notice.style.marginTop = '10px';
+        notice.style.fontWeight = 'bold';
+        notice.style.textAlign = 'center';
+        
+        const explanation = document.querySelector('#tm-verification-modal .verification-text');
+        if (explanation && explanation.parentNode) {
+          explanation.parentNode.insertBefore(notice, explanation.nextSibling);
+        }
+      }
+    }
+    
     return true;
   } catch (error) {
     console.error('Error requesting verification code:', error);
