@@ -120,7 +120,7 @@ router.post('/request-verification', validateVerificationFields, async (req, res
     }
 
     // Check if device already exists and is verified
-    const existingDevice = SecureUser.devices.find(device => device.deviceId === deviceId && device.isActive);
+    const existingDevice = user.devices.find(device => device.deviceId === deviceId && device.isActive);
     if (existingDevice) {
       return res.status(200).json({
         message: "Device already verified",
@@ -136,15 +136,15 @@ router.post('/request-verification', validateVerificationFields, async (req, res
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
     // Add or update verification code for this device
-    const verificationIndex = SecureUser.verificationCodes.findIndex(vc => vc.deviceId === deviceId);
+    const verificationIndex = user.verificationCodes.findIndex(vc => vc.deviceId === deviceId);
     if (verificationIndex >= 0) {
-      SecureUser.verificationCodes[verificationIndex] = {
+      user.verificationCodes[verificationIndex] = {
         deviceId,
         code: verificationCode,
         expiresAt
       };
     } else {
-      SecureUser.verificationCodes.push({
+      user.verificationCodes.push({
         deviceId,
         code: verificationCode,
         expiresAt
@@ -152,7 +152,7 @@ router.post('/request-verification', validateVerificationFields, async (req, res
     }
 
     // Save the user with the new verification code
-    await SecureUser.save();
+    await user.save();
 
     // Send verification email
     const emailSent = await sendVerificationEmail(email, verificationCode, deviceInfo);
@@ -186,7 +186,7 @@ router.post('/verify-code', validateVerificationFields, async (req, res) => {
     }
 
     // Find the verification code for this device
-    const verificationEntry = SecureUser.verificationCodes.find(vc => 
+    const verificationEntry = user.verificationCodes.find(vc => 
       vc.deviceId === deviceId && vc.code === code && vc.expiresAt > new Date()
     );
 
@@ -195,12 +195,12 @@ router.post('/verify-code', validateVerificationFields, async (req, res) => {
     }
 
     // Remove the used verification code
-    SecureUser.verificationCodes = SecureUser.verificationCodes.filter(vc => 
+    user.verificationCodes = user.verificationCodes.filter(vc => 
       !(vc.deviceId === deviceId && vc.code === code)
     );
 
     // Add or update the device using the addDevice method
-    await SecureUser.addDevice({
+    await user.addDevice({
       deviceId,
       deviceName: deviceInfo.deviceName || `${deviceInfo.browser} on ${deviceInfo.operatingSystem}`,
       browser: deviceInfo.browser,
@@ -211,9 +211,9 @@ router.post('/verify-code', validateVerificationFields, async (req, res) => {
     // Generate a JWT token for this device
     const token = jwt.sign(
       { 
-        hashedEmail: SecureUser.hashedEmail,
+        hashedEmail: user.hashedEmail,
         deviceId,
-        role: SecureUser.role || 'user'
+        role: user.role || 'user'
       },
       process.env.JWT_SECRET,
       { expiresIn: '30d' }
@@ -242,7 +242,7 @@ router.post('/verify-device', validateVerificationFields, async (req, res) => {
     }
 
     // Check if device exists and is active
-    const device = SecureUser.devices.find(d => d.deviceId === deviceId && d.isActive);
+    const device = user.devices.find(d => d.deviceId === deviceId && d.isActive);
     
     if (!device) {
       return res.status(200).json({ verified: false });
@@ -255,9 +255,9 @@ router.post('/verify-device', validateVerificationFields, async (req, res) => {
     // Generate a new JWT token
     const token = jwt.sign(
       { 
-        hashedEmail: SecureUser.hashedEmail,
+        hashedEmail: user.hashedEmail,
         deviceId,
-        role: SecureUser.role || 'user'
+        role: user.role || 'user'
       },
       process.env.JWT_SECRET,
       { expiresIn: '30d' }
@@ -288,7 +288,7 @@ router.post('/register-device', authenticateToken, async (req, res) => {
     const deviceInfo = getDeviceInfo(req);
     
     // Add device to user
-    await SecureUser.addDevice(deviceInfo);
+    await user.addDevice(deviceInfo);
     
     // Return success with device info
     res.json({ 
@@ -318,7 +318,7 @@ router.get('/devices', authenticateToken, async (req, res) => {
     }
     
     // Get all active devices
-    const devices = SecureUser.getDevices().map(device => ({
+    const devices = user.getDevices().map(device => ({
       deviceId: device.deviceId,
       deviceName: device.deviceName,
       deviceType: device.deviceType,
@@ -347,12 +347,12 @@ router.post('/deactivate-device/:deviceId', authenticateToken, async (req, res) 
     }
     
     // Deactivate the device
-    await SecureUser.deactivateDevice(deviceId);
+    await user.deactivateDevice(deviceId);
     
     // Send email notification about device deactivation
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: SecureUser.originalEmail || `${SecureUser.maskedEmail}`,
+      to: user.originalEmail || `${user.maskedEmail}`,
       subject: 'TimeMachine Device Deactivated',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -392,7 +392,7 @@ router.post('/notify-new-device', authenticateToken, async (req, res) => {
     // Send email notification about new device
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: SecureUser.originalEmail || `${SecureUser.maskedEmail}`,
+      to: user.originalEmail || `${user.maskedEmail}`,
       subject: 'TimeMachine New Device Login',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
