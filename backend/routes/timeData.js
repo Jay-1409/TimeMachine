@@ -134,6 +134,29 @@ router.get("/report/:userEmail", async (req, res) => {
   }
 });
 
+// Lightweight refresh endpoint (alias-style) to fetch current aggregated data quickly
+// GET /api/time-data/refresh/:userEmail?date=YYYY-MM-DD
+router.get('/refresh/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    if (!userEmail) return res.status(400).json({ error: 'User email is required' });
+
+    const rows = await TimeData.find({ userEmail, date }).lean();
+    const data = rows.map(entry => ({
+      domain: entry.domain,
+      date: entry.date,
+      totalTime: entry.totalTime || 0,
+      category: ALLOWED_CATEGORIES.includes(entry.category) ? entry.category : 'Other',
+      sessions: entry.sessions || []
+    }));
+    return res.json({ success: true, date, count: data.length, serverTime: new Date().toISOString(), data });
+  } catch (e) {
+    console.error('Error in /api/time-data/refresh:', e);
+    return res.status(500).json({ error: 'Failed to refresh data', details: e.message });
+  }
+});
+
 router.patch("/category", async (req, res) => {
   const { userEmail, date, domain, category } = req.body;
 

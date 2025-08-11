@@ -329,6 +329,10 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.emailServiceSelect.addEventListener("change", handleEmailServiceChange);
     elements.saveEmailConfig.addEventListener("click", saveEmailConfiguration);
     elements.pomodoroToggle?.addEventListener('click', togglePomodoro);
+    const refreshBtn = document.getElementById('refreshDataBtn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', manualRefresh);
+    }
     
     // Navigation between main tabs
     elements.settingsBtn?.addEventListener("click", () => {
@@ -352,6 +356,31 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.mainTabButtons.forEach((btn) =>
       btn.addEventListener("click", () => switchMainTab(btn.dataset.mainTab))
     );
+  }
+
+  async function manualRefresh() {
+    try {
+      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      if (!userEmail) return showFeedback('Set email first', true);
+      const backend = await resolveBackendUrl();
+      const today = new Date().toISOString().split('T')[0];
+      // Ask background to end current active sessions quickly so latest durations are included
+      chrome.runtime.sendMessage({ action: 'forceFlushSessions' }, () => {});
+      const { token } = await TokenStorage.getToken();
+      const resp = await fetch(`${backend}/api/time-data/refresh/${encodeURIComponent(userEmail)}?date=${today}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (!resp.ok) throw new Error('Refresh failed');
+      // Re-render full stats for selected tab (may be daily/weekly/monthly)
+      await loadStats();
+      showFeedback('Data refreshed');
+    } catch (e) {
+      console.error('Manual refresh error:', e);
+      showError('Failed to refresh: ' + e.message);
+    }
   }
 
   function toggleThemeDropdown() {

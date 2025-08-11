@@ -260,8 +260,12 @@ class TimeTracker {
       duration = MAX_SESSION_DURATION;
     }
     
-    // Use local timezone for date calculation
-    const currentDate = new Date(startTime).toISOString().split("T")[0];
+    // Derive date in the USER'S LOCAL TIME (previous implementation used UTC via toISOString())
+    // This fixes off-by-one-day issues for users in positive offsets (e.g. India UTC+5:30)
+    const localDate = new Date(startTime - (new Date().getTimezoneOffset() * 60000))
+      .toISOString()
+      .split('T')[0];
+    const currentDate = localDate;
     const { userEmail } = await chrome.storage.local.get(["userEmail"]);
     if (!userEmail) {
       console.warn("No userEmail set, cannot save session to backend. Storing locally.");
@@ -321,8 +325,10 @@ class TimeTracker {
         duration = MAX_SESSION_DURATION;
       }
 
-      // Use local time for date calculation
-      const currentDate = new Date(start).toISOString().split("T")[0];
+      // Local date (previously UTC) for consistent aggregation with new logic
+      const currentDate = new Date(start - (new Date().getTimezoneOffset() * 60000))
+        .toISOString()
+        .split('T')[0];
       const { timeData = {} } = await chrome.storage.local.get(["timeData"]);
       const effectiveCategory = category || this.siteCategories[domain] || "Other";
 
@@ -640,6 +646,18 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       .then(r => r.json())
       .then(data => sendResponse(data))
       .catch(error => sendResponse({ status: 'error', error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'forceFlushSessions') {
+    try {
+      await tracker.endAllSessions();
+      await tracker.syncPendingData();
+      sendResponse({ status: 'flushed' });
+    } catch (e) {
+      console.error('forceFlushSessions error:', e);
+      sendResponse({ status: 'error', error: e.message });
+    }
     return true;
   }
 });

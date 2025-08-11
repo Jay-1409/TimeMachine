@@ -86,103 +86,44 @@
 </head>
 <body>
   <div class="container">
-    <h1>TimeMachine User Guide</h1>
-    
-    <p>This guide provides quick setup instructions for your TimeMachine browser extension.</p>
+    <h1>TimeMachine – Quick Guide</h1>
+    <p>This light in‑extension guide replaces the old long user guide. Full, always up‑to‑date documentation now lives in the project README.</p>
 
-    <h2>Setting Up Email</h2>
-
-    <h3>Basic Email Setup</h3>
+    <h2>Core Workflow</h2>
     <ol>
-      <li>Click the TimeMachine icon in your browser toolbar</li>
-      <li>Enter your email address when prompted</li>
-      <li>Click "Save & Continue"</li>
-      <li>Verify your device (one-time only) by entering the code sent to your email</li>
+      <li><strong>Open popup</strong> → Sign up or log in with email + password (JWT token stored locally).</li>
+      <li><strong>Browse normally</strong> → Extension auto tracks active tab time in the background.</li>
+      <li><strong>Open popup anytime</strong> to see: daily / weekly / monthly charts, categories, productivity score.</li>
+      <li><strong>Change a site’s category</strong> → updates immediately and syncs to backend.</li>
+      <li><strong>Download / generate report</strong> (PDF) or schedule automatic ones.</li>
+      <li><strong>Send feedback</strong> from settings (authenticated).</li>
     </ol>
 
-    <h3>Email Reports Setup</h3>
-    <p>To receive automated productivity reports by email:</p>
-    <ol>
-      <li>Click the gear icon (⚙️) in the top-right corner</li>
-      <li>Under "Email Service", select "EmailJS (Free - Recommended)"</li>
-      <li>Create a free account at <a href="https://www.emailjs.com/" target="_blank">EmailJS</a></li>
-      <li>In EmailJS dashboard, create an Email Service and Email Template</li>
-      <li>Copy your Service ID, Template ID, and Public Key</li>
-      <li>Enter these details in the TimeMachine settings</li>
-      <li>Click "Save Email Config"</li>
-      <li>Click "Test Email" to verify your setup</li>
-    </ol>
-
-    <h3>Report Scheduling</h3>
-    <ol>
-      <li>In settings, scroll down to "Automated Reports"</li>
-      <li>Toggle the switch to enable automated reports</li>
-      <li>Choose your preferred frequency (Daily, Weekly, Monthly)</li>
-      <li>Set the time when you want to receive reports</li>
-      <li>Toggle "No Activity" if you want reports even on days with no tracking</li>
-    </ol>
-
-    <h2>Customizing Your Experience</h2>
-
-    <h3>Change Theme</h3>
-    <ol>
-      <li>Click the palette icon (🎨) in the top-left corner</li>
-      <li>Choose from 7 beautiful themes:
-        <ul>
-          <li>Light (default)</li>
-          <li>Dark</li>
-          <li>Cyberpunk</li>
-          <li>Minimal</li>
-          <li>Ocean</li>
-          <li>Sunset</li>
-          <li>Forest</li>
-        </ul>
-      </li>
-    </ol>
-
-    <h3>Using Focus Timer</h3>
-    <ol>
-      <li>On the main dashboard, find the "Focus Timer" card</li>
-      <li>Click "Start Focus" to begin a 25-minute focus session</li>
-      <li>Work until the timer ends</li>
-      <li>Take a 5-minute break</li>
-      <li>Repeat as needed</li>
-    </ol>
-
-    <h2>Device Security</h2>
-
-    <p>Your account is protected by device verification:</p>
+    <h2>Key Features</h2>
     <ul>
-      <li>Each device requires verification via email</li>
-      <li>You can access your data across multiple devices</li>
-      <li>If you get a new device, you'll need to verify it once</li>
+      <li>Automatic time tracking per domain (local + cloud sync).</li>
+      <li>Categories with instant reclassification.</li>
+      <li>Productivity score (Work + Professional + partial Other).</li>
+      <li>Report generation & optional scheduling.</li>
+      <li>Multiple themes & basic Pomodoro focus timer.</li>
     </ul>
 
+    <h2>Reports</h2>
+    <p>Use the “Download Report” button for a PDF. Scheduling (daily / weekly / monthly) happens locally; when trigger fires it calls the backend to generate the PDF.</p>
+
+    <h2>Authentication (Simplified)</h2>
+    <p>Only email + password now. No verification codes, no device confirmation emails. If token expires you’ll be asked to log in again.</p>
+
     <h2>Troubleshooting</h2>
+    <ul>
+      <li><strong>No data?</strong> Keep the browser active on real http/https tabs; internal pages aren’t tracked.</li>
+      <li><strong>Session expired?</strong> Just log in again; local unsynced time will flush once authenticated.</li>
+      <li><strong>Wrong categories?</strong> Reassign in the list; chart auto-refreshes.</li>
+    </ul>
 
-    <h3>Email Reports Not Arriving</h3>
-    <ol>
-      <li>Check your spam folder</li>
-      <li>Verify your EmailJS configuration in settings</li>
-      <li>Make sure your template includes the required variables:
-        <ul>
-          <li><code>{{to_email}}</code>, <code>{{subject}}</code>, <code>{{message}}</code></li>
-        </ul>
-      </li>
-      <li>Try sending a test email</li>
-    </ol>
-
-    <h3>Other Issues</h3>
-    <p>If you encounter any problems:</p>
-    <ol>
-      <li>Click the gear icon (⚙️) to access settings</li>
-      <li>Scroll down to "Feedback"</li>
-      <li>Describe the issue and click "Send Feedback"</li>
-    </ol>
-
-    <hr>
-
-    <p>For more detailed information, visit our <a href="https://github.com/HarshDev625/TimeMachine" target="_blank">GitHub repository</a>.</p>
+    <h2>Need More?</h2>
+    <p>Full docs, backend API details, and contribution info:</p>
+    <p><a href="https://github.com/HarshDev625/TimeMachine" target="_blank" rel="noopener">Open the README on GitHub</a></p>
   </div>
 </body>
 </html>
