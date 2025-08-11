@@ -8,6 +8,60 @@ const STORAGE_KEYS = {
   DEVICE_ID: 'tm_device_id'
 };
 
+// Helper functions for token storage management
+const TokenStorage = {
+  // Set token in both localStorage and chrome.storage.local
+  async setToken(token, email) {
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+    localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+    
+    try {
+      await chrome.storage.local.set({ 
+        tm_auth_token: token,
+        userEmail: email
+      });
+    } catch (chromeErr) {
+      console.warn('Could not store token in chrome.storage:', chromeErr);
+    }
+  },
+
+  // Get token from either storage
+  async getToken() {
+    let token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let email = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+    
+    if (!token || !email) {
+      try {
+        const storage = await chrome.storage.local.get(['tm_auth_token', 'userEmail']);
+        token = token || storage.tm_auth_token;
+        email = email || storage.userEmail;
+        
+        // Sync to localStorage if found in chrome.storage
+        if (token && email) {
+          localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+          localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+        }
+      } catch (chromeErr) {
+        console.warn('Could not access chrome.storage:', chromeErr);
+      }
+    }
+    
+    return { token, email };
+  },
+
+  // Clear token from both storages
+  async clearToken() {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+    
+    try {
+      await chrome.storage.local.remove(['tm_auth_token', 'userEmail']);
+    } catch (chromeErr) {
+      console.warn('Could not remove token from chrome.storage:', chromeErr);
+    }
+  }
+};
+
 // Generate a unique device identifier
 function generateDeviceId() {
   return Array.from(window.crypto.getRandomValues(new Uint8Array(16)))
@@ -239,20 +293,20 @@ async function login(email, password) {
       })
     });
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Login failed');
-    }
-    
     const data = await response.json();
     
-    // Store auth token
+    if (!response.ok) {
+      // Provide specific error messages based on backend response
+      throw new Error(data.message || data.error || 'Login failed');
+    }
+    
+    // Store auth token using unified helper
     if (data.token) {
-      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
+      await TokenStorage.setToken(data.token, email);
       return true;
     }
     
-    return false;
+    throw new Error('No authentication token received');
   } catch (error) {
     console.error('Login error:', error);
     throw error;
@@ -266,8 +320,7 @@ async function signup(email, password, isMigration = false) {
     const deviceInfo = getDeviceInfo();
     const backendUrl = await resolveBackendUrl();
     
-    // Use different endpoint for migration vs new signup
-    const endpoint = isMigration ? 'migrate' : 'signup';
+    const endpoint = 'signup'; // Simplified - we now only have signup
     
     const response = await fetch(`${backendUrl}/api/auth/${endpoint}`, {
       method: 'POST',
@@ -280,20 +333,20 @@ async function signup(email, password, isMigration = false) {
       })
     });
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Signup failed');
-    }
-    
     const data = await response.json();
     
-    // Store auth token
+    if (!response.ok) {
+      // Provide specific error messages based on backend response
+      throw new Error(data.message || data.error || 'Signup failed');
+    }
+    
+    // Store auth token using unified helper
     if (data.token) {
-      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
+      await TokenStorage.setToken(data.token, email);
       return true;
     }
     
-    return false;
+    throw new Error('No authentication token received');
   } catch (error) {
     console.error('Signup error:', error);
     throw error;
@@ -302,8 +355,8 @@ async function signup(email, password, isMigration = false) {
 
 // Check if user is authenticated
 async function isAuthenticated() {
-  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-  const email = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+  // Get token from unified storage
+  const { token, email } = await TokenStorage.getToken();
   
   if (!token || !email) {
     return false;
@@ -322,13 +375,19 @@ async function isAuthenticated() {
     
     if (response.ok) {
       return true;
+    } else {
+      const errorData = await response.json();
+      console.warn('Token verification failed:', errorData);
+      
+      // If token is expired or invalid, clear it
+      if (errorData.code === 'TOKEN_EXPIRED' || errorData.code === 'INVALID_TOKEN') {
+        await TokenStorage.clearToken();
+      }
     }
   } catch (error) {
     console.error('Token verification error:', error);
   }
   
-  // If verification fails, clear the token
-  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   return false;
 }
 
@@ -336,7 +395,7 @@ async function isAuthenticated() {
 async function authenticateUser(callback) {
   // Check if already authenticated
   if (await isAuthenticated()) {
-    const email = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+    const { email } = await TokenStorage.getToken();
     if (callback) callback(true, email);
     return true;
   }
@@ -351,9 +410,8 @@ async function authenticateUser(callback) {
 }
 
 // Logout user
-function logout() {
-  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-  localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+async function logout() {
+  await TokenStorage.clearToken();
 }
 
 // Get the current device ID

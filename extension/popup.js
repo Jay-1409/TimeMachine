@@ -135,6 +135,54 @@ async function resolveBackendUrl() {
   return "https://timemachine-1.onrender.com";
 }
 
+// Enhanced API helper function with authentication and error handling
+async function apiCall(endpoint, options = {}) {
+  try {
+    const backendUrl = await resolveBackendUrl();
+    const url = `${backendUrl}${endpoint}`;
+    
+    // Get authentication token
+    const token = localStorage.getItem('tm_auth_token');
+    
+    // Set default headers
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+    
+    // Add authentication if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(url, {
+      ...options,
+      headers
+    });
+    
+    const data = await response.json();
+    
+    // Handle authentication errors
+    if (response.status === 401) {
+      if (data.code === 'TOKEN_EXPIRED' || data.code === 'AUTH_REQUIRED') {
+        // Clear expired token and redirect to login
+        await Auth.logout();
+        showError('Your session has expired. Please login again.');
+        return null;
+      }
+    }
+    
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP ${response.status}`);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`API call to ${endpoint} failed:`, error);
+    throw error;
+  }
+}
+
 // Make functions available globally for scheduler
 window.resolveBackendUrl = resolveBackendUrl;
 
@@ -448,32 +496,9 @@ document.addEventListener("DOMContentLoaded", () => {
       elements.saveEmailBtn.textContent = isSignupMode ? "Creating Account..." : "Signing In...";
       
       // Check if it's an existing user from the old system
-      const backendUrl = await resolveBackendUrl();
-      const checkResponse = await fetch(`${backendUrl}/api/user/check-email?email=${encodeURIComponent(email)}`);
-      const userData = await checkResponse.json();
-      
-      let success = false;
-      
-      // If user exists but doesn't have a password, handle migration
-      if (userData.exists && !userData.hasPassword && !isSignupMode) {
-        // Automatically switch to signup mode for existing users without passwords
-        const confirmMigrate = confirm(
-          "Your account was created with the old system and needs to be migrated. " +
-          "Would you like to set up a password for your account now?"
-        );
-        
-        if (confirmMigrate) {
-          // Use signup to set password for existing account
-          success = await Auth.signup(email, password, true); // true = migration mode
-        } else {
-          throw new Error("Account migration required");
-        }
-      } else {
-        // Normal authentication flow
-        success = isSignupMode 
-          ? await Auth.signup(email, password)
-          : await Auth.login(email, password);
-      }
+      let success = isSignupMode 
+        ? await Auth.signup(email, password)
+        : await Auth.login(email, password);
         
       if (!success) {
         throw new Error(isSignupMode 
@@ -481,20 +506,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : "Invalid email or password");
       }
       
-      const backend = await resolveBackendUrl();
-      const response = await fetch(`${backend}/api/user/save-email`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-Device-ID": Auth.getDeviceId() // Include device ID in request
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save email");
-      }
+  // No separate save-email endpoint now; email already stored in auth token context
 
       await chrome.storage.local.set({ userEmail: email });
       elements.emailPrompt.classList.add("hidden");
@@ -530,20 +542,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       
-      const backend = await resolveBackendUrl();
-      const response = await fetch(`${backend}/api/user/save-email`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-Device-ID": Auth.getDeviceId() // Include device ID in request
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update email");
-      }
+  // Deprecated save-email endpoint removed; simply update local storage
 
       await chrome.storage.local.set({ userEmail: email });
       showFeedback("Email updated successfully!");
@@ -590,20 +589,23 @@ document.addEventListener("DOMContentLoaded", () => {
   async function sendDailyReport() {
     const { userEmail } = await chrome.storage.local.get(['userEmail']);
     if (!userEmail) return showFeedback('Set email first');
-    const backend = await resolveBackendUrl();
+  const backend = await resolveBackendUrl();
     const today = new Date().toISOString().split('T')[0];
     
     // Get the device ID for authentication
     const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
     
-    const res = await fetch(`${backend}/api/report/generate`, { 
-      method:'POST', 
-      headers:{
-        'Content-Type':'application/json',
-        'X-Device-ID': deviceId || 'unknown'
-      }, 
-      body: JSON.stringify({ date: today, userEmail }) 
-    });
+      const auth = await Auth.isAuthenticated();
+      const { token } = await TokenStorage.getToken();
+      const res = await fetch(`${backend}/api/report/generate`, { 
+        method:'POST', 
+        headers:{
+          'Content-Type':'application/json',
+          'X-Device-ID': deviceId || 'unknown',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }, 
+        body: JSON.stringify({ date: today, userEmail }) 
+      });
     
     if (!res.ok) {
       const errorData = await res.json();
@@ -728,11 +730,13 @@ Sent via TimeMachine Extension`;
       // Get the device ID for authentication
       const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
       
+      const { token } = await TokenStorage.getToken();
       const res = await fetch(`${backend}/api/report/generate`, {
         method: 'POST', 
         headers: { 
           'Content-Type': 'application/json',
-          'X-Device-ID': deviceId || 'unknown'
+          'X-Device-ID': deviceId || 'unknown',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }, 
         body: JSON.stringify({ date: today, userEmail })
       });
@@ -767,29 +771,22 @@ Sent via TimeMachine Extension`;
     try {
       const message = elements.feedbackMessage.value.trim();
       if (!message) return showFeedback('Enter feedback');
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
-      const backend = await resolveBackendUrl();
       
-      // Get the device ID for authentication
-      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
+      // Check if authenticated first
+      if (!await Auth.isAuthenticated()) {
+        return showFeedback('Please log in to submit feedback', false);
+      }
       
-      const res = await fetch(`${backend}/api/feedback/store`, {
+      const result = await apiCall('/api/feedback/submit', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-Device-ID': deviceId || 'unknown'
-        },
-        body: JSON.stringify({ message, userEmail })
+        body: JSON.stringify({ message })
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        return showError(errorData.error || 'Failed to send feedback');
+      if (result) {
+        elements.feedbackMessage.value = "";
+        updateCharCount();
+        showFeedback("Feedback sent successfully!");
       }
-
-      elements.feedbackMessage.value = "";
-      updateCharCount();
-      showFeedback("Feedback sent successfully!");
     } catch (error) {
       console.error("Error sending feedback:", error);
       showError("Error sending feedback: " + error.message);
@@ -924,11 +921,13 @@ Sent via TimeMachine Extension`;
       // Get the device ID for authentication
       const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
       
+      const { token } = await TokenStorage.getToken();
       const response = await fetch(
         `${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${startDate}&endDate=${endDate}&timezone=${timezone}`,
         {
           headers: {
-            'X-Device-ID': deviceId || 'unknown'
+            'X-Device-ID': deviceId || 'unknown',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           }
         }
       );

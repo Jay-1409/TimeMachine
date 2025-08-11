@@ -2,14 +2,24 @@
 
 This guide provides quick setup instructions for your TimeMachine browser extension.
 
-## Setting Up Email
+## Getting Started
 
-### Basic Email Setup
+### Creating Your Account
 
 1. Click the TimeMachine icon in your browser toolbar
-2. Enter your email address when prompted
-3. Click "Save & Continue"
-4. Verify your device (one-time only) by entering the code sent to your email
+2. Click "Create Account"
+3. Enter your email address and password (minimum 6 characters)
+4. Click "Sign Up"
+5. You're all set! TimeMachine will automatically start tracking your browsing time
+
+### Logging In
+
+If you already have an account:
+
+1. Click the TimeMachine icon in your browser toolbar
+2. Enter your email address and password
+3. Click "Log In"
+4. Your time tracking data will sync across all your devices
 
 ### Email Reports Setup
 
@@ -56,11 +66,12 @@ To receive automated productivity reports by email:
 
 ## Device Security
 
-Your account is protected by device verification:
+Your account supports multiple devices with enhanced security:
 
-- Each device requires verification via email
+- Your credentials are securely stored using strong encryption
+- Each device is tracked with unique identifiers
 - You can access your data across multiple devices
-- If you get a new device, you'll need to verify it once
+- If you suspect unauthorized access, you can change your password at any time
 
 ## Troubleshooting
 
@@ -71,6 +82,15 @@ Your account is protected by device verification:
 3. Make sure your template includes the required variables:
    - `{{to_email}}`, `{{subject}}`, `{{message}}`
 4. Try sending a test email
+
+### Password Issues
+
+If you forgot your password:
+
+1. Click "Forgot Password" on the login screen
+2. Enter your email address
+3. Check your email for password reset instructions
+4. Follow the link to create a new password
 
 ### Other Issues
 

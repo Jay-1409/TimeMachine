@@ -22,7 +22,37 @@ async function resolveBackendUrl() {
 async function backendFetch(path, options = {}) {
   const base = await resolveBackendUrl();
   const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
-  return fetch(url, options);
+  
+  // Add authentication token if available
+  const { tm_auth_token } = await chrome.storage.local.get(['tm_auth_token']);
+  if (tm_auth_token && !options.headers?.Authorization) {
+    if (!options.headers) options.headers = {};
+    options.headers['Authorization'] = `Bearer ${tm_auth_token}`;
+  }
+  
+  try {
+    // Ensure headers object exists
+    if (!options.headers) options.headers = {};
+    // Default content type for JSON requests without body already specifying it
+    if (options.body && !options.headers['Content-Type']) {
+      options.headers['Content-Type'] = 'application/json';
+    }
+    const response = await fetch(url, options);
+    
+    // Handle token expiration
+    if (response.status === 401) {
+      const errorData = await response.json().catch(() => ({}));
+      if (errorData.code === 'TOKEN_EXPIRED' || errorData.code === 'AUTH_REQUIRED') {
+        console.warn('Authentication expired, clearing stored token');
+        await chrome.storage.local.remove(['tm_auth_token', 'userEmail']);
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Network error in backendFetch:', error);
+    throw error;
+  }
 }
 
 // --- Phase 1 Scaffolding: Pomodoro & Goals ---
@@ -345,13 +375,14 @@ class TimeTracker {
 
   async syncPendingData() {
     try {
-      const { timeData = {}, userEmail } = await chrome.storage.local.get([
+      const { timeData = {}, userEmail, tm_auth_token } = await chrome.storage.local.get([
         "timeData",
         "userEmail",
+        "tm_auth_token"
       ]);
 
-      if (!userEmail) {
-        console.warn("Sync pending data skipped: No user email found.");
+      if (!userEmail || !tm_auth_token) {
+        console.warn("Sync pending data skipped: User not authenticated.");
         return;
       }
 

@@ -1,30 +1,59 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const { initializeCronJobs } = require("./utils/cronJobs");
 require("dotenv").config();
 
+// Enable graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Received SIGINT. Shutting down gracefully...');
+  mongoose.connection.close().then(() => {
+    console.log('MongoDB connection closed.');
+    process.exit(0);
+  }).catch(err => {
+    console.error('Error closing MongoDB connection:', err);
+    process.exit(1);
+  });
+});
+
+// Import only the essential routes
 const timeDataRoutes = require("./routes/timeData");
+const authRoutes = require("./routes/auth");
 const feedbackRoutes = require("./routes/feedback");
 const reportRoutes = require("./routes/report");
-const userRoutes = require("./routes/user");
-const adminRoutes = require("./routes/admin");
-const authPasswordRoutes = require("./routes/auth-password");
 
 const app = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({
+  limit: '2mb' // Increase payload limit for large time tracking data
+}));
 
+// CORS configuration
 app.use(
   cors({
-    origin: [
-      "chrome-extension://bkochhokedlbefkobaccicmpphbgeiab",
-      "https://timemachine-1.onrender.com",
-      "http://localhost:8080",
-    ],
+    origin: function(origin, callback) {
+      // Allow all Chrome extension origins
+      if (origin && origin.startsWith('chrome-extension://')) {
+        return callback(null, true);
+      }
+
+      // Allow specific origins
+      const allowedOrigins = [
+        "https://timemachine-1.onrender.com",
+        "http://localhost:8080", 
+        "http://localhost:3000"
+      ];
+      
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`CORS blocked request from: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Device-ID"],
+    credentials: true // Allow cookies to be sent with requests
   })
 );
 
@@ -43,21 +72,19 @@ mongoose
   })
   .then(() => {
     console.log("Connected to MongoDB");
-    
-    // Initialize cron jobs after successful DB connection
-    initializeCronJobs();
   })
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// Routes
-app.use("/api/time-data", timeDataRoutes);
-app.use("/api/feedback", feedbackRoutes);
-app.use("/api/report", reportRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/auth", authPasswordRoutes);
+// Import the authenticateToken middleware
+const { authenticateToken } = require("./routes/auth");
 
-// Health check routes
+// Routes - only essential endpoints
+app.use("/api/auth", authRoutes);
+app.use("/api/time-data", authenticateToken, timeDataRoutes);
+app.use("/api/feedback", feedbackRoutes);
+app.use("/api/report", authenticateToken, reportRoutes);
+
+// Health check route
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "healthy",
@@ -65,16 +92,43 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.head("/health", (req, res) => {
-  res.sendStatus(200);
+// Status endpoint with more detailed information
+app.get("/status", (req, res) => {
+  res.status(200).json({
+    status: "running",
+    version: "2.0.0",
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    features: {
+      authentication: "email-password",
+      timeTracking: true,
+      feedback: true,
+      cors: "enabled"
+    }
+  });
+});
+
+// Route not found handler
+app.use((req, res, next) => {
+  res.status(404).json({ 
+    error: "Not Found", 
+    message: `Route ${req.method} ${req.path} not found` 
+  });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error("Server error:", err);
-  res
-    .status(500)
-    .json({ error: "Internal server error", details: err.message });
+  const statusCode = err.statusCode || 500;
+  console.error(`Server error (${statusCode}):`, err);
+  
+  res.status(statusCode).json({ 
+    error: err.name || "Internal Server Error",
+    message: err.message || "Something went wrong",
+    // Only include stack trace in development
+    ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {})
+  });
 });
 
 // Start the server

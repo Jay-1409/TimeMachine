@@ -12,16 +12,18 @@ const TMConfig = (function() {
   let current = {
     env: inferredEnv,
     backendBaseUrl: inferredEnv === 'production' ? PRODUCTION_API : DEVELOPMENT_API,
-    pdfEndpoint: '/api/report/generate',
+  pdfEndpoint: '/api/report/generate', // protected (requires auth)
     syncEndpoint: '/api/time-data/sync',
     reportEndpoint: '/api/time-data/report',
     categoryEndpoint: '/api/time-data/category',
-    feedbackEndpoint: '/api/feedback/store',
-    // Device authentication endpoints
-    deviceVerifyEndpoint: '/api/device-management/verify-device',
-    deviceRequestCodeEndpoint: '/api/device-management/request-verification',
-    deviceVerifyCodeEndpoint: '/api/device-management/verify-code',
-    deviceListEndpoint: '/api/device-management/devices'
+    feedbackEndpoint: '/api/feedback/submit',
+    // Authentication endpoints
+    authSignupEndpoint: '/api/auth/signup',
+    authLoginEndpoint: '/api/auth/login',
+    authVerifyEndpoint: '/api/auth/verify',
+    authProfileEndpoint: '/api/auth/profile',
+    authResetRequestEndpoint: '/api/auth/reset-password-request',
+    authResetPasswordEndpoint: '/api/auth/reset-password'
   };
 
   async function loadOverrides() {
