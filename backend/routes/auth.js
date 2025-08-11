@@ -182,6 +182,7 @@ const authenticateToken = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
     
     if (!token) {
+  console.warn('Auth middleware: missing bearer token for', req.method, req.path, 'headers:', Object.keys(req.headers));
       return res.status(401).json({ 
         error: 'Authentication required',
         code: 'AUTH_REQUIRED',
@@ -238,7 +239,6 @@ router.post('/verify', authenticateToken, (req, res) => {
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const user = await User.findByEmail(req.user.email);
-    
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

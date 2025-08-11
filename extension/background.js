@@ -5,125 +5,150 @@ let _backendCache = null;
 async function resolveBackendUrl() {
   if (_backendCache) return _backendCache;
   try {
-    // Allow override via stored config (set by options/popup if present)
-    const { TMConfigOverrides } = await chrome.storage.local.get(['TMConfigOverrides']);
-    if (TMConfigOverrides?.backendBaseUrl) {
-      _backendCache = TMConfigOverrides.backendBaseUrl.replace(/\/$/, '');
+    // Support both legacy TMConfigOverrides and new tmBackendUrl key used by popup config
+    const { TMConfigOverrides, tmBackendUrl } = await chrome.storage.local.get([
+      "TMConfigOverrides",
+      "tmBackendUrl",
+    ]);
+    const candidate = tmBackendUrl || TMConfigOverrides?.backendBaseUrl;
+    if (candidate && typeof candidate === "string") {
+      _backendCache = candidate.replace(/\/$/, "");
       return _backendCache;
     }
   } catch (e) {
-    console.warn('resolveBackendUrl (background) override load failed:', e);
+    console.warn("resolveBackendUrl (background) override load failed:", e);
   }
   // Heuristic: if localhost host permission exists, prefer production unless explicit override
-  _backendCache = 'https://timemachine-1.onrender.com';
+  _backendCache = "https://timemachine-1.onrender.com";
   return _backendCache;
 }
 
 async function backendFetch(path, options = {}) {
   const base = await resolveBackendUrl();
-  const url = `${base}${path.startsWith('/') ? '' : '/'}${path}`;
-  
+  const url = `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+
   // Add authentication token if available
-  const { tm_auth_token } = await chrome.storage.local.get(['tm_auth_token']);
+  const { tm_auth_token } = await chrome.storage.local.get(["tm_auth_token"]);
   if (tm_auth_token && !options.headers?.Authorization) {
     if (!options.headers) options.headers = {};
-    options.headers['Authorization'] = `Bearer ${tm_auth_token}`;
+    options.headers["Authorization"] = `Bearer ${tm_auth_token}`;
   }
-  
+
   try {
     // Ensure headers object exists
     if (!options.headers) options.headers = {};
     // Default content type for JSON requests without body already specifying it
-    if (options.body && !options.headers['Content-Type']) {
-      options.headers['Content-Type'] = 'application/json';
+    if (options.body && !options.headers["Content-Type"]) {
+      options.headers["Content-Type"] = "application/json";
     }
     const response = await fetch(url, options);
-    
+    if (!options.headers?.Authorization) {
+      console.warn("backendFetch WITHOUT Authorization header ->", url);
+    } else {
+      console.log("backendFetch with Authorization header to", url);
+    }
+
     // Handle token expiration
     if (response.status === 401) {
       const errorData = await response.json().catch(() => ({}));
-      if (errorData.code === 'TOKEN_EXPIRED' || errorData.code === 'AUTH_REQUIRED') {
-        console.warn('Authentication expired, clearing stored token');
-        await chrome.storage.local.remove(['tm_auth_token', 'userEmail']);
+      if (
+        errorData.code === "TOKEN_EXPIRED" ||
+        errorData.code === "AUTH_REQUIRED"
+      ) {
+        console.warn("Authentication expired, clearing stored token");
+        await chrome.storage.local.remove(["tm_auth_token", "userEmail"]);
       }
     }
-    
+
     return response;
   } catch (error) {
-    console.error('Network error in backendFetch:', error);
+    console.error("Network error in backendFetch:", error);
     throw error;
   }
 }
 
 // --- Phase 1 Scaffolding: Pomodoro & Goals ---
 const POMODORO_DEFAULTS = { workMinutes: 25, breakMinutes: 5 };
-let pomodoroState = { running: false, mode: 'work', endsAt: null };
+let pomodoroState = { running: false, mode: "work", endsAt: null };
 let pomodoroInterval = null;
 
 async function loadProductivitySettings() {
-  const { pomodoroConfig, timeGoals } = await chrome.storage.local.get(['pomodoroConfig','timeGoals']);
+  const { pomodoroConfig, timeGoals } = await chrome.storage.local.get([
+    "pomodoroConfig",
+    "timeGoals",
+  ]);
   if (pomodoroConfig) Object.assign(POMODORO_DEFAULTS, pomodoroConfig);
   return { timeGoals: timeGoals || {} };
 }
 
 function notify(id, title, message) {
-  chrome.notifications?.create(id, {
-    type: 'basic',
-    iconUrl: 'icon48.png',
-    title,
-    message,
-    priority: 1
-  }, ()=>{});
+  chrome.notifications?.create(
+    id,
+    {
+      type: "basic",
+      iconUrl: "icon48.png",
+      title,
+      message,
+      priority: 1,
+    },
+    () => {}
+  );
 }
 
 function startPomodoroCycle() {
   if (pomodoroState.running) return;
   pomodoroState.running = true;
-  pomodoroState.mode = 'work';
+  pomodoroState.mode = "work";
   pomodoroState.endsAt = Date.now() + POMODORO_DEFAULTS.workMinutes * 60000;
   schedulePomodoroTick();
-  notify('tm_pomo_start','Focus Started',`Focus for ${POMODORO_DEFAULTS.workMinutes} minutes.`);
+  notify(
+    "tm_pomo_start",
+    "Focus Started",
+    `Focus for ${POMODORO_DEFAULTS.workMinutes} minutes.`
+  );
 }
 
 function stopPomodoroCycle() {
-  pomodoroState = { running: false, mode: 'work', endsAt: null };
+  pomodoroState = { running: false, mode: "work", endsAt: null };
   if (pomodoroInterval) clearInterval(pomodoroInterval);
   pomodoroInterval = null;
-  notify('tm_pomo_stop','Pomodoro Stopped','Timer stopped.');
+  notify("tm_pomo_stop", "Pomodoro Stopped", "Timer stopped.");
 }
 
 function schedulePomodoroTick() {
   if (pomodoroInterval) clearInterval(pomodoroInterval);
-  pomodoroInterval = setInterval(()=>{
+  pomodoroInterval = setInterval(() => {
     if (!pomodoroState.running) return;
     const remaining = pomodoroState.endsAt - Date.now();
     if (remaining <= 0) {
-      if (pomodoroState.mode === 'work') {
-        notify('tm_pomo_break','Break Time','Great job! Take a short break.');
-        pomodoroState.mode = 'break';
-        pomodoroState.endsAt = Date.now() + POMODORO_DEFAULTS.breakMinutes * 60000;
+      if (pomodoroState.mode === "work") {
+        notify("tm_pomo_break", "Break Time", "Great job! Take a short break.");
+        pomodoroState.mode = "break";
+        pomodoroState.endsAt =
+          Date.now() + POMODORO_DEFAULTS.breakMinutes * 60000;
       } else {
-        notify('tm_pomo_focus','Focus Time','Break over! Back to focus.');
-        pomodoroState.mode = 'work';
-        pomodoroState.endsAt = Date.now() + POMODORO_DEFAULTS.workMinutes * 60000;
+        notify("tm_pomo_focus", "Focus Time", "Break over! Back to focus.");
+        pomodoroState.mode = "work";
+        pomodoroState.endsAt =
+          Date.now() + POMODORO_DEFAULTS.workMinutes * 60000;
       }
     }
   }, 1000);
 }
 
-chrome.commands?.onCommand.addListener(cmd => {
-  if (cmd === 'tm_toggle_pomodoro') {
+chrome.commands?.onCommand.addListener((cmd) => {
+  if (cmd === "tm_toggle_pomodoro") {
     pomodoroState.running ? stopPomodoroCycle() : startPomodoroCycle();
   }
 });
 
 // Expose state for popup queries
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.action === 'getPomodoroState') {
+  if (msg?.action === "getPomodoroState") {
     sendResponse({ state: pomodoroState, defaults: POMODORO_DEFAULTS });
     return true;
   }
-  if (msg?.action === 'togglePomodoro') {
+  if (msg?.action === "togglePomodoro") {
     pomodoroState.running ? stopPomodoroCycle() : startPomodoroCycle();
     sendResponse({ state: pomodoroState });
     return true;
@@ -131,7 +156,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // Allowed categories (keeping this as it's used elsewhere)
-const ALLOWED_CATEGORIES = ['Work', 'Social', 'Entertainment', 'Professional', 'Other'];
+const ALLOWED_CATEGORIES = [
+  "Work",
+  "Social",
+  "Entertainment",
+  "Professional",
+  "Other",
+];
 
 // Helper function to extract a valid domain from a URL
 function getDomainFromUrl(urlStr) {
@@ -139,7 +170,7 @@ function getDomainFromUrl(urlStr) {
     const url = new URL(urlStr);
     // Exclude internal browser pages and non-web protocols (e.g., 'chrome://', 'file://', 'about:')
     // Also, ensure the hostname is not empty
-    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
       return null; // Return null for non-web URLs or empty hostnames
     }
     // Remove 'www.' prefix for consistency
@@ -175,6 +206,7 @@ class TimeTracker {
     const data = await chrome.storage.local.get([
       "siteCategories",
       "activeSessions",
+      "tm_auth_token",
     ]);
 
     this.siteCategories = {
@@ -192,6 +224,16 @@ class TimeTracker {
 
     await chrome.storage.local.set({ siteCategories: this.siteCategories });
 
+    // If no auth token yet, show badge to indicate login needed
+    if (!data.tm_auth_token && chrome.action) {
+      try {
+        chrome.action.setBadgeText({ text: "!" });
+        chrome.action.setBadgeBackgroundColor({ color: "#dc2626" });
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
     this.startPeriodicSync();
   }
 
@@ -205,16 +247,26 @@ class TimeTracker {
 
     // If the domain is invalid/untrackable, handle any existing session for this tabId
     if (!domain) {
-      console.warn(`Skipping tab change for untrackable URL: ${tab.url}. Domain could not be extracted.`);
+      console.warn(
+        `Skipping tab change for untrackable URL: ${tab.url}. Domain could not be extracted.`
+      );
       if (this.activeSessions[tabId]) {
         // If there was an active session for this tab, attempt to save its duration
-        const { domain: prevDomain, startTime: prevStartTime } = this.activeSessions[tabId];
+        const { domain: prevDomain, startTime: prevStartTime } =
+          this.activeSessions[tabId];
         const duration = now - prevStartTime;
         // Only save if the previous domain was valid and duration positive
-        if (prevDomain && typeof prevDomain === 'string' && prevDomain.trim() !== '' && duration > 0) {
+        if (
+          prevDomain &&
+          typeof prevDomain === "string" &&
+          prevDomain.trim() !== "" &&
+          duration > 0
+        ) {
           await this.saveSession(prevDomain, prevStartTime, now, duration);
         } else {
-          console.log(`Clearing active session for untrackable tabId ${tabId} (prevDomain: '${prevDomain}', duration: ${duration}) without saving.`);
+          console.log(
+            `Clearing active session for untrackable tabId ${tabId} (prevDomain: '${prevDomain}', duration: ${duration}) without saving.`
+          );
         }
         delete this.activeSessions[tabId];
         await chrome.storage.local.set({ activeSessions: this.activeSessions });
@@ -226,13 +278,21 @@ class TimeTracker {
 
     // End previous session if one existed for this tabId
     if (this.activeSessions[tabId]) {
-      const { domain: prevDomain, startTime: prevStartTime } = this.activeSessions[tabId];
+      const { domain: prevDomain, startTime: prevStartTime } =
+        this.activeSessions[tabId];
       const duration = now - prevStartTime;
       // Explicitly check prevDomain validity before saving
-      if (prevDomain && typeof prevDomain === 'string' && prevDomain.trim() !== '' && duration > 0) {
+      if (
+        prevDomain &&
+        typeof prevDomain === "string" &&
+        prevDomain.trim() !== "" &&
+        duration > 0
+      ) {
         await this.saveSession(prevDomain, prevStartTime, now, duration);
       } else {
-        console.warn(`Skipping saveSession for previous tab '${prevDomain}' (Tab ID: ${tabId}) due to invalid domain or non-positive duration: ${duration}`);
+        console.warn(
+          `Skipping saveSession for previous tab '${prevDomain}' (Tab ID: ${tabId}) due to invalid domain or non-positive duration: ${duration}`
+        );
       }
       delete this.activeSessions[tabId];
     }
@@ -243,94 +303,178 @@ class TimeTracker {
   }
 
   async saveSession(domain, startTime, endTime, duration, category = null) {
-  try {
-    // Enhanced validation at the entry point of saveSession
-    if (!domain || typeof domain !== 'string' || domain.trim() === '' || typeof duration !== 'number' || duration <= 0) {
-      console.warn(`Skipping saveSession for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`);
-      return;
-    }
-    
-    // Calculate user's timezone offset in minutes
-    const timezoneOffsetMinutes = new Date().getTimezoneOffset();
-    
-    // Cap unrealistic session duration (max 12 hours per session)
-    const MAX_SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
-    if (duration > MAX_SESSION_DURATION) {
-      console.warn(`Capping extremely long session duration for ${domain}: ${duration}ms -> ${MAX_SESSION_DURATION}ms`);
-      duration = MAX_SESSION_DURATION;
-    }
-    
-    // Derive date in the USER'S LOCAL TIME (previous implementation used UTC via toISOString())
-    // This fixes off-by-one-day issues for users in positive offsets (e.g. India UTC+5:30)
-    const localDate = new Date(startTime - (new Date().getTimezoneOffset() * 60000))
-      .toISOString()
-      .split('T')[0];
-    const currentDate = localDate;
-    const { userEmail } = await chrome.storage.local.get(["userEmail"]);
-    if (!userEmail) {
-      console.warn("No userEmail set, cannot save session to backend. Storing locally.");
-      await this.storeSessionLocally(domain, startTime, endTime, duration, category, timezoneOffsetMinutes);
-      return;
-    }
-
-    const payload = {
-      userEmail,
-      date: currentDate,
-      domain,
-      sessions: [{ startTime, endTime, duration }],
-      category: category || this.siteCategories[domain] || "Other",
-      timezone: timezoneOffsetMinutes, // Include timezone information
-    };
-
-    console.log(`Attempting to save session for ${domain} to backend:`, payload);
-
-  const response = await backendFetch("/api/time-data/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Backend sync failed for ${domain} on ${currentDate}: ${response.status} - ${errorText}. Storing locally.`);
-      await this.storeSessionLocally(domain, startTime, endTime, duration, category);
-    } else {
-      let responseBody;
-      try {
-        responseBody = await response.json();
-        console.log(`Session saved successfully for ${domain} on ${currentDate}. Response:`, responseBody);
-      } catch (jsonError) {
-        console.warn(`Response was successful but not JSON for ${domain}:`, jsonError.message);
-        console.log(`Session saved successfully for ${domain} on ${currentDate}.`);
-      }
-    }
-  } catch (error) {
-    console.error(`Critical error saving session for ${domain}:`, error);
-    await this.storeSessionLocally(domain, startTime, endTime, duration, category);
-  }
-}
-
-  async storeSessionLocally(domain, start, end, duration, category = null, timezone = new Date().getTimezoneOffset()) {
     try {
-      // Also add domain validation here, just in case
-      if (!domain || typeof domain !== 'string' || domain.trim() === '' || typeof duration !== 'number' || duration <= 0) {
-        console.warn(`Skipping storeSessionLocally for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`);
+      // Enhanced validation at the entry point of saveSession
+      if (
+        !domain ||
+        typeof domain !== "string" ||
+        domain.trim() === "" ||
+        typeof duration !== "number" ||
+        duration <= 0
+      ) {
+        console.warn(
+          `Skipping saveSession for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`
+        );
         return;
       }
-      
+
+      // Calculate user's timezone offset in minutes
+      const timezoneOffsetMinutes = new Date().getTimezoneOffset();
+
       // Cap unrealistic session duration (max 12 hours per session)
       const MAX_SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
       if (duration > MAX_SESSION_DURATION) {
-        console.warn(`Capping extremely long local session duration for ${domain}: ${duration}ms -> ${MAX_SESSION_DURATION}ms`);
+        console.warn(
+          `Capping extremely long session duration for ${domain}: ${duration}ms -> ${MAX_SESSION_DURATION}ms`
+        );
+        duration = MAX_SESSION_DURATION;
+      }
+
+      // Derive date in the USER'S LOCAL TIME (previous implementation used UTC via toISOString())
+      // This fixes off-by-one-day issues for users in positive offsets (e.g. India UTC+5:30)
+      const localDate = new Date(
+        startTime - new Date().getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .split("T")[0];
+      const currentDate = localDate;
+      const { userEmail } = await chrome.storage.local.get(["userEmail"]);
+      if (!userEmail) {
+        console.warn(
+          "No userEmail set, cannot save session to backend. Storing locally."
+        );
+        await this.storeSessionLocally(
+          domain,
+          startTime,
+          endTime,
+          duration,
+          category,
+          timezoneOffsetMinutes
+        );
+        return;
+      }
+
+      const payload = {
+        userEmail,
+        date: currentDate,
+        domain,
+        sessions: [{ startTime, endTime, duration }],
+        category: category || this.siteCategories[domain] || "Other",
+        timezone: timezoneOffsetMinutes, // Include timezone information
+      };
+
+      // Ensure token present before attempting backend (avoid guaranteed 401 spam)
+      const { tm_auth_token } = await chrome.storage.local.get([
+        "tm_auth_token",
+      ]);
+      if (!tm_auth_token) {
+        console.warn(
+          `Auth token missing; queueing session locally for ${domain} on ${currentDate}`
+        );
+        await this.storeSessionLocally(
+          domain,
+          startTime,
+          endTime,
+          duration,
+          category
+        );
+        return;
+      }
+
+      console.log(
+        `Attempting to save session for ${domain} to backend:`,
+        payload
+      );
+
+      const response = await backendFetch("/api/time-data/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `Backend sync failed for ${domain} on ${currentDate}: ${response.status} - ${errorText}. Storing locally.`
+        );
+        await this.storeSessionLocally(
+          domain,
+          startTime,
+          endTime,
+          duration,
+          category
+        );
+      } else {
+        let responseBody;
+        try {
+          responseBody = await response.json();
+          console.log(
+            `Session saved successfully for ${domain} on ${currentDate}. Response:`,
+            responseBody
+          );
+        } catch (jsonError) {
+          console.warn(
+            `Response was successful but not JSON for ${domain}:`,
+            jsonError.message
+          );
+          console.log(
+            `Session saved successfully for ${domain} on ${currentDate}.`
+          );
+        }
+      }
+    } catch (error) {
+      console.error(`Critical error saving session for ${domain}:`, error);
+      await this.storeSessionLocally(
+        domain,
+        startTime,
+        endTime,
+        duration,
+        category
+      );
+    }
+  }
+
+  async storeSessionLocally(
+    domain,
+    start,
+    end,
+    duration,
+    category = null,
+    timezone = new Date().getTimezoneOffset()
+  ) {
+    try {
+      // Also add domain validation here, just in case
+      if (
+        !domain ||
+        typeof domain !== "string" ||
+        domain.trim() === "" ||
+        typeof duration !== "number" ||
+        duration <= 0
+      ) {
+        console.warn(
+          `Skipping storeSessionLocally for domain '${domain}': Invalid domain (empty/not string) or non-positive duration (${duration}).`
+        );
+        return;
+      }
+
+      // Cap unrealistic session duration (max 12 hours per session)
+      const MAX_SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+      if (duration > MAX_SESSION_DURATION) {
+        console.warn(
+          `Capping extremely long local session duration for ${domain}: ${duration}ms -> ${MAX_SESSION_DURATION}ms`
+        );
         duration = MAX_SESSION_DURATION;
       }
 
       // Local date (previously UTC) for consistent aggregation with new logic
-      const currentDate = new Date(start - (new Date().getTimezoneOffset() * 60000))
+      const currentDate = new Date(
+        start - new Date().getTimezoneOffset() * 60000
+      )
         .toISOString()
-        .split('T')[0];
+        .split("T")[0];
       const { timeData = {} } = await chrome.storage.local.get(["timeData"]);
-      const effectiveCategory = category || this.siteCategories[domain] || "Other";
+      const effectiveCategory =
+        category || this.siteCategories[domain] || "Other";
 
       if (!timeData[currentDate]) timeData[currentDate] = {};
       if (!timeData[currentDate][domain]) {
@@ -339,7 +483,9 @@ class TimeTracker {
           category: effectiveCategory,
         };
       } else if (!Array.isArray(timeData[currentDate][domain].sessions)) {
-        console.warn(`Correcting corrupted 'sessions' data for ${domain} on ${currentDate}. It was not an array.`);
+        console.warn(
+          `Correcting corrupted 'sessions' data for ${domain} on ${currentDate}. It was not an array.`
+        );
         timeData[currentDate][domain].sessions = [];
       }
 
@@ -351,7 +497,9 @@ class TimeTracker {
       timeData[currentDate][domain].category = effectiveCategory;
 
       await chrome.storage.local.set({ timeData });
-      console.log(`Stored session locally for ${domain} on ${currentDate}, category: ${effectiveCategory}`);
+      console.log(
+        `Stored session locally for ${domain} on ${currentDate}, category: ${effectiveCategory}`
+      );
     } catch (error) {
       console.error("Error storing session locally:", error);
     }
@@ -367,10 +515,19 @@ class TimeTracker {
       const { domain, startTime } = sessionsToEnd[tabId];
       const duration = now - startTime;
       // Explicitly check for a valid domain before attempting to save
-      if (domain && typeof domain === 'string' && domain.trim() !== '' && duration > 0) {
+      if (
+        domain &&
+        typeof domain === "string" &&
+        domain.trim() !== "" &&
+        duration > 0
+      ) {
         await this.saveSession(domain, startTime, now, duration);
       } else {
-        console.log(`Skipping ending session for '${domain || '[EMPTY/INVALID DOMAIN]'}' (Tab ID: ${tabId}) due to invalid domain or non-positive duration: ${duration}`);
+        console.log(
+          `Skipping ending session for '${
+            domain || "[EMPTY/INVALID DOMAIN]"
+          }' (Tab ID: ${tabId}) due to invalid domain or non-positive duration: ${duration}`
+        );
       }
       delete this.activeSessions[tabId];
     }
@@ -381,10 +538,14 @@ class TimeTracker {
 
   async syncPendingData() {
     try {
-      const { timeData = {}, userEmail, tm_auth_token } = await chrome.storage.local.get([
+      const {
+        timeData = {},
+        userEmail,
+        tm_auth_token,
+      } = await chrome.storage.local.get([
         "timeData",
         "userEmail",
-        "tm_auth_token"
+        "tm_auth_token",
       ]);
 
       if (!userEmail || !tm_auth_token) {
@@ -402,8 +563,12 @@ class TimeTracker {
       const dataToSync = { ...timeData };
 
       for (const date in dataToSync) {
-        if (!dataToSync[date] || typeof dataToSync[date] !== 'object') {
-          console.warn(`Skipping malformed data for date: ${date}. Expected object, got ${typeof dataToSync[date]}`);
+        if (!dataToSync[date] || typeof dataToSync[date] !== "object") {
+          console.warn(
+            `Skipping malformed data for date: ${date}. Expected object, got ${typeof dataToSync[
+              date
+            ]}`
+          );
           delete dataToSync[date];
           continue;
         }
@@ -412,16 +577,27 @@ class TimeTracker {
           const entry = dataToSync[date][domain];
 
           // Enhanced validation for domain within local storage entries
-          if (!domain || typeof domain !== 'string' || domain.trim() === '' || !entry || !Array.isArray(entry.sessions)) {
+          if (
+            !domain ||
+            typeof domain !== "string" ||
+            domain.trim() === "" ||
+            !entry ||
+            !Array.isArray(entry.sessions)
+          ) {
             console.error(
-              `Sync skipped for date: ${date}, domain: '${domain || '[EMPTY/INVALID DOMAIN]' }'. Missing or invalid critical fields for entry. (domain: '${domain}', entry_exists: ${!!entry}, sessions_is_array: ${Array.isArray(entry?.sessions)}).`
+              `Sync skipped for date: ${date}, domain: '${
+                domain || "[EMPTY/INVALID DOMAIN]"
+              }'. Missing or invalid critical fields for entry. (domain: '${domain}', entry_exists: ${!!entry}, sessions_is_array: ${Array.isArray(
+                entry?.sessions
+              )}).`
             );
             // Delete the problematic entry so it doesn't keep causing errors
             delete dataToSync[date][domain];
             continue;
           }
 
-          const category = entry.category || this.siteCategories[domain] || "Other";
+          const category =
+            entry.category || this.siteCategories[domain] || "Other";
 
           const payload = {
             userEmail,
@@ -431,7 +607,10 @@ class TimeTracker {
             category,
           };
 
-          console.log(`Attempting to sync payload for ${domain} on ${date}:`, payload);
+          console.log(
+            `Attempting to sync payload for ${domain} on ${date}:`,
+            payload
+          );
 
           const response = await backendFetch("/api/time-data/sync", {
             method: "POST",
@@ -443,15 +622,26 @@ class TimeTracker {
             let responseBody;
             try {
               responseBody = await response.json();
-              console.log(`Successfully synced ${domain} on ${date}, category: ${category}. Response:`, responseBody);
+              console.log(
+                `Successfully synced ${domain} on ${date}, category: ${category}. Response:`,
+                responseBody
+              );
             } catch (jsonError) {
-              console.warn(`Response was successful but not JSON for ${domain} on ${date}:`, jsonError.message);
-              console.log(`Successfully synced ${domain} on ${date}, category: ${category}.`);
+              console.warn(
+                `Response was successful but not JSON for ${domain} on ${date}:`,
+                jsonError.message
+              );
+              console.log(
+                `Successfully synced ${domain} on ${date}, category: ${category}.`
+              );
             }
             delete dataToSync[date][domain]; // Remove successfully synced data
           } else {
             const errorText = await response.text();
-            console.error(`Sync failed for ${domain} on ${date}: ${response.status} - ${errorText}. Payload sent:`, payload);
+            console.error(
+              `Sync failed for ${domain} on ${date}: ${response.status} - ${errorText}. Payload sent:`,
+              payload
+            );
             // Keep the data in dataToSync so it can be retried later
           }
         }
@@ -461,7 +651,6 @@ class TimeTracker {
       }
       await chrome.storage.local.set({ timeData: dataToSync });
       console.log("Finished attempting to sync pending time data.");
-
     } catch (error) {
       console.error("Critical error in syncPendingData:", error);
     }
@@ -474,15 +663,40 @@ class TimeTracker {
     chrome.alarms.clear("endAllSessions");
     chrome.alarms.create("endAllSessions", { periodInMinutes: 15 });
 
-    chrome.alarms.onAlarm.addListener(alarm => {
+    // New: minute-level incremental flush so active tabs sync every ~1 minute
+    chrome.alarms.clear("activeFlush");
+    chrome.alarms.create("activeFlush", { periodInMinutes: 1 });
+
+    chrome.alarms.onAlarm.addListener((alarm) => {
       if (alarm.name === "periodicSync") {
         this.syncPendingData();
       } else if (alarm.name === "endAllSessions") {
         this.endAllSessions();
+      } else if (alarm.name === "activeFlush") {
+        this.flushActiveLongSessions();
       }
     });
 
     console.log("Periodic sync and end session alarms scheduled.");
+  }
+
+  async flushActiveLongSessions() {
+    const FLUSH_INTERVAL_MS = 60 * 1000; // 1 minute
+    const now = Date.now();
+    const entries = Object.entries(this.activeSessions);
+    if (!entries.length) return;
+    for (const [tabId, { domain, startTime }] of entries) {
+      if (!domain || typeof domain !== "string" || domain.trim() === "")
+        continue;
+      const elapsed = now - startTime;
+      if (elapsed >= FLUSH_INTERVAL_MS) {
+        // Flush this 1+ minute slice
+        await this.saveSession(domain, startTime, now, elapsed);
+        // Reset start time to now for continued accumulation
+        this.activeSessions[tabId].startTime = Date.now();
+      }
+    }
+    await chrome.storage.local.set({ activeSessions: this.activeSessions });
   }
 
   async saveSiteCategories() {
@@ -538,10 +752,19 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     const { domain, startTime } = tracker.activeSessions[tabIdStr];
     const duration = Date.now() - startTime;
     // Ensure domain is valid before attempting to save a session for a removed tab
-    if (domain && typeof domain === 'string' && domain.trim() !== '' && duration > 0) {
+    if (
+      domain &&
+      typeof domain === "string" &&
+      domain.trim() !== "" &&
+      duration > 0
+    ) {
       await tracker.saveSession(domain, startTime, Date.now(), duration);
     } else {
-      console.log(`Skipping ending session for removed tab ${tabIdStr} ('${domain || '[EMPTY/INVALID DOMAIN]'}') due to invalid domain or non-positive duration: ${duration}`);
+      console.log(
+        `Skipping ending session for removed tab ${tabIdStr} ('${
+          domain || "[EMPTY/INVALID DOMAIN]"
+        }') due to invalid domain or non-positive duration: ${duration}`
+      );
     }
     delete tracker.activeSessions[tabIdStr];
     await chrome.storage.local.set({ activeSessions: tracker.activeSessions });
@@ -560,7 +783,9 @@ chrome.idle.onStateChanged.addListener(async (state) => {
         console.log("Browser is active, resuming tracking for active tab.");
         tracker.handleTabChange(tabs[0]);
       } else {
-        console.log("Browser is active, but no active tab URL found to resume tracking.");
+        console.log(
+          "Browser is active, but no active tab URL found to resume tracking."
+        );
       }
     });
   }
@@ -570,14 +795,24 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   if (request.action === "updateCategory") {
     const { domain, category, userEmail, date } = request;
 
-    if (!domain || typeof domain !== 'string' || domain.trim() === '' || !category || !userEmail || !date) {
+    if (
+      !domain ||
+      typeof domain !== "string" ||
+      domain.trim() === "" ||
+      !category ||
+      !userEmail ||
+      !date
+    ) {
       console.error("Missing or invalid required fields for updateCategory:", {
         domain,
         category,
         userEmail,
         date,
       });
-      sendResponse({ status: "error", error: "Missing or invalid required fields" });
+      sendResponse({
+        status: "error",
+        error: "Missing or invalid required fields",
+      });
       return true;
     }
 
@@ -597,10 +832,10 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       sendResponse({ status: "success" });
 
       const payload = { userEmail, date, domain, category };
-      const response = await backendFetch('/api/time-data/category', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const response = await backendFetch("/api/time-data/category", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -635,28 +870,57 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     return true; // Indicates that sendResponse will be called asynchronously
   }
 
-  if (request.action === 'sendFeedback') {
+  if (request.action === "sendFeedback") {
     const { message, userEmail } = request;
     const base = await resolveBackendUrl();
     fetch(`${base}/api/feedback/store`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, userEmail })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, userEmail }),
     })
-      .then(r => r.json())
-      .then(data => sendResponse(data))
-      .catch(error => sendResponse({ status: 'error', error: error.message }));
+      .then((r) => r.json())
+      .then((data) => sendResponse(data))
+      .catch((error) =>
+        sendResponse({ status: "error", error: error.message })
+      );
     return true;
   }
 
-  if (request.action === 'forceFlushSessions') {
+  if (request.action === "forceFlushSessions") {
     try {
       await tracker.endAllSessions();
       await tracker.syncPendingData();
-      sendResponse({ status: 'flushed' });
+      sendResponse({ status: "flushed" });
     } catch (e) {
-      console.error('forceFlushSessions error:', e);
-      sendResponse({ status: 'error', error: e.message });
+      console.error("forceFlushSessions error:", e);
+      sendResponse({ status: "error", error: e.message });
+    }
+    return true;
+  }
+  if (request.action === "triggerImmediateSync") {
+    try {
+      console.log("Immediate sync requested after authentication");
+      await tracker.endAllSessions();
+      await tracker.syncPendingData();
+      sendResponse({ status: "synced" });
+    } catch (e) {
+      console.error("Immediate sync error:", e);
+      sendResponse({ status: "error", error: e.message });
+    }
+    return true;
+  }
+  if (request.action === "authSuccess") {
+    try {
+      // Clear badge when authenticated
+      if (chrome.action) {
+        chrome.action.setBadgeText({ text: "" });
+      }
+      // Perform immediate sync
+      await tracker.endAllSessions();
+      await tracker.syncPendingData();
+      sendResponse({ status: "ok" });
+    } catch (e) {
+      sendResponse({ status: "error", error: e.message });
     }
     return true;
   }

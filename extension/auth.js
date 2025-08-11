@@ -303,6 +303,8 @@ async function login(email, password) {
     // Store auth token using unified helper
     if (data.token) {
       await TokenStorage.setToken(data.token, email);
+  // Trigger immediate sync of any locally buffered sessions now that token exists
+  try { chrome.runtime.sendMessage({ action: 'triggerImmediateSync' }); } catch(_) {}
       return true;
     }
     
@@ -343,6 +345,9 @@ async function signup(email, password, isMigration = false) {
     // Store auth token using unified helper
     if (data.token) {
       await TokenStorage.setToken(data.token, email);
+  try { chrome.runtime.sendMessage({ action: 'triggerImmediateSync' }); } catch(_) {}
+  try { chrome.runtime.sendMessage({ action: 'authSuccess' }); } catch(_) {}
+  try { chrome.runtime.sendMessage({ action: 'authSuccess' }); } catch(_) {}
       return true;
     }
     

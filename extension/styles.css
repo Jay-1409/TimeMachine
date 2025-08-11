@@ -444,6 +444,14 @@ body.theme-forest .tabs { background: var(--bg-secondary-forest); }
   transition: var(--transition);
   position: relative;
   overflow: hidden;
+.icon-btn.spinning svg {
+  animation: tm-rotate 0.9s linear infinite;
+}
+
+@keyframes tm-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 }
 
 body.theme-light .tab-btn { color: var(--text-secondary-light); }
@@ -832,6 +840,58 @@ body.theme-forest .score-badge { background: linear-gradient(45deg, var(--accent
   transform: scale(1.05); 
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
+
+/* Quick Insights Grid */
+.quick-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(120px,1fr));
+  gap: 8px 10px;
+  margin-bottom: 14px;
+  margin-top: -4px;
+}
+
+.qi-card {
+  background: rgba(0,0,0,0.04);
+  padding: 10px 12px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+  min-height: 72px;
+  animation: fadeIn 0.4s ease;
+}
+body.theme-dark .qi-card { background: rgba(255,255,255,0.05); }
+body.theme-cyberpunk .qi-card { background: rgba(0,255,159,0.08); border: 1px solid rgba(0,255,159,0.25); }
+body.theme-sunset .qi-card { background: rgba(255,210,63,0.15); }
+body.theme-forest .qi-card { background: rgba(40,167,69,0.15); }
+
+.qi-card.wide { grid-column: span 2; }
+
+.qi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+  font-weight: 600;
+}
+
+.qi-value {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.1;
+  word-break: break-word;
+}
+.qi-value.small { font-size: 13px; font-weight: 600; }
+
+.qi-sub {
+  font-size: 11px;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
+.qi-empty { font-size: 12px; opacity: 0.7; }
 
 /* Settings */
 .settings-group {

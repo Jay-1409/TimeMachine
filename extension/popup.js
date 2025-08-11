@@ -329,10 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.emailServiceSelect.addEventListener("change", handleEmailServiceChange);
     elements.saveEmailConfig.addEventListener("click", saveEmailConfiguration);
     elements.pomodoroToggle?.addEventListener('click', togglePomodoro);
-    const refreshBtn = document.getElementById('refreshDataBtn');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', manualRefresh);
-    }
+  // Manual refresh button removed; background auto-flush keeps data fresh
     
     // Navigation between main tabs
     elements.settingsBtn?.addEventListener("click", () => {
@@ -358,30 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  async function manualRefresh() {
-    try {
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
-      if (!userEmail) return showFeedback('Set email first', true);
-      const backend = await resolveBackendUrl();
-      const today = new Date().toISOString().split('T')[0];
-      // Ask background to end current active sessions quickly so latest durations are included
-      chrome.runtime.sendMessage({ action: 'forceFlushSessions' }, () => {});
-      const { token } = await TokenStorage.getToken();
-      const resp = await fetch(`${backend}/api/time-data/refresh/${encodeURIComponent(userEmail)}?date=${today}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
-      });
-      if (!resp.ok) throw new Error('Refresh failed');
-      // Re-render full stats for selected tab (may be daily/weekly/monthly)
-      await loadStats();
-      showFeedback('Data refreshed');
-    } catch (e) {
-      console.error('Manual refresh error:', e);
-      showError('Failed to refresh: ' + e.message);
-    }
-  }
+  // manualRefresh removed
 
   function toggleThemeDropdown() {
     elements.themeDropdown.classList.toggle("hidden");
@@ -1055,9 +1029,16 @@ Sent via TimeMachine Extension`;
         : "bg-red-500"
     }`;
 
-    const sortedDomainTimes = Object.entries(domainTimes).sort(
-      (a, b) => b[1].time - a[1].time
-    );
+    const sortedDomainTimes = Object.entries(domainTimes).sort((a, b) => b[1].time - a[1].time);
+
+    // Build quick insights summary
+    buildQuickInsights({
+      totalTime,
+      productivityScore,
+      categoryData,
+      sortedDomainTimes,
+      timeframe: currentSubTab
+    });
 
     elements.siteList.innerHTML = sortedDomainTimes
       .map(
@@ -1132,6 +1113,55 @@ Sent via TimeMachine Extension`;
         await updateSiteCategory(domain, newCategory);
       });
     });
+  }
+
+  function buildQuickInsights({ totalTime, productivityScore, categoryData, sortedDomainTimes, timeframe }) {
+    const container = document.getElementById('quickInsights');
+    if (!container) return;
+    if (!totalTime) {
+      container.innerHTML = '<div class="qi-empty">No activity yet</div>';
+      return;
+    }
+    const topEntry = sortedDomainTimes[0];
+    const secondEntry = sortedDomainTimes[1];
+    const topPct = topEntry ? ((topEntry[1].time / totalTime) * 100).toFixed(1) : 0;
+    const secondPct = secondEntry ? ((secondEntry[1].time / totalTime) * 100).toFixed(1) : 0;
+    const focusTime = (categoryData.Work + categoryData.Professional);
+    const focusPct = totalTime ? ((focusTime/ totalTime) * 100).toFixed(1) : 0;
+    const leisureTime = categoryData.Entertainment + categoryData.Social;
+    const leisurePct = totalTime ? ((leisureTime / totalTime) * 100).toFixed(1) : 0;
+    // Balance score (ideal focus 55-70%) -> penalty away from midpoint 62.5
+    let balanceScore = 100 - Math.min(100, Math.abs(62.5 - parseFloat(focusPct || '0')) * 2.4);
+    balanceScore = Math.max(0, Math.min(100, Math.round(balanceScore)));
+    const dominance = topPct >= 50 ? `${topEntry[0]} dominates (${topPct}%)` : topPct>=35? `High concentration on ${topEntry[0]}` : 'Balanced domain usage';
+    const trendMsg = productivityScore >= 75 ? 'High productivity' : productivityScore >= 50 ? 'Moderate productivity' : 'Low productivity';
+    const categoryBreak = Object.entries(categoryData).filter(([_,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,v])=> `${c} ${(v/totalTime*100).toFixed(1)}%`).join(', ');
+    container.innerHTML = `
+      <div class="qi-card">
+        <div class="qi-label">Top Site</div>
+        <div class="qi-value">${topEntry ? topEntry[0] : '—'}</div>
+        <div class="qi-sub">${topPct}%${secondEntry? ` · Next ${secondPct}%`:''}</div>
+      </div>
+      <div class="qi-card">
+        <div class="qi-label">Focus Time</div>
+        <div class="qi-value">${formatDuration(focusTime)}</div>
+        <div class="qi-sub">${focusPct}% (Work+Prof)</div>
+      </div>
+      <div class="qi-card">
+        <div class="qi-label">Leisure</div>
+        <div class="qi-value">${formatDuration(leisureTime)}</div>
+        <div class="qi-sub">${leisurePct}% Social+Ent</div>
+      </div>
+      <div class="qi-card">
+        <div class="qi-label">Balance</div>
+        <div class="qi-value">${balanceScore}</div>
+        <div class="qi-sub">${trendMsg}</div>
+      </div>
+      <div class="qi-card wide">
+        <div class="qi-label">Category Mix</div>
+        <div class="qi-value small">${categoryBreak || '—'}</div>
+        <div class="qi-sub">${dominance}</div>
+      </div>`;
   }
 
   async function updateSiteCategory(domain, category) {

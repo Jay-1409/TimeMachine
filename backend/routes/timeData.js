@@ -157,6 +157,19 @@ router.get('/refresh/:userEmail', async (req, res) => {
   }
 });
 
+// Debug: recent documents (limit 10) - NOT for production permanently
+router.get('/debug/recent/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+    if (!userEmail) return res.status(400).json({ error: 'User email is required' });
+    const docs = await TimeData.find({ userEmail }).sort({ updatedAt: -1 }).limit(10).lean();
+    res.json({ count: docs.length, docs });
+  } catch (e) {
+    console.error('debug recent error:', e);
+    res.status(500).json({ error: 'Failed debug fetch', details: e.message });
+  }
+});
+
 router.patch("/category", async (req, res) => {
   const { userEmail, date, domain, category } = req.body;
 
