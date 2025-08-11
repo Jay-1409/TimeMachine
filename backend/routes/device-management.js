@@ -68,7 +68,8 @@ function getDeviceInfo(req) {
   else if (userAgent.includes('Android')) os = 'Android';
   else if (userAgent.includes('iOS')) os = 'iOS';
   
-  // Determine device type
+  // Determine device type - ensure it matches the enum in User-secure.js model
+  // Valid values: ['desktop', 'laptop', 'mobile', 'tablet', 'other']
   let deviceType = 'desktop';
   if (userAgent.includes('Mobile')) deviceType = 'mobile';
   else if (userAgent.includes('Tablet')) deviceType = 'tablet';

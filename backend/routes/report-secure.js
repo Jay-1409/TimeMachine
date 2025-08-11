@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const TimeData = require("../models/TimeData");
 const PDFDocument = require("pdfkit");
-const QuickChart = require("quickchart-js");
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 

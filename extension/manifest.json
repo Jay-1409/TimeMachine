@@ -41,7 +41,7 @@
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 https://timemachine-1.onrender.com https://api.emailjs.com"
   },
   "web_accessible_resources": [{
-    "resources": ["chart.min.js", "report-scheduler.js", "device-authentication.js", "verification-modal.css", "../User_Guide.html"],
+    "resources": ["chart.min.js", "report-scheduler.js", "../User_Guide.html"],
     "matches": ["<all_urls>"]
   }],
   "icons": {

@@ -143,6 +143,8 @@ document.addEventListener("DOMContentLoaded", () => {
     emailPrompt: document.getElementById("emailPrompt"),
     mainApp: document.getElementById("mainApp"),
     userEmailInput: document.getElementById("userEmailInput"),
+    userPasswordInput: document.getElementById("userPasswordInput"),
+    toggleAuthMode: document.getElementById("toggleAuthMode"),
     saveEmailBtn: document.getElementById("saveEmailBtn"),
     emailError: document.getElementById("emailError"),
     errorDisplay: document.getElementById("errorDisplay"),
@@ -203,12 +205,11 @@ document.addEventListener("DOMContentLoaded", () => {
   initEmailPrompt();
   setupEventListeners();
   
-  // Initialize device authentication
-  if (typeof DeviceAuth !== 'undefined') {
-    DeviceAuth.init();
-    console.log('Device authentication initialized');
+  // Initialize authentication
+  if (typeof Auth !== 'undefined') {
+    console.log('Authentication system initialized');
   } else {
-    console.warn('DeviceAuth not found. Device authentication will not be available.');
+    console.warn('Auth not found. Authentication will not be available.');
   }
   
   // Initialize report scheduler
@@ -246,6 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setupEventListeners() {
     elements.saveEmailBtn.addEventListener("click", saveEmail);
+    elements.toggleAuthMode.addEventListener("click", toggleAuthMode);
     elements.toggleThemeBtn.addEventListener("click", toggleThemeDropdown);
     elements.themeOptions.forEach(option => {
       option.addEventListener("click", () => selectTheme(option.dataset.theme));
@@ -409,20 +411,74 @@ document.addEventListener("DOMContentLoaded", () => {
       elements.updateNotification.classList.add("hidden");
     }
   }
+  
+  function toggleAuthMode() {
+    const isCurrentlyLogin = elements.saveEmailBtn.textContent === "Sign In";
+    
+    // Toggle button text and header
+    elements.saveEmailBtn.textContent = isCurrentlyLogin ? "Create Account" : "Sign In";
+    
+    // Toggle helper text
+    elements.toggleAuthMode.textContent = isCurrentlyLogin 
+      ? "Already have an account? Sign in" 
+      : "Don't have an account? Sign up";
+    
+    // Clear inputs and error
+    elements.emailError.classList.add("hidden");
+    elements.userPasswordInput.value = "";
+  }
 
   async function saveEmail() {
     const email = elements.userEmailInput.value.trim();
+    const password = elements.userPasswordInput.value;
+    const isSignupMode = elements.saveEmailBtn.textContent === "Create Account";
+    
     if (!validateEmail(email)) {
       showError("Please enter a valid email", elements.emailError);
       return;
     }
+    
+    if (!password) {
+      showError("Please enter your password", elements.emailError);
+      return;
+    }
 
     try {
-      // First verify this device for the email
-      const isVerified = await DeviceAuth.verifyDevice(email);
-      if (!isVerified) {
-        showError("Device verification required to continue", elements.emailError);
-        return;
+      elements.saveEmailBtn.disabled = true;
+      elements.saveEmailBtn.textContent = isSignupMode ? "Creating Account..." : "Signing In...";
+      
+      // Check if it's an existing user from the old system
+      const backendUrl = await resolveBackendUrl();
+      const checkResponse = await fetch(`${backendUrl}/api/user/check-email?email=${encodeURIComponent(email)}`);
+      const userData = await checkResponse.json();
+      
+      let success = false;
+      
+      // If user exists but doesn't have a password, handle migration
+      if (userData.exists && !userData.hasPassword && !isSignupMode) {
+        // Automatically switch to signup mode for existing users without passwords
+        const confirmMigrate = confirm(
+          "Your account was created with the old system and needs to be migrated. " +
+          "Would you like to set up a password for your account now?"
+        );
+        
+        if (confirmMigrate) {
+          // Use signup to set password for existing account
+          success = await Auth.signup(email, password, true); // true = migration mode
+        } else {
+          throw new Error("Account migration required");
+        }
+      } else {
+        // Normal authentication flow
+        success = isSignupMode 
+          ? await Auth.signup(email, password)
+          : await Auth.login(email, password);
+      }
+        
+      if (!success) {
+        throw new Error(isSignupMode 
+          ? "Could not create account. Try a different email." 
+          : "Invalid email or password");
       }
       
       const backend = await resolveBackendUrl();
@@ -430,7 +486,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "X-Device-ID": DeviceAuth.getDeviceId() // Include device ID in request
+          "X-Device-ID": Auth.getDeviceId() // Include device ID in request
         },
         body: JSON.stringify({ email }),
       });
@@ -443,12 +499,15 @@ document.addEventListener("DOMContentLoaded", () => {
       await chrome.storage.local.set({ userEmail: email });
       elements.emailPrompt.classList.add("hidden");
       elements.mainApp.classList.remove("hidden");
-      showFeedback("Email saved successfully!");
+      showFeedback(isSignupMode ? "Account created successfully!" : "Signed in successfully!");
       updateEmailUI(email);
       switchMainTab("insights");
     } catch (error) {
-      console.error("Error saving email:", error);
+      console.error("Error during authentication:", error);
       showError(error.message, elements.emailError);
+    } finally {
+      elements.saveEmailBtn.disabled = false;
+      elements.saveEmailBtn.textContent = isSignupMode ? "Create Account" : "Sign In";
     }
   }
 
@@ -460,13 +519,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      // First verify this device for the email if it's different from the current email
-      const currentEmail = await chrome.storage.local.get(['userEmail']).then(data => data.userEmail);
-      
-      if (email !== currentEmail) {
-        const isVerified = await DeviceAuth.verifyDevice(email);
-        if (!isVerified) {
-          showError("Device verification required to update email");
+      // Verify authentication for the user
+      const isAuthenticated = await Auth.isAuthenticated();
+      if (!isAuthenticated) {
+        // Show login UI
+        const authSuccess = await Auth.authenticateUser();
+        if (!authSuccess) {
+          showError("Authentication required to update email");
           return;
         }
       }
@@ -476,7 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "X-Device-ID": DeviceAuth.getDeviceId() // Include device ID in request
+          "X-Device-ID": Auth.getDeviceId() // Include device ID in request
         },
         body: JSON.stringify({ email }),
       });
@@ -535,7 +594,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const today = new Date().toISOString().split('T')[0];
     
     // Get the device ID for authentication
-    const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+    const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
     
     const res = await fetch(`${backend}/api/report/generate`, { 
       method:'POST', 
@@ -667,7 +726,7 @@ Sent via TimeMachine Extension`;
       const backend = await resolveBackendUrl();
       const today = new Date().toISOString().split('T')[0];
       // Get the device ID for authentication
-      const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
       
       const res = await fetch(`${backend}/api/report/generate`, {
         method: 'POST', 
@@ -712,7 +771,7 @@ Sent via TimeMachine Extension`;
       const backend = await resolveBackendUrl();
       
       // Get the device ID for authentication
-      const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
       
       const res = await fetch(`${backend}/api/feedback/store`, {
         method: 'POST',
@@ -775,8 +834,12 @@ Sent via TimeMachine Extension`;
 
   async function initEmailPrompt() {
     try {
+      // Check if already authenticated
+      const isAuthenticated = await Auth.isAuthenticated();
       const { userEmail, emailConfig } = await chrome.storage.local.get(["userEmail", "emailConfig"]);
-      if (userEmail && validateEmail(userEmail)) {
+      
+      if (isAuthenticated && userEmail && validateEmail(userEmail)) {
+        // User is already authenticated and has email set
         elements.emailPrompt.classList.add("hidden");
         elements.mainApp.classList.remove("hidden");
         updateEmailUI(userEmail);
@@ -784,12 +847,13 @@ Sent via TimeMachine Extension`;
         switchMainTab("insights");
         checkForUpdates(); // Check for updates when app loads
       } else {
+        // User needs to authenticate
         elements.emailPrompt.classList.remove("hidden");
         elements.mainApp.classList.add("hidden");
       }
     } catch (error) {
       console.error("Error initializing email prompt:", error);
-      showError("Error checking email");
+      showError("Error checking authentication state");
     }
   }
 
@@ -858,7 +922,7 @@ Sent via TimeMachine Extension`;
       const { startDate, endDate, timezone } = getDateRangeForTab(currentSubTab);
       
       // Get the device ID for authentication
-      const deviceId = typeof DeviceAuth !== 'undefined' ? DeviceAuth.getDeviceId() : null;
+      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
       
       const response = await fetch(
         `${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${startDate}&endDate=${endDate}&timezone=${timezone}`,

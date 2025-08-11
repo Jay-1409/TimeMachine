@@ -7,10 +7,10 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="scroll.css" />
     <link rel="stylesheet" href="report-scheduler.css" />
-    <link rel="stylesheet" href="verification-modal.css" />
+    <link rel="stylesheet" href="authentication.css" />
     <script src="chart.min.js"></script>
     <script src="config.js"></script>
-    <script src="device-authentication.js"></script>
+    <script src="auth.js"></script>
     <script type="module" src="popup.js" defer></script>
   </head>
   <body class="theme-light">
@@ -20,15 +20,28 @@
           <img src="icon48.png" alt="TimeMachine Logo" class="splash-logo" />
         </div>
         <h1>Welcome to TimeMachine</h1>
-        <p>Enter your email to start tracking your productivity</p>
-        <input
-          id="userEmailInput"
-          type="email"
-          placeholder="Enter your email"
-          class="w-full p-2 rounded border"
-        />
-        <p id="emailError" class="error-text hidden"></p>
-        <button id="saveEmailBtn" class="btn primary">Save & Continue</button>
+        <p>Sign in to track your productivity</p>
+        <div class="input-group">
+          <input
+            id="userEmailInput"
+            type="email"
+            placeholder="Enter your email"
+            class="auth-input"
+          />
+        </div>
+        <div class="input-group">
+          <input
+            id="userPasswordInput"
+            type="password"
+            placeholder="Enter your password"
+            class="auth-input"
+          />
+        </div>
+        <p id="emailError" class="auth-error"></p>
+        <button id="saveEmailBtn" class="btn primary">Sign In <span class="btn-icon">→</span></button>
+        <div class="auth-toggle-container">
+          <button id="toggleAuthMode" class="auth-toggle-link">Don't have an account? Sign up</button>
+        </div>
       </div>
     </div>
 

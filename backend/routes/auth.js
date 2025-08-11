@@ -3,7 +3,6 @@ const router = express.Router();
 const User = require('../models/User-secure');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 
 // Generate a random 6-digit code
 function generateVerificationCode() {
@@ -47,14 +46,8 @@ function getDeviceInfo(req) {
   };
 }
 
-// Configure email transporter (setup with environment variables)
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-});
+// We're not using email service anymore
+console.log('Email service is disabled - using direct authentication instead');
 
 /**
  * Request email verification code - first step of authentication
@@ -78,22 +71,11 @@ router.post('/request-verification', async (req, res) => {
       expires: expirationTime
     });
     
-    // Send email with verification code
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'TimeMachine Verification Code',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #3b82f6;">TimeMachine Verification</h2>
-          <p>Your verification code is: <strong style="font-size: 24px;">${verificationCode}</strong></p>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you did not request this code, please ignore this email.</p>
-        </div>
-      `
-    };
-    
-    await transporter.sendMail(mailOptions);
+    // Log verification code instead of sending email
+    console.log('====== VERIFICATION CODE ======');
+    console.log(`Email: ${email}`);
+    console.log(`Code: ${verificationCode}`);
+    console.log('==============================');
     
     // Don't reveal whether the email exists in our database yet
     res.json({ 
@@ -172,31 +154,15 @@ router.post('/verify', async (req, res) => {
       { expiresIn: '7d' }
     );
     
-    // If this is a new device, send notification email
+    // Log device login information instead of sending email
     if (isNewDevice && user.devices.length > 1) {
-      try {
-        const mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: 'TimeMachine New Device Login',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #3b82f6;">TimeMachine Security Alert</h2>
-              <p>A new device has logged into your TimeMachine account.</p>
-              <p><strong>Device:</strong> ${deviceInfo.deviceName}</p>
-              <p><strong>Browser:</strong> ${deviceInfo.browser}</p>
-              <p><strong>Operating System:</strong> ${deviceInfo.operatingSystem}</p>
-              <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-              <p>If this wasn't you, please deactivate this device immediately from your account settings.</p>
-            </div>
-          `
-        };
-        
-        await transporter.sendMail(mailOptions);
-      } catch (emailError) {
-        console.error('Failed to send device notification email:', emailError);
-        // Continue even if email fails
-      }
+      console.log('====== NEW DEVICE LOGIN ======');
+      console.log(`Email: ${email}`);
+      console.log(`Device: ${deviceInfo.deviceName}`);
+      console.log(`Browser: ${deviceInfo.browser}`);
+      console.log(`OS: ${deviceInfo.operatingSystem}`);
+      console.log(`Time: ${new Date().toLocaleString()}`);
+      console.log('==============================');
     }
     
     // Return the token and masked user info

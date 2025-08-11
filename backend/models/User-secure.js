@@ -84,6 +84,21 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // Password for authentication (hashed)
+  password: {
+    type: String,
+    select: false // Don't include in query results by default
+  },
+  // Password reset token
+  resetToken: {
+    type: String,
+    select: false
+  },
+  // Reset token expiry time
+  resetTokenExpires: {
+    type: Date,
+    select: false
+  },
   settings: {
     receiveReports: {
       type: Boolean,

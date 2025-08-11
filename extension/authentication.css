@@ -1,5 +1,5 @@
-/* Verification Modal Styles */
-.verification-modal {
+/* Authentication Modal Styles */
+.auth-modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -10,150 +10,156 @@
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(5px);
 }
 
-.verification-content {
-  border-radius: var(--radius, 8px);
-  padding: 24px;
+.auth-content {
+  border-radius: var(--radius, 10px);
+  padding: 28px;
   width: 90%;
-  max-width: 400px;
+  max-width: 360px;
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
-/* Theme-specific styles */
-body.theme-light .verification-content {
+/* Theme-specific styles (reusing verification-modal styles) */
+body.theme-light .auth-content {
   background-color: var(--bg-card-light);
   color: var(--text-primary-light);
   border: 1px solid var(--border-light);
   box-shadow: var(--shadow-light);
 }
 
-body.theme-dark .verification-content {
+body.theme-dark .auth-content {
   background-color: var(--bg-card-dark);
   color: var(--text-primary-dark);
   border: 1px solid var(--border-dark);
   box-shadow: var(--shadow-dark);
 }
 
-body.theme-cyberpunk .verification-content {
+body.theme-cyberpunk .auth-content {
   background-color: var(--bg-card-cyberpunk);
   color: var(--text-primary-cyberpunk);
   border: 1px solid var(--border-cyberpunk);
   box-shadow: var(--shadow-cyberpunk);
 }
 
-body.theme-minimal .verification-content {
+body.theme-minimal .auth-content {
   background-color: var(--bg-card-minimal);
   color: var(--text-primary-minimal);
   border: 1px solid var(--border-minimal);
   box-shadow: var(--shadow-minimal);
 }
 
-body.theme-ocean .verification-content {
+body.theme-ocean .auth-content {
   background-color: var(--bg-card-ocean);
   color: var(--text-primary-ocean);
   border: 1px solid var(--border-ocean);
   box-shadow: var(--shadow-ocean);
 }
 
-body.theme-sunset .verification-content {
+body.theme-sunset .auth-content {
   background-color: var(--bg-card-sunset);
   color: var(--text-primary-sunset);
   border: 1px solid var(--border-sunset);
   box-shadow: var(--shadow-sunset);
 }
 
-body.theme-forest .verification-content {
+body.theme-forest .auth-content {
   background-color: var(--bg-card-forest);
   color: var(--text-primary-forest);
   border: 1px solid var(--border-forest);
   box-shadow: var(--shadow-forest);
 }
 
-.verification-title {
+.auth-title {
   margin: 0 0 16px 0;
   text-align: center;
   font-weight: bold;
   font-size: 1.2rem;
 }
 
-.verification-text {
+.auth-text {
   margin-bottom: 20px;
   line-height: 1.5;
   font-size: 14px;
+  text-align: center;
 }
 
-.verification-input {
+.auth-input {
   width: 100%;
-  padding: 10px;
-  margin-bottom: 16px;
-  border-radius: 4px;
-  font-size: 16px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  font-size: 14px;
   box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
   outline: none;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  font-weight: 500;
 }
 
 /* Theme-specific input styles */
-body.theme-light .verification-input {
+body.theme-light .auth-input {
   border: 1px solid var(--border-light);
   background-color: var(--bg-input-light);
   color: var(--text-primary-light);
 }
 
-body.theme-dark .verification-input {
+body.theme-dark .auth-input {
   border: 1px solid var(--border-dark);
   background-color: var(--bg-input-dark);
   color: var(--text-primary-dark);
 }
 
-body.theme-cyberpunk .verification-input {
+body.theme-cyberpunk .auth-input {
   border: 1px solid var(--accent-cyberpunk);
   background-color: var(--bg-input-cyberpunk);
   color: var(--text-primary-cyberpunk);
   box-shadow: 0 0 5px var(--accent-cyberpunk);
 }
 
-body.theme-minimal .verification-input {
+body.theme-minimal .auth-input {
   border: 1px solid var(--border-minimal);
   background-color: var(--bg-input-minimal);
   color: var(--text-primary-minimal);
 }
 
-body.theme-ocean .verification-input {
+body.theme-ocean .auth-input {
   border: 1px solid var(--border-ocean);
   background-color: var(--bg-input-ocean);
   color: var(--text-primary-ocean);
 }
 
-body.theme-sunset .verification-input {
+body.theme-sunset .auth-input {
   border: 1px solid var(--border-sunset);
   background-color: var(--bg-input-sunset);
   color: var(--text-primary-sunset);
 }
 
-body.theme-forest .verification-input {
+body.theme-forest .auth-input {
   border: 1px solid var(--border-forest);
   background-color: var(--bg-input-forest);
   color: var(--text-primary-forest);
 }
 
 /* Focus states for input */
-body.theme-light .verification-input:focus {
+body.theme-light .auth-input:focus {
   border-color: var(--accent-light);
   outline: none;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
 }
 
-body.theme-dark .verification-input:focus {
+body.theme-dark .auth-input:focus {
   border-color: var(--accent-dark);
   outline: none;
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
 }
 
-body.theme-cyberpunk .verification-input:focus {
+body.theme-cyberpunk .auth-input:focus {
   border-color: var(--accent-cyberpunk);
   background-color: rgba(0, 0, 0, 0.2);
   color: var(--text-primary-cyberpunk);
@@ -161,37 +167,37 @@ body.theme-cyberpunk .verification-input:focus {
   text-shadow: 0 0 3px var(--accent-cyberpunk);
 }
 
-body.theme-minimal .verification-input:focus {
+body.theme-minimal .auth-input:focus {
   border-color: var(--accent-minimal);
   outline: none;
   box-shadow: var(--shadow-md-minimal);
 }
 
-body.theme-ocean .verification-input:focus {
+body.theme-ocean .auth-input:focus {
   border-color: var(--accent-ocean);
   outline: none;
   box-shadow: 0 0 0 3px rgba(0, 204, 255, 0.3);
 }
 
-body.theme-sunset .verification-input:focus {
+body.theme-sunset .auth-input:focus {
   border-color: var(--accent-sunset);
   outline: none;
   box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.3);
 }
 
-body.theme-forest .verification-input:focus {
+body.theme-forest .auth-input:focus {
   border-color: var(--accent-forest);
   outline: none;
   box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
 }
 
-.verification-button-container {
+.auth-button-container {
   display: flex;
   justify-content: space-between;
   gap: 10px;
 }
 
-.verification-button-container .btn {
+.auth-button-container .btn {
   flex: 1;
   padding: 10px 16px;
   border-radius: var(--radius-sm, 4px);
@@ -202,239 +208,156 @@ body.theme-forest .verification-input:focus {
   overflow: hidden;
 }
 
-/* Button hover ripple effect */
-.verification-button-container .btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.4s ease, height 0.4s ease;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.verification-button-container .btn:hover::after {
-  width: 200%;
-  height: 200%;
-}
-
-.verification-button-container .btn:hover {
-  transform: translateY(-2px);
-}
-
-/* Theme-specific button styles */
-body.theme-light .verification-button-container .primary {
+/* Theme-specific button styles (reusing verification-modal styles) */
+body.theme-light .auth-button-container .primary {
   background-color: var(--accent-light);
   color: white;
   border: none;
 }
 
-body.theme-light .verification-button-container .secondary {
+body.theme-light .auth-button-container .secondary {
   background-color: transparent;
   color: var(--text-secondary-light);
   border: 1px solid var(--border-light);
 }
 
-body.theme-dark .verification-button-container .primary {
+body.theme-dark .auth-button-container .primary {
   background-color: var(--accent-dark);
   color: white;
   border: none;
 }
 
-body.theme-dark .verification-button-container .secondary {
+body.theme-dark .auth-button-container .secondary {
   background-color: transparent;
   color: var(--text-secondary-dark);
   border: 1px solid var(--border-dark);
 }
 
-body.theme-cyberpunk .verification-button-container .primary {
+body.theme-cyberpunk .auth-button-container .primary {
   background-color: var(--accent-cyberpunk);
   color: black;
   border: none;
   text-shadow: 0 0 5px var(--accent-cyberpunk);
 }
 
-body.theme-cyberpunk .verification-button-container .secondary {
+body.theme-cyberpunk .auth-button-container .secondary {
   background-color: transparent;
   color: var(--text-primary-cyberpunk);
   border: 1px solid var(--accent-cyberpunk);
   box-shadow: 0 0 5px var(--accent-cyberpunk);
 }
 
-body.theme-minimal .verification-button-container .primary {
+body.theme-minimal .auth-button-container .primary {
   background-color: var(--accent-minimal);
   color: white;
   border: none;
   border-radius: 0;
 }
 
-body.theme-minimal .verification-button-container .secondary {
+body.theme-minimal .auth-button-container .secondary {
   background-color: transparent;
   color: var(--text-primary-minimal);
   border: 1px solid var(--border-minimal);
   border-radius: 0;
 }
 
-body.theme-ocean .verification-button-container .primary {
+body.theme-ocean .auth-button-container .primary {
   background-color: var(--accent-ocean);
   color: white;
   border: none;
 }
 
-body.theme-ocean .verification-button-container .secondary {
+body.theme-ocean .auth-button-container .secondary {
   background-color: transparent;
   color: var(--text-primary-ocean);
   border: 1px solid var(--border-ocean);
 }
 
-body.theme-sunset .verification-button-container .primary {
+body.theme-sunset .auth-button-container .primary {
   background-color: var(--accent-sunset);
   color: white;
   border: none;
 }
 
-body.theme-sunset .verification-button-container .secondary {
+body.theme-sunset .auth-button-container .secondary {
   background-color: transparent;
   color: var(--text-primary-sunset);
   border: 1px solid var(--border-sunset);
 }
 
-body.theme-forest .verification-button-container .primary {
+body.theme-forest .auth-button-container .primary {
   background-color: var(--accent-forest);
   color: white;
   border: none;
 }
 
-body.theme-forest .verification-button-container .secondary {
+body.theme-forest .auth-button-container .secondary {
   background-color: transparent;
   color: var(--text-primary-forest);
   border: 1px solid var(--border-forest);
 }
 
-/* Button disabled state */
-.verification-button-container .btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.verification-error {
-  font-size: 14px;
-  margin-bottom: 16px;
+.auth-error {
+  font-size: 13px;
+  margin: 8px 0;
   display: none;
   font-weight: 500;
   text-align: center;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid #ef4444;
+  color: #ef4444;
+  width: 100%;
+  animation: fadeIn 0.3s ease;
 }
 
-.verification-notice {
-  font-size: 16px;
-  margin: 10px 0 20px;
-  padding: 12px;
-  text-align: center;
-  border-radius: 4px;
-  letter-spacing: 2px;
-  font-family: monospace;
-}
-
-/* Theme-specific error and notice styles */
-body.theme-light .verification-error {
+/* Theme-specific error styles */
+body.theme-light .auth-error {
   color: #ef4444;
   background-color: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-body.theme-light .verification-notice {
-  color: var(--accent-light);
-  background-color: rgba(37, 99, 235, 0.1);
-  border: 1px solid rgba(37, 99, 235, 0.3);
-}
-
-body.theme-dark .verification-error {
+body.theme-dark .auth-error {
   color: #f87171;
   background-color: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
-body.theme-dark .verification-notice {
-  color: var(--accent-dark);
-  background-color: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-}
-
-body.theme-cyberpunk .verification-error {
+body.theme-cyberpunk .auth-error {
   color: #ff00ff;
   background-color: rgba(255, 0, 255, 0.1);
   border: 1px solid #ff00ff;
   text-shadow: 0 0 5px #ff00ff;
 }
 
-body.theme-cyberpunk .verification-notice {
-  color: var(--accent-cyberpunk);
-  background-color: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--accent-cyberpunk);
-  text-shadow: 0 0 5px var(--accent-cyberpunk);
-  box-shadow: 0 0 10px rgba(255, 0, 128, 0.5);
-}
-
-body.theme-minimal .verification-error {
+body.theme-minimal .auth-error {
   color: #000000;
   background-color: rgba(0, 0, 0, 0.05);
   border: 1px solid #000000;
   border-radius: 0;
 }
 
-body.theme-minimal .verification-notice {
-  color: var(--accent-minimal);
-  background-color: rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--accent-minimal);
-  border-radius: 0;
-}
-
-body.theme-ocean .verification-error {
+body.theme-ocean .auth-error {
   color: #ef4444;
   background-color: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-body.theme-ocean .verification-notice {
-  color: var(--accent-ocean);
-  background-color: rgba(0, 204, 255, 0.1);
-  border: 1px solid rgba(0, 204, 255, 0.3);
-}
-
-body.theme-sunset .verification-error {
+body.theme-sunset .auth-error {
   color: #b91c1c;
   background-color: rgba(185, 28, 28, 0.1);
   border: 1px solid rgba(185, 28, 28, 0.3);
 }
 
-body.theme-sunset .verification-notice {
-  color: var(--accent-sunset);
-  background-color: rgba(255, 210, 63, 0.1);
-  border: 1px solid rgba(255, 210, 63, 0.3);
-}
-
-body.theme-forest .verification-error {
+body.theme-forest .auth-error {
   color: #b91c1c;
   background-color: rgba(185, 28, 28, 0.1);
   border: 1px solid rgba(185, 28, 28, 0.3);
 }
 
-body.theme-forest .verification-notice {
-  color: var(--accent-forest);
-  background-color: rgba(40, 167, 69, 0.1);
-  border: 1px solid rgba(40, 167, 69, 0.3);
-}
-
-.verification-resend {
+.auth-toggle-link {
   background-color: transparent;
   border: none;
   cursor: pointer;
@@ -444,71 +367,73 @@ body.theme-forest .verification-notice {
   display: block;
   width: 100%;
   text-align: center;
-  border-radius: var(--radius-sm, 4px);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 500;
-  position: relative;
-  overflow: hidden;
 }
 
-.verification-resend::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.4s ease, height 0.4s ease;
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* Theme-specific resend button styles */
-body.theme-light .verification-resend {
+/* Theme-specific toggle link styles */
+body.theme-light .auth-toggle-link {
   color: var(--accent-light);
 }
 
-body.theme-dark .verification-resend {
+body.theme-dark .auth-toggle-link {
   color: var(--accent-dark);
 }
 
-body.theme-cyberpunk .verification-resend {
+body.theme-cyberpunk .auth-toggle-link {
   color: var(--accent-cyberpunk);
 }
 
-body.theme-minimal .verification-resend {
+body.theme-minimal .auth-toggle-link {
   color: var(--accent-minimal);
 }
 
-body.theme-ocean .verification-resend {
+body.theme-ocean .auth-toggle-link {
   color: var(--accent-ocean);
 }
 
-body.theme-sunset .verification-resend {
+body.theme-sunset .auth-toggle-link {
   color: var(--accent-sunset);
 }
 
-body.theme-forest .verification-resend {
+body.theme-forest .auth-toggle-link {
   color: var(--accent-forest);
 }
 
-.verification-resend:hover {
+.auth-toggle-link:hover {
   background-color: rgba(255, 255, 255, 0.05);
   transform: translateY(-1px);
 }
 
-.verification-resend:hover::after {
-  width: 200%;
-  height: 200%;
-}
-
-.verification-resend:disabled {
+.auth-toggle-link:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Password field with toggle visibility */
+.password-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle-btn:hover {
+  opacity: 1;
 }
 
 /* Animations */
@@ -527,12 +452,12 @@ body.theme-forest .verification-resend {
 
 /* Responsive adjustments */
 @media (max-width: 400px) {
-  .verification-content {
+  .auth-content {
     width: 95%;
     padding: 15px;
   }
   
-  .verification-button-container {
+  .auth-button-container {
     flex-direction: column;
   }
 }

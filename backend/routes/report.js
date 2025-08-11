@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const TimeData = require("../models/TimeData");
 const PDFDocument = require("pdfkit");
-const QuickChart = require("quickchart-js");
 
 // Helper function to format duration from seconds to human-readable format
 function formatDuration(seconds) {

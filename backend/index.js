@@ -9,7 +9,7 @@ const feedbackRoutes = require("./routes/feedback");
 const reportRoutes = require("./routes/report");
 const userRoutes = require("./routes/user");
 const adminRoutes = require("./routes/admin");
-const deviceManagementRoutes = require("./routes/device-management");
+const authPasswordRoutes = require("./routes/auth-password");
 
 const app = express();
 
@@ -55,7 +55,7 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/api/report", reportRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/device-management", deviceManagementRoutes);
+app.use("/api/auth", authPasswordRoutes);
 
 // Health check routes
 app.get("/health", (req, res) => {
