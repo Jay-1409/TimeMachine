@@ -21,9 +21,7 @@ const TMConfig = (function() {
     authSignupEndpoint: '/api/auth/signup',
     authLoginEndpoint: '/api/auth/login',
     authVerifyEndpoint: '/api/auth/verify',
-    authProfileEndpoint: '/api/auth/profile',
-    authResetRequestEndpoint: '/api/auth/reset-password-request',
-    authResetPasswordEndpoint: '/api/auth/reset-password'
+  authProfileEndpoint: '/api/auth/profile'
   };
 
   async function loadOverrides() {

@@ -347,7 +347,6 @@ async function signup(email, password, isMigration = false) {
       await TokenStorage.setToken(data.token, email);
   try { chrome.runtime.sendMessage({ action: 'triggerImmediateSync' }); } catch(_) {}
   try { chrome.runtime.sendMessage({ action: 'authSuccess' }); } catch(_) {}
-  try { chrome.runtime.sendMessage({ action: 'authSuccess' }); } catch(_) {}
       return true;
     }
     

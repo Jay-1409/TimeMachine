@@ -229,7 +229,7 @@
             <div id="emailjsConfig" class="hidden email-config">
               <h4>EmailJS Configuration</h4>
               <p class="help-text">Set up your own free EmailJS account at <a href="https://emailjs.com" target="_blank">emailjs.com</a></p>
-              <p class="help-text">Make sure your template includes: {{subject}}, {{message}}, {{to_email}}</p>
+              <p class="help-text">Template variables: {{to_email}}, {{subject}}, {{{message}}} (use triple braces for HTML)</p>
               <input id="emailjsServiceId" placeholder="Service ID (e.g., service_abc123)" class="w-full p-2 rounded border mb-2" />
               <input id="emailjsTemplateId" placeholder="Template ID (e.g., template_xyz789)" class="w-full p-2 rounded border mb-2" />
               <input id="emailjsPublicKey" placeholder="Public Key (e.g., user_def456)" class="w-full p-2 rounded border mb-2" />

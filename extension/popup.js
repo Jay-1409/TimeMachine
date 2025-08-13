@@ -341,8 +341,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     elements.helpBtn?.addEventListener("click", () => {
-      // Open the User Guide in a new tab
-      chrome.tabs.create({ url: chrome.runtime.getURL("../User_Guide.html") });
+      // Open bundled in-extension user guide (restored)
+      chrome.tabs.create({ url: chrome.runtime.getURL('user_guide.html') });
     });
     elements.backToInsightsBtn?.addEventListener("click", () => switchMainTab("insights"));
 
@@ -442,10 +442,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Update notification system
   function checkForUpdates() {
     const lastVersion = localStorage.getItem("lastKnownVersion") || "1.0.0";
-    const currentVersion = "1.2.0"; // Update this when you add new features
+    const currentVersion = "1.3.0"; // Update when features ship
     
     if (lastVersion !== currentVersion) {
-      showUpdateNotification("NEW: Scheduled Reports! Set daily, weekly or monthly automated reports");
+      showUpdateNotification("HTML email reports with charts + improved scheduler");
       localStorage.setItem("lastKnownVersion", currentVersion);
     }
   }
@@ -574,10 +574,18 @@ document.addEventListener("DOMContentLoaded", () => {
       showFeedback("Sending test email using your configuration...", false);
       
       if (emailConfig.service === 'emailjs') {
+        const html = `
+          <div style="font-family:Segoe UI,Roboto,Arial,sans-serif;color:#111;line-height:1.5">
+            <h2 style="margin:0 0 6px">TimeMachine Email Test</h2>
+            <p style="margin:0 0 10px">Your EmailJS configuration works. You will receive full HTML reports with charts when you click <em>Send Report Now</em> or when scheduling is enabled.</p>
+            <p style="margin:14px 0 0;font-size:12px;color:#666">If you see raw HTML in emails, edit your EmailJS template and use triple braces for the message variable: <code>{{{message}}}</code>.</p>
+          </div>`;
+
         await sendEmailViaEmailJS({
           to_email: userEmail,
           subject: "TimeMachine Test Email",
-          message: "Test email sent successfully from your TimeMachine extension!"
+          message: html,
+          message_text: "TimeMachine test: Your EmailJS configuration works."
         }, emailConfig.settings);
         showFeedback("Test email sent successfully!");
       } else {
@@ -590,33 +598,50 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function sendDailyReport() {
-    const { userEmail } = await chrome.storage.local.get(['userEmail']);
-    if (!userEmail) return showFeedback('Set email first');
-  const backend = await resolveBackendUrl();
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Get the device ID for authentication
-    const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
-    
-      const auth = await Auth.isAuthenticated();
+    try {
+      const { userEmail, emailConfig } = await chrome.storage.local.get(['userEmail', 'emailConfig']);
+      if (!userEmail) return showFeedback('Set email first');
+      if (!emailConfig || !emailConfig.enabled || emailConfig.service !== 'emailjs') {
+        return showFeedback('Configure EmailJS in Settings to email reports');
+      }
+
+      // Prepare date range for TODAY in local time
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const timezone = today.getTimezoneOffset();
+
+      const backend = await resolveBackendUrl();
+      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
       const { token } = await TokenStorage.getToken();
-      const res = await fetch(`${backend}/api/report/generate`, { 
-        method:'POST', 
-        headers:{
-          'Content-Type':'application/json',
-          'X-Device-ID': deviceId || 'unknown',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }, 
-        body: JSON.stringify({ date: today, userEmail }) 
-      });
-    
-    if (!res.ok) {
-      const errorData = await res.json();
-      return showError(errorData.error || 'Failed to send daily report');
+
+      // Fetch today time data to build summary
+      const resp = await fetch(
+        `${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${dateStr}&endDate=${dateStr}&timezone=${timezone}`,
+        { headers: { 'X-Device-ID': deviceId || 'unknown', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) } }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        return showError(err.error || 'Failed to fetch data for report');
+      }
+      const timeData = await resp.json();
+
+      const dataArray = Array.isArray(timeData) ? timeData : [];
+      const html = generateEmailHtmlReport(dataArray, dateStr);
+      const text = generateEmailReport(dataArray, dateStr);
+
+      await sendEmailViaEmailJS({
+        to_email: userEmail,
+        subject: `TimeMachine Daily Report - ${new Date(dateStr).toLocaleDateString()}`,
+        message: html,
+        message_text: text
+      }, emailConfig.settings);
+
+      showFeedback('Daily report emailed!');
+      return true;
+    } catch (e) {
+      console.error('sendDailyReport error:', e);
+      showError('Failed to email report: ' + (e?.message || e));
     }
-    
-    showFeedback('Daily report sent!');
-    return true;
   }
   
   // Make sendDailyReport available globally for the scheduler
@@ -722,6 +747,175 @@ Keep tracking your time to improve your productivity!
 Sent via TimeMachine Extension`;
 
     return report;
+  }
+
+  // Build a QuickChart URL for Chart.js config
+  function buildQuickChartUrl(config, { w = 700, h = 360, bkg = 'white', devicePixelRatio = 2 } = {}) {
+    const c = encodeURIComponent(JSON.stringify(config));
+    return `https://quickchart.io/chart?w=${w}&h=${h}&bkg=${encodeURIComponent(bkg)}&devicePixelRatio=${devicePixelRatio}&c=${c}`;
+  }
+
+  // Generate an HTML email with charts similar to the PDF
+  function generateEmailHtmlReport(timeData, date) {
+    const hasData = Array.isArray(timeData) && timeData.length > 0;
+    const displayDate = new Date(date).toLocaleDateString();
+
+    if (!hasData) {
+      return `<div style="font-family:Segoe UI,Roboto,Arial,sans-serif;color:#111;line-height:1.5">
+        <h2 style="margin:0 0 6px">TimeMachine Daily Report</h2>
+        <div style="color:#666;font-size:12px;margin:0 0 12px">${displayDate}</div>
+        <p>No activity tracked for today.</p>
+        <p style="margin-top:16px;color:#666;font-size:12px">Sent via TimeMachine</p>
+      </div>`;
+    }
+
+    // Aggregate
+    const categoryData = { Work: 0, Social: 0, Entertainment: 0, Professional: 0, Other: 0 };
+    const domains = [];
+    let totalTime = 0;
+    let totalSessions = 0;
+    let longestSession = 0;
+    let firstStart = null;
+    let lastEnd = null;
+
+    timeData.forEach(entry => {
+      const t = entry?.totalTime || 0;
+      totalTime += t;
+      const cat = entry?.category || 'Other';
+      categoryData[cat] = (categoryData[cat] || 0) + t;
+      domains.push({ domain: entry.domain, time: t, category: cat, sessions: entry.sessions || [] });
+      const sess = Array.isArray(entry.sessions) ? entry.sessions : [];
+      totalSessions += sess.length;
+      sess.forEach(s => {
+        const dur = s?.duration || 0;
+        if (dur > longestSession) longestSession = dur;
+        const st = s?.startTime ? new Date(s.startTime) : null;
+        const en = s?.endTime ? new Date(s.endTime) : null;
+        if (st && (!firstStart || st < firstStart)) firstStart = st;
+        if (en && (!lastEnd || en > lastEnd)) lastEnd = en;
+      });
+    });
+
+    domains.sort((a, b) => b.time - a.time);
+    const topDomains = domains.slice(0, 10);
+
+    const productiveTime = categoryData.Work + categoryData.Professional + categoryData.Other * 0.5;
+    const productivityScore = totalTime > 0 ? Math.round((productiveTime / totalTime) * 100) : 0;
+    const uniqueDomains = domains.length;
+    const spanText = firstStart && lastEnd ? `${firstStart.toLocaleTimeString()} – ${lastEnd.toLocaleTimeString()}` : '—';
+
+    // Charts
+    const palette = CONFIG.CHART_COLORS.light; // fixed palette for email
+    const doughnutCfg = {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(categoryData),
+        datasets: [{
+          data: Object.values(categoryData),
+          backgroundColor: [palette.work, palette.social, palette.entertainment, palette.professional, palette.other],
+          borderWidth: 0,
+        }]
+      },
+      options: { plugins: { legend: { display: true, position: 'right' } }, cutout: '60%' }
+    };
+
+    const barCfg = {
+      type: 'bar',
+      data: {
+        labels: topDomains.map(d => d.domain),
+        datasets: [{
+          label: 'Time (min)',
+          data: topDomains.map(d => Math.round((d.time || 0) / 60000)),
+          backgroundColor: '#3b82f6',
+          borderWidth: 0,
+        }]
+      },
+      options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } }
+    };
+
+    const doughnutUrl = buildQuickChartUrl(doughnutCfg, { w: 640, h: 320, bkg: 'white', devicePixelRatio: 2 });
+    const barUrl = buildQuickChartUrl(barCfg, { w: 700, h: 400, bkg: 'white', devicePixelRatio: 2 });
+
+    // Helper rows
+    const catRows = Object.entries(categoryData)
+      .filter(([_, v]) => v > 0)
+      .map(([k, v]) => {
+        const pct = totalTime ? ((v / totalTime) * 100).toFixed(1) : '0.0';
+        return `<tr><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${k}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${formatDuration(v)}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${pct}%</td></tr>`;
+      }).join('');
+
+    const domainRows = topDomains.map((d, i) => {
+      const pct = totalTime ? ((d.time / totalTime) * 100).toFixed(1) : '0.0';
+      return `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${i + 1}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${d.domain}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${formatDuration(d.time)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${d.category}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;color:#111">${pct}%</td>
+      </tr>`;
+    }).join('');
+
+    const insight = productivityScore >= 70 
+      ? 'Great job! Highly productive day.'
+      : productivityScore >= 40 
+      ? 'Good work! There\'s room for improvement.'
+      : 'Focus time! Try to spend more time on productive activities.';
+
+    // Email HTML
+    return `
+      <div style="font-family:Segoe UI,Roboto,Arial,sans-serif;color:#111;line-height:1.5">
+        <h2 style="margin:0 0 6px">TimeMachine Daily Report</h2>
+        <div style="color:#666;font-size:12px;margin:0 0 12px">${displayDate}</div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin:0 0 12px">
+          <tr>
+            <td style="padding:6px 8px;background:#f8fafc;border:1px solid #e5e7eb">Total Time</td>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb">${formatDuration(totalTime)}</td>
+            <td style="padding:6px 8px;background:#f8fafc;border:1px solid #e5e7eb">Productivity</td>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb">${productivityScore}%</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;background:#f8fafc;border:1px solid #e5e7eb">Unique Domains</td>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb">${uniqueDomains}</td>
+            <td style="padding:6px 8px;background:#f8fafc;border:1px solid #e5e7eb">Sessions</td>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb">${totalSessions}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;background:#f8fafc;border:1px solid #e5e7eb">Longest Session</td>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb">${formatDuration(longestSession)}</td>
+            <td style="padding:6px 8px;background:#f8fafc;border:1px solid #e5e7eb">Active Span</td>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb">${spanText}</td>
+          </tr>
+        </table>
+
+        <div style="display:block;margin:12px 0 8px;font-weight:600">Category Distribution</div>
+        <img src="${doughnutUrl}" alt="Category Chart" width="640" height="320" style="display:block;border:1px solid #eee;border-radius:6px" />
+
+        <div style="display:block;margin:16px 0 8px;font-weight:600">Top Domains</div>
+        <img src="${barUrl}" alt="Top Domains Chart" width="700" height="400" style="display:block;border:1px solid #eee;border-radius:6px" />
+
+        <div style="display:block;margin:18px 0 6px;font-weight:600">Top Domains Table</div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th align="left" style="padding:6px 8px;background:#f1f5f9;border-bottom:1px solid #e5e7eb;color:#111;font-size:12px">#</th>
+              <th align="left" style="padding:6px 8px;background:#f1f5f9;border-bottom:1px solid #e5e7eb;color:#111;font-size:12px">Domain</th>
+              <th align="left" style="padding:6px 8px;background:#f1f5f9;border-bottom:1px solid #e5e7eb;color:#111;font-size:12px">Time</th>
+              <th align="left" style="padding:6px 8px;background:#f1f5f9;border-bottom:1px solid #e5e7eb;color:#111;font-size:12px">Category</th>
+              <th align="left" style="padding:6px 8px;background:#f1f5f9;border-bottom:1px solid #e5e7eb;color:#111;font-size:12px">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${domainRows}
+          </tbody>
+        </table>
+
+        <div style="margin-top:14px;padding:10px 12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;color:#0f172a">
+          <strong>Insight:</strong> ${insight}
+        </div>
+
+        <p style="margin-top:16px;color:#666;font-size:12px">Charts are rendered via QuickChart. Images may be hidden by your email client until you click “display images”.</p>
+        <p style="margin-top:6px;color:#666;font-size:12px">Sent via TimeMachine</p>
+      </div>`;
   }
 
   async function downloadReport() {

@@ -98,31 +98,32 @@ class ReportScheduler {
   // Send the scheduled report
   async sendScheduledReport() {
     try {
-      // Check if there's activity for today before sending
+      // Check if there's activity for today before sending (unless opted in)
       if (!this.scheduleSettings.includeInactive) {
         const hasTodayActivity = await this.checkForTodayActivity();
         if (!hasTodayActivity) return false;
       }
-      
-      // Get the user email
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
-      if (!userEmail) return false;
-      
-      // Call the API directly to download the report
-      const backend = await window.resolveBackendUrl();
-      const today = new Date().toISOString().split('T')[0];
-      
-      const res = await fetch(`${backend}/api/report/generate`, {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ date: today, userEmail })
-      });
 
-      if (!res.ok) {
-        throw new Error("Failed to generate report");
+      // Ensure email is configured (EmailJS)
+      const { userEmail, emailConfig } = await chrome.storage.local.get(['userEmail','emailConfig']);
+      if (!userEmail || !emailConfig || !emailConfig.enabled || emailConfig.service !== 'emailjs') {
+        return false;
+      }
+
+      // Use the same flow as the manual send
+      if (typeof window.sendDailyReport === 'function') {
+        const ok = await window.sendDailyReport();
+        if (!ok) return false;
+      } else {
+        // Fallback: try calling the function via message in case of module context
+        try {
+          await chrome.runtime.sendMessage({ action: 'sendDailyReport' });
+        } catch (_) {
+          return false;
+        }
       }
       
-      // Update the last sent time regardless of whether we used sendDailyReport
+      // Update the last sent time
       this.lastReportSent = new Date();
       await chrome.storage.local.set({lastReportSent: this.lastReportSent.toISOString()});
       
@@ -139,20 +140,30 @@ class ReportScheduler {
     try {
       const { userEmail } = await chrome.storage.local.get(['userEmail']);
       if (!userEmail) return false;
-      
+
       const backend = await window.resolveBackendUrl();
-      const today = new Date().toISOString().split('T')[0];
-      
-      const response = await fetch(`${backend}/api/timeData/check-activity`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ date: today, userEmail })
-      });
-      
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const timezone = today.getTimezoneOffset();
+
+      // Attempt to include auth headers similar to popup.js
+      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
+      let token;
+      try { token = (await TokenStorage.getToken())?.token; } catch (_) {}
+
+      const response = await fetch(
+        `${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${dateStr}&endDate=${dateStr}&timezone=${timezone}`,
+        {
+          headers: {
+            ...(deviceId ? { 'X-Device-ID': deviceId } : {}),
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        }
+      );
+
       if (!response.ok) return false;
-      
-      const data = await response.json();
-      return data.hasActivity;
+      const arr = await response.json();
+      return Array.isArray(arr) && arr.length > 0;
     } catch (error) {
       console.error('Failed to check for activity:', error);
       return false;

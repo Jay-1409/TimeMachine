@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>TimeMachine – User Guide</title>
+	<style>
+		:root { color-scheme: light dark; }
+		body { font-family: system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif; margin:0; padding:34px 20px 90px; line-height:1.55; max-width:880px; margin-inline:auto; background:#ffffff; color:#1e2430; }
+		@media (prefers-color-scheme: dark){ body{ background:#0d1218; color:#f1f5f9; } }
+		h1{font-size:2.05rem;margin:0 0 1.2rem;text-align:center;font-weight:700;letter-spacing:.4px;}
+		h2{margin:2.2rem 0 0.9rem;font-size:1.35rem;padding-bottom:.4rem;border-bottom:1px solid rgba(120,130,150,.25);} 
+		h3{margin:1.6rem 0 .6rem;font-size:1.05rem;}
+		p,li{font-size:.95rem;}
+		ul,ol{margin:0 0 1.05rem 1.25rem;padding:0;}
+		code{background:rgba(100,115,140,.12);padding:2px 6px;border-radius:5px;font-size:.8rem;}
+		pre{background:#121b27;color:#f1f5f9;padding:14px 16px;border-radius:8px;overflow:auto;font-size:.72rem;line-height:1.4;margin:1rem 0;}
+		@media (prefers-color-scheme: light){ pre{background:#1d2935;color:#f8fafc;} }
+		a{color:#2563eb;text-decoration:none;}a:hover{text-decoration:underline;}
+		.lead{background:linear-gradient(145deg,#f1f5f9,#e8eef5);border:1px solid #d9e2ec;padding:20px 22px;border-radius:18px;box-shadow:0 4px 16px -6px rgba(0,0,0,.12);}
+		@media (prefers-color-scheme: dark){ .lead{background:#132130;border-color:#253548;} }
+		.feature-grid{display:grid;gap:10px;margin:12px 0 28px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+		.feat{border:1px solid #d5dee7;background:#fff;border-radius:14px;padding:10px 11px;font-size:.72rem;font-weight:600;line-height:1.25;display:flex;flex-direction:column;gap:4px;box-shadow:0 2px 6px -2px rgba(0,0,0,.12);} .feat span{font-size:.6rem;font-weight:500;opacity:.7;}
+		@media (prefers-color-scheme: dark){ .feat{background:#182636;border-color:#253547;color:#f1f6fa;} .feat span{color:#9fb3c6;opacity:.85;} }
+		.callout{border-left:4px solid #2563eb;padding:11px 14px;background:rgba(37,99,235,.08);border-radius:6px;margin:1.4rem 0;font-size:.8rem;}
+		@media (prefers-color-scheme: dark){ .callout{background:rgba(96,165,250,.12);border-color:#3b82f6;} }
+		.small{font-size:.72rem;opacity:.75;}
+		table{width:100%;border-collapse:collapse;font-size:.72rem;margin:10px 0 24px;}th,td{padding:6px 8px;text-align:left;border-bottom:1px solid rgba(120,130,150,.22);}thead th{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;opacity:.75;} tbody tr:hover{background:rgba(140,160,185,.08);} @media (prefers-color-scheme: dark){ tbody tr:hover{background:rgba(255,255,255,.05);} }
+		footer{margin-top:60px;text-align:center;font-size:.65rem;opacity:.6;}
+	</style>
+</head>
+<body>
+	<h1>TimeMachine – User Guide</h1>
+	<div class="lead">
+		<p><strong>TimeMachine</strong> tracks active time per domain, lets you categorize sites, computes productivity metrics, and generates downloadable PDF reports. You can also email yourself a full <strong>HTML daily report</strong> (with charts as images) using your own <strong>EmailJS</strong> credentials (no server email required). This single page is the authoritative documentation.</p>
+	</div>
+
+	<h2>Quick Start</h2>
+	<ol>
+		<li>Open popup → Sign Up or Sign In (email + password).</li>
+		<li>Browse normally; active tab time is captured each minute.</li>
+		<li>Switch range (Daily / Weekly / Monthly) via the filter pills.</li>
+		<li>Reassign a domain’s category to immediately update charts & scores.</li>
+	<li>Download a PDF report or email yourself a report (Settings).</li>
+		<li>Optional: use the Pomodoro timer for structured focus intervals.</li>
+	</ol>
+
+	<h2>Features</h2>
+	<div class="feature-grid">
+		<div class="feat">Auto Tracking<span>Active domain minutes</span></div>
+		<div class="feat">Quick Insights<span>Top site & balance</span></div>
+		<div class="feat">Productivity Score<span>Weighted categories</span></div>
+		<div class="feat">Category Editing<span>Instant recalc</span></div>
+	<div class="feat">PDF Reports<span>Charts & stats</span></div>
+	<div class="feat">Self Email<span>EmailJS HTML report</span></div>
+		<div class="feat">Scheduling<span>Daily/Weekly/Monthly</span></div>
+		<div class="feat">Offline Buffer<span>Retry sync</span></div>
+		<div class="feat">Pomodoro Timer<span>Focus blocks</span></div>
+		<div class="feat">Themes<span>7 styles</span></div>
+		<div class="feat">Feedback<span>Send ideas</span></div>
+	</div>
+
+	<h2>Metrics</h2>
+	<ul>
+		<li><strong>Focus Time</strong> = Work + Professional</li>
+		<li><strong>Leisure Time</strong> = Social + Entertainment</li>
+		<li><strong>Productivity Score</strong> = (Work + Professional + 0.5 × Other) / Total</li>
+		<li><strong>Balance Range</strong>: ideal focus 55–70%</li>
+	</ul>
+
+		<h2>Daily Email Reports (EmailJS)</h2>
+		<p>The extension sends a full <strong>HTML email</strong> with charts (images) using <a href="https://www.emailjs.com/" target="_blank" rel="noreferrer">EmailJS</a>. Your keys stay local in the extension.</p>
+	<ol>
+		<li>Create an EmailJS account & add an Email Service (e.g. Gmail, Outlook, SMTP relay).</li>
+			<li>Create a template containing variables: <code>{{to_email}}</code>, <code>{{subject}}</code>, <code>{{{message}}}</code>. Use <code>{{{message}}}</code> (triple braces) to allow HTML.</li>
+		<li>In the extension Settings enter: Service ID, Template ID, Public Key, and your own email.</li>
+			<li>Click <strong>Test Email</strong>. You should receive a test confirming the integration.</li>
+			<li>Click <strong>Send Report Now</strong> for an immediate HTML report, or enable scheduling.</li>
+	</ol>
+		<h3>Template setup tips</h3>
+		<ul>
+			<li>In EmailJS template settings, set the “To email” field to <code>{{to_email}}</code> so reports go to your address.</li>
+			<li>Make the Subject exactly <code>{{subject}}</code>.</li>
+			<li>Body should be only <code>{{{message}}}</code> (no default wrapper). If you see emails starting with “You got a new message from”, you’re using EmailJS’s default contact template—create a blank template instead.</li>
+		</ul>
+		<p>What’s inside: total time, productivity score, unique domains, session stats (count, longest, active span), category distribution chart, and top domains chart plus a table.</p>
+		<p class="small">Note: Some email clients block images by default. Choose “display images” to view charts. The downloadable PDF is still available from the popup.</p>
+
+	<h3>Security Notes</h3>
+	<ul>
+		<li>EmailJS public key lives only in your local extension storage.</li>
+		<li>No credentials are sent to the backend for emailing.</li>
+		<li>Remove values in Settings to disable emailing at any time.</li>
+	</ul>
+
+	<h2>Scheduling Reports</h2>
+	<p>Enable in <strong>Settings → Automated Reports</strong>. The background script checks triggers locally (no external cron):</p>
+	<table>
+		<thead><tr><th>Frequency</th><th>Trigger</th><th>Notes</th></tr></thead>
+		<tbody>
+			<tr><td>Daily</td><td>Chosen local time</td><td>Skips if no EmailJS config</td></tr>
+			<tr><td>Weekly</td><td>Selected weekday + time</td><td>Reschedules after send</td></tr>
+			<tr><td>Monthly</td><td>Day N (roll to last day if shorter month)</td><td>Handles Feb/short months</td></tr>
+		</tbody>
+	</table>
+
+	<h2>PDF Report Layout</h2>
+		<table>
+		<thead><tr><th>Section</th><th>Description</th></tr></thead>
+		<tbody>
+			<tr><td>Header</td><td>User, date range, generated timestamp</td></tr>
+			<tr><td>Key Insights</td><td>Top site, categories %, unique domains, sessions, median, longest, focus ratio</td></tr>
+				<tr><td>Domain Table</td><td>Rank, domain, time, category, sessions, avg, longest</td></tr>
+			<tr><td>Charts</td><td>Category doughnut + domain bar</td></tr>
+		</tbody>
+	</table>
+	<p>The PDF is generated server‑side when requested; emails are full HTML built client‑side and include charts rendered via QuickChart image URLs.</p>
+
+	<h2>Authentication</h2>
+	<p>Email + password. Session token (JWT) lasts 30 days. If expired you’re prompted to log in; buffered unsent minutes sync immediately after success.</p>
+
+	<h2>Data Flow & Offline</h2>
+	<ul>
+		<li>Every minute: active domain minute added to a local queue.</li>
+		<li>Flush attempts: each minute + periodic bulk sync (5m cycle).</li>
+		<li>Offline: queue persists until connectivity returns.</li>
+		<li>Idle / window focus lost: active session closed to avoid phantom time.</li>
+	</ul>
+
+	<h2>Troubleshooting</h2>
+	<ul>
+		<li><strong>No Data?</strong> Only http/https pages; built‑in browser pages & extension pages ignored.</li>
+		<li><strong>Time Looks Off?</strong> Local timezone used; confirm OS clock + DST.</li>
+		<li><strong>Email Not Sending?</strong> Check EmailJS IDs & that template uses required variables.</li>
+		<li><strong>Focus Too Low?</strong> Re‑categorize domains from the popup list.</li>
+		<li><strong>Large Gaps?</strong> Browser likely suspended or device slept; sessions resume on activity.</li>
+	</ul>
+
+	<h2>Privacy</h2>
+	<ul>
+		<li>Only domain + aggregated timing stored (no full URLs, titles, or page content).</li>
+		<li>Session stats derived locally then synced.</li>
+		<li>Your EmailJS keys stay local (used only for client POST to EmailJS API).</li>
+		<li>Feedback includes your email solely for follow‑up context.</li>
+	</ul>
+
+	<h2>Advanced (Optional Backend SMTP)</h2>
+	<p>If you later want the <em>server</em> to send emails (e.g., password resets, PDF attachments) you can add a mail helper. This is not required for self emails.</p>
+	<pre><code>// backend/utils/mailer.js
+const nodemailer = require('nodemailer');
+const transporter = nodemailer.createTransport({
+	host: process.env.SMTP_HOST,
+	port: process.env.SMTP_PORT,
+	secure: process.env.SMTP_SECURE === 'true',
+	auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+});
+module.exports.sendMail = ({ to, subject, text, html }) =>
+	transporter.sendMail({ from: process.env.MAIL_FROM, to, subject, text, html });</code></pre>
+	<p class="small">Env vars: SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, MAIL_FROM. Keep them outside version control.</p>
+
+	<div class="callout"><strong>Tip:</strong> Clear EmailJS config if you stop using the feature—scheduled jobs auto-skip when config missing.</div>
+
+	<footer>TimeMachine © 2025 • MIT License • Single in‑extension guide</footer>
+</body>
+</html>

@@ -99,9 +99,9 @@ router.post('/generate', async (req, res) => {
     doc.text(`• Focus ratio (Work+Professional): ${focusRatio.toFixed(1)}%`);
     doc.moveDown();
 
-    // Domain Table (Rank, Domain, Time, Category, Sessions, AvgSess, Longest, Span)
-    const startX=50; let y=doc.y; const rowH=22; const widths=[36,150,70,70,60,70,70,110];
-    const headerLabels=['#','Domain','Time','Category','Sess','Avg','Longest','Span'];
+  // Domain Table (Rank, Domain, Time, Category, Sessions, AvgSess, Longest)
+  const startX=50; let y=doc.y; const rowH=22; const widths=[36,150,70,70,60,70,70];
+  const headerLabels=['#','Domain','Time','Category','Sess','Avg','Longest'];
     const drawHead=()=>{ doc.font('Helvetica-Bold'); const totalW=widths.reduce((a,b)=>a+b,0); doc.rect(startX,y,totalW,rowH).fill('#f3f4f6'); doc.fillColor('#000').fontSize(9);
       let x=startX+5; headerLabels.forEach((lab,i)=>{ doc.text(lab,x,y+6,{width:widths[i]-10,ellipsis:true}); x+=widths[i]; }); y+=rowH; doc.font('Helvetica'); };
     drawHead();
@@ -111,8 +111,8 @@ router.post('/generate', async (req, res) => {
       const totalW=widths.reduce((a,b)=>a+b,0);
       if (i===0) doc.rect(startX,y,totalW,rowH).fill('#ffdddd'); else if (i===1) doc.rect(startX,y,totalW,rowH).fill('#ffeacc'); else if (i===2) doc.rect(startX,y,totalW,rowH).fill('#ddffdd'); else if (i%2===0) doc.rect(startX,y,totalW,rowH).fill('#ffffff'); else doc.rect(startX,y,totalW,rowH).fill('#f9f9f9');
       doc.fillColor('#000').fontSize(8);
-      let x=startX+5; const span = (stat.first&&stat.last)? `${stat.first}-${stat.last}`: '—';
-      const cells=[String(i+1), dom, formatDuration(secs), cat, String(stat.count), formatDuration(Math.round(stat.avg)||0), formatDuration(stat.long||0), span];
+      let x=startX+5;
+      const cells=[String(i+1), dom, formatDuration(secs), cat, String(stat.count), formatDuration(Math.round(stat.avg)||0), formatDuration(stat.long||0)];
       cells.forEach((c,ci)=>{ doc.text(c,x,y+5,{width:widths[ci]-10,ellipsis:true}); x+=widths[ci]; });
       y+=rowH;
     });

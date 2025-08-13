@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/HarshDev625/TimeMachine/pulls)
 
@@ -19,17 +19,20 @@ TimeMachine is a lightweight Chrome extension + Node.js backend that automatical
 
 ## ✨ Current Features
 
-- � Simple email + password authentication (30‑day JWT)
-- 🕒 Automatic per‑domain active time tracking (background script)
-- 🗂 Category tagging (Work / Social / Entertainment / Professional / Other)
-- � Productivity dashboard: daily / weekly / monthly
-- 🧮 Productivity score (work + professional + partial other)
-- 🎨 7 UI themes + compact, responsive popup
-- ⏱ Basic Pomodoro (focus/break) timer
-- 📄 Rich PDF reports (ranked domains, session summaries, charts via QuickChart)
-- 🔁 Offline resilience (local buffering + periodic sync)
-- � Scheduled local report generation trigger (optionally email via user-supplied service in future)
-- 💬 Authenticated feedback submission
+| Area | Highlights |
+|------|------------|
+| Auth | Simple email + password (30‑day JWT) |
+| Tracking | Automatic per‑domain active time (minute slices, local timezone) |
+| Classification | Editable categories: Work / Social / Entertainment / Professional / Other |
+| Dashboard | Daily / Weekly / Monthly views + Quick Insights panel (Top Site, Focus vs Leisure, Balance Score, Category Mix) |
+| Scoring | Productivity score (Work + Professional + 0.5×Other) + balance heuristic |
+| Reports | Rich PDF (insights + ranked domains + per-domain session stats + charts) + HTML email reports via EmailJS (with charts) |
+| Scheduling | Local daily / weekly / monthly report trigger (no external cron) |
+| Resilience | Offline local buffering & retry; incremental 1‑min flush; 5‑min bulk sync |
+| Timer | Built‑in Pomodoro focus/break cycles |
+| Theming | 7 UI themes (light, dark, cyberpunk, minimal, ocean, sunset, forest) |
+| Feedback | In‑extension authenticated feedback submission |
+| Privacy | Only domains + aggregated session durations stored (no full URLs) |
 
 ## 🆕 What Changed (v2 Simplification)
 
@@ -116,20 +119,34 @@ Feedback:
 
 ## 📄 Rich PDF Report Contents
 
-- Header (date, user, generated timestamp)
-- Key insights (top site, main category, unique domains)
-- Ranked table (domains with time, category, sessions summary)
-- Doughnut chart (category distribution)
-- Horizontal bar chart (all sites time)
+| Section | Details |
+|---------|---------|
+| Header | Date, user, generated timestamp |
+| Key Insights | Top site, main category share, unique domains, session medians/longest, focus ratio |
+| Domain Table | Rank · Domain · Time · Category · Sessions · Avg Session · Longest Session · Active Span |
+| Charts | Doughnut (category distribution) & Horizontal Bar (all site times) |
 
-Charts rendered server-side using `quickchart-js` + PDFKit.
+Rendered server‑side with `quickchart-js` + PDFKit.
+
+## ✉️ Email Reports (EmailJS)
+
+- Send one-off reports or schedule them to send automatically from the background
+- Works with your own EmailJS credentials (privacy-first, no central mail server)
+- Uses HTML with embedded charts (QuickChart); plain-text fallback included
+- Template tip: render the message variable using triple braces to avoid escaping HTML, e.g. `{{{message}}}`
+
+Setup in the extension Settings:
+1. Select EmailJS as the service
+2. Enter Service ID, Template ID, and Public Key
+3. In your EmailJS template, add variables: `to_email`, `subject`, `message`, `message_text`
+4. Click “Send Test Email” to verify
 
 ## 🧠 Tracking Logic (background.js)
 
 Event-driven session handling:
 1. Tab activated / URL changed → close previous tab session (duration = now - start).
 2. Start new session for active domain.
-3. Periodic alarms: flush unsynced local data every 5 min; end stale sessions every 15 min.
+3. Alarms: incremental flush (1 min), bulk sync (5 min), stale session cutoff (15 min).
 4. Idle / lock → end all active sessions; resume on activity.
 5. Offline failures store sessions locally until next successful sync.
 
@@ -152,7 +169,37 @@ npm run dev
 Extension (unpacked):
 1. Open Chrome → `chrome://extensions` → enable Developer Mode.
 2. Load unpacked → select `TimeMachine/extension` folder.
-3. Reload after changes.
+3. Click the extension icon → login → start browsing.
+4. Click the help ( ? ) button anytime to open the bundled in‑extension user guide.
+
+## 🔎 Table of Contents
+
+1. Features
+2. Quick Start
+3. Architecture Overview
+4. Data Model
+5. API Endpoints
+6. Tracking & Sync Logic
+7. Reports
+8. Development Setup
+9. Security Notes
+10. Email Reports (EmailJS)
+11. Contribution Guide
+12. License
+
+## ⚡ Quick Start (End User)
+
+1. Install from Chrome Web Store (link above) or load unpacked from `extension/`.
+2. Open the extension popup → Sign up (email + password) or Sign in.
+3. Start browsing; time is tracked automatically per active domain.
+4. Reassign categories in the list to tune productivity score.
+5. Download a PDF report or enable scheduled reports in Settings.
+6. Use the Pomodoro timer for focus intervals.
+7. Press the ? help button for updated docs (opens this README on GitHub).
+
+## 🆘 In-Extension Help
+
+An offline user guide (`user_guide.html`) is bundled with the extension for quick reference (features, metrics, scheduling, troubleshooting). This README hosts detailed developer documentation.
 
 ## ⚙ Tech Stack
 
@@ -171,9 +218,10 @@ Extension (unpacked):
 - All time & feedback endpoints behind auth middleware
 
 Planned improvements:
-1. Increase PBKDF2 iterations & add per-user salt field
-2. Optional shorter access token + refresh
-3. Rate limiting & basic anomaly detection
+1. Per-user salt + higher PBKDF2 iterations
+2. Short‑lived access + refresh token rotation
+3. Rate limiting / anomaly detection
+4. Optional encryption-at-rest for session payloads
 
 ## 🧪 Testing Ideas (Not Yet Included)
 
@@ -184,18 +232,15 @@ Add tests for:
 
 ## 🤝 Contributing
 
-PRs welcome—focus areas:
-1. Firefox port (WebExtensions parity)
-2. Better productivity scoring algorithm
-3. Aggregated weekly/monthly PDF reports
-4. Local ML suggestions (break reminders)
-5. Test suite / GitHub Actions
-
-Fork → branch → PR. Keep changes focused.
+PRs welcome. Keep changes focused and include a brief description (screenshots for UI changes help). Open an issue to discuss bigger ideas first.
 
 ## 📜 License
 
 MIT. See [LICENSE](LICENSE).
+
+## 🛡️ Security
+
+If you find a security issue, please open a private issue with minimal details and request a secure contact.
 
 ## ❤️ Credits
 
