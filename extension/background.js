@@ -67,6 +67,27 @@ async function backendFetch(path, options = {}) {
   }
 }
 
+// Lightweight keep-alive ping (every 2 minutes) to keep backend awake (no auth, no env changes)
+async function pingHealth() {
+  try {
+    const base = await resolveBackendUrl();
+    const url = `${base}/health`;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { method: 'GET', cache: 'no-store', signal: controller.signal, headers: { 'User-Agent': 'TimeMachineExt-keepalive/1.0' } });
+    clearTimeout(t);
+    if (res.ok) {
+      // Keep logs minimal to avoid noise
+      console.debug('[keepalive-ext] ok');
+    } else {
+      console.debug('[keepalive-ext] non-ok', res.status);
+    }
+  } catch (e) {
+    // Swallow errors; this is best-effort only
+    console.debug('[keepalive-ext] error', e?.message || String(e));
+  }
+}
+
 // --- Phase 1 Scaffolding: Pomodoro & Goals ---
 const POMODORO_DEFAULTS = { workMinutes: 25, breakMinutes: 5 };
 let pomodoroState = { running: false, mode: "work", endsAt: null };
@@ -667,6 +688,10 @@ class TimeTracker {
     chrome.alarms.clear("activeFlush");
     chrome.alarms.create("activeFlush", { periodInMinutes: 1 });
 
+    // Keep backend awake by pinging /health every 2 minutes from the extension
+    chrome.alarms.clear("keepAlivePing");
+    chrome.alarms.create("keepAlivePing", { periodInMinutes: 2 });
+
     chrome.alarms.onAlarm.addListener((alarm) => {
       if (alarm.name === "periodicSync") {
         this.syncPendingData();
@@ -674,6 +699,9 @@ class TimeTracker {
         this.endAllSessions();
       } else if (alarm.name === "activeFlush") {
         this.flushActiveLongSessions();
+      } else if (alarm.name === "keepAlivePing") {
+        // Fire-and-forget keepalive
+        pingHealth();
       }
     });
 
