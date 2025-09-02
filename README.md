@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/HarshDev625/TimeMachine/pulls)
 
@@ -13,9 +13,9 @@
   <img src="extension/icon128.png" width="128" height="128" alt="TimeMachine Logo">
 </p>
 
-<h3 align="center">Minimal time tracking & productivity insights (no email codes, just login and go)</h3>
+<h3 align="center">Minimal time tracking, Focus Sessions, Guard blocking, and rich reports</h3>
 
-TimeMachine is a lightweight Chrome extension + Node.js backend that automatically tracks active website time, groups it into categories, and generates rich PDF reports (with charts) you can download or schedule. The system was recently simplified: email verification / device code flows were removed—only email + password authentication remains.
+TimeMachine is a lightweight Chrome extension + Node.js backend that automatically tracks active website time, groups it into categories, and generates rich PDF and HTML reports. It now includes Focus Sessions, a Guard for websites & keywords (with a themed blocked page), a Solver tracker, a polished Summary with medals, and 7 UI themes.
 
 ## ✨ Current Features
 
@@ -29,12 +29,28 @@ TimeMachine is a lightweight Chrome extension + Node.js backend that automatical
 | Reports | Rich PDF (insights + ranked domains + per-domain session stats + charts) + HTML email reports via EmailJS (with charts) |
 | Scheduling | Local daily / weekly / monthly report trigger (no external cron) |
 | Resilience | Offline local buffering & retry; incremental 1‑min flush; 5‑min bulk sync |
-| Timer | Built‑in Pomodoro focus/break cycles |
+| Focus Sessions | Preset durations with Start/Pause/Resume/Stop and daily stats |
+| Guard | Block websites & keywords, Quick Block current site, in‑app confirm modal |
+| Blocked Page | Modern, theme‑aware page with Go Back / Start Focus / Open App |
+| Solver | Track problem‑solving sessions with categories and history cards |
 | Theming | 7 UI themes (light, dark, cyberpunk, minimal, ocean, sunset, forest) |
 | Feedback | In‑extension authenticated feedback submission |
 | Privacy | Only domains + aggregated session durations stored (no full URLs) |
 
-## 🆕 What Changed (v2 Simplification)
+## 🆕 What’s New
+
+### v1.5.0
+
+- Focus: refreshed Focus Sessions UI with presets and clear controls
+- Guard: website + keyword blocking, Quick Block, in‑app confirm modal, and a modern theme‑aware blocked page
+- Summary: top 3 sites highlighted with Gold/Silver/Bronze styling and normalized spacing
+- Solver: redesigned session cards and quick start
+- Theming: shared tokens across popup and blocked page
+- Scheduler: “next scheduled” time shown in Settings
+- Performance: popup.js memoized backend URL + event delegation for Guard lists
+- Publish prep: cleaned manifest host permissions (removed localhost) and bumped version
+
+### v2 Simplification
 
 | Before | Now |
 |--------|-----|
@@ -50,8 +66,8 @@ TimeMachine is a lightweight Chrome extension + Node.js backend that automatical
 backend/
   index.js                # Express app + CORS + route mounting
   routes/
-    auth.js               # /api/auth (signup, login, verify, profile, settings)
-    timeData.js           # /api/time-data (sync, report listing, category patch)
+    auth.js               # /api/auth (signup, login, profile, settings)
+    timeData.js           # /api/time-data (sync, reports, category patch)
     feedback.js           # /api/feedback (submit, list, admin ops)
     report.js             # /api/report (generate PDF)
   models/
@@ -61,12 +77,19 @@ backend/
   README.md               # Backend-only docs
 
 extension/
-  background.js           # Tracking engine (sessions, sync, alarms, idle handling)
-  popup.js                # UI (charts, category editing, auth, feedback, reports)
-  auth.js                 # Token storage & login/signup modal logic
+  manifest.json           # MV3 config (service worker, permissions, resources)
+  background.js           # Tracking engine (sessions, sync, idle handling)
+  popup.html              # Main UI (tabs: Analytics, Summary, Focus, Guard, Solver)
+  popup.js                # UI logic (charts, categories, focus, guard, solver, reports)
+  blocked.html            # Theme-aware blocked page
+  blocked.js              # Blocked page logic (actions & timer)
+  user_guide.html         # In-extension user guide
+  auth.js                 # Token storage & auth helpers
   config.js               # Dynamic base URL + overrides
   report-scheduler.js     # Local schedule logic (daily/weekly/monthly)
-  styles / *.css          # Theming & layout
+  css/
+    style.css, analytics.css, summary.css, focus.css, guard.css, stopwatch.css, blocked.css
+  icon16.png, icon48.png, icon128.png
 ```
 
 Removed legacy files (device-authentication.js, utils/cronJobs.js, utils/dataCleanup.js, etc.) for clarity.
@@ -193,13 +216,14 @@ Extension (unpacked):
 2. Open the extension popup → Sign up (email + password) or Sign in.
 3. Start browsing; time is tracked automatically per active domain.
 4. Reassign categories in the list to tune productivity score.
-5. Download a PDF report or enable scheduled reports in Settings.
-6. Use the Pomodoro timer for focus intervals.
+5. Use Guard to block distracting sites/keywords (Quick Block for current site). 
+6. Start Focus Sessions using presets; pause/resume/stop as needed.
+7. Download a PDF report or enable scheduled reports in Settings.
 7. Press the ? help button for updated docs (opens this README on GitHub).
 
 ## 🆘 In-Extension Help
 
-An offline user guide (`user_guide.html`) is bundled with the extension for quick reference (features, metrics, scheduling, troubleshooting). This README hosts detailed developer documentation.
+An offline user guide (`extension/user_guide.html`) is bundled with the extension (open via the ? button) covering features, tabs, themes, scheduling, Guard, Focus, Solver, and troubleshooting. This README hosts developer documentation.
 
 ## ⚙ Tech Stack
 
