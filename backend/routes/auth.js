@@ -5,28 +5,21 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const CryptoJS = require('crypto-js');
 
-// Secret for JWT (should be in environment variables)
 const JWT_SECRET = process.env.JWT_SECRET || 'timemachine-development-secret';
-
-// Secret for password hashing (should be in environment variables)
 const PASSWORD_SECRET = process.env.PASSWORD_SECRET || 'timemachine-password-secret';
 
-// Helper to validate email format
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
 
-// Helper to validate password strength
 function isValidPassword(password) {
   return password && password.length >= 6;
 }
 
-// Get device information from request headers
 function getDeviceInfo(req) {
   const userAgent = req.headers['user-agent'] || '';
   
-  // Extract browser info
   let browser = 'Unknown';
   if (userAgent.includes('Chrome')) browser = 'Chrome';
   else if (userAgent.includes('Firefox')) browser = 'Firefox';
@@ -34,7 +27,6 @@ function getDeviceInfo(req) {
   else if (userAgent.includes('Edge')) browser = 'Edge';
   else if (userAgent.includes('Opera')) browser = 'Opera';
   
-  // Extract OS info
   let os = 'Unknown';
   if (userAgent.includes('Windows')) os = 'Windows';
   else if (userAgent.includes('Mac')) os = 'MacOS';
@@ -42,7 +34,6 @@ function getDeviceInfo(req) {
   else if (userAgent.includes('Android')) os = 'Android';
   else if (userAgent.includes('iOS')) os = 'iOS';
   
-  // Determine device type
   let deviceType = 'desktop';
   if (userAgent.includes('Mobile')) deviceType = 'mobile';
   else if (userAgent.includes('Tablet')) deviceType = 'tablet';
@@ -56,14 +47,10 @@ function getDeviceInfo(req) {
   };
 }
 
-/**
- * Sign up route - create a new user with email/password
- */
 router.post('/signup', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
@@ -76,19 +63,14 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
     
-    // Check if user already exists
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(409).json({ error: 'Email already in use' });
     }
     
-    // Get device info
     const deviceInfo = getDeviceInfo(req);
-    
-    // Create the user with email and password
     const user = await User.createUser(email, password, deviceInfo);
     
-    // Create JWT token
     const token = jwt.sign(
       { 
         id: user._id,
@@ -111,36 +93,26 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-/**
- * Login route
- */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
     
-    // Find user by email - need to include password field which is excluded by default
     const user = await User.findByEmail(email).select('+password');
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     
-    // Verify password
     if (!user.verifyPassword(password)) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     
-    // Get device info
     const deviceInfo = getDeviceInfo(req);
-    
-    // Update or add device
     await user.addDevice(deviceInfo);
     
-    // Create JWT token
     const token = jwt.sign(
       { 
         id: user._id,
@@ -159,7 +131,8 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
         deviceId: deviceInfo.deviceId,
-        deviceName: deviceInfo.deviceName
+        deviceName: deviceInfo.deviceName,
+        timezone: user.timezone
       }
     });
     
@@ -169,20 +142,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/**
- * Middleware to authenticate JWT tokens
- */
-/**
- * Middleware to authenticate JWT tokens
- * Enhanced with detailed error messages and device tracking
- */
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     
     if (!token) {
-  console.warn('Auth middleware: missing bearer token for', req.method, req.path, 'headers:', Object.keys(req.headers));
+      console.warn('Auth middleware: missing bearer token for', req.method, req.path);
       return res.status(401).json({ 
         error: 'Authentication required',
         code: 'AUTH_REQUIRED',
@@ -190,10 +156,8 @@ const authenticateToken = async (req, res, next) => {
       });
     }
     
-    // Verify the token
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) {
-        // Provide specific error messages based on jwt error types
         if (err.name === 'TokenExpiredError') {
           return res.status(401).json({ 
             error: 'Token expired',
@@ -209,7 +173,6 @@ const authenticateToken = async (req, res, next) => {
         }
       }
       
-      // Set decoded user info in request
       req.user = decoded;
       next();
     });
@@ -222,20 +185,13 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-/**
- * Verify token route
- */
 router.post('/verify', authenticateToken, (req, res) => {
-  // If middleware passed, token is valid
   res.status(200).json({ 
     valid: true,
     user: req.user 
   });
 });
 
-/**
- * Get user profile (requires authentication)
- */
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const user = await User.findByEmail(req.user.email);
@@ -249,7 +205,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
         email: user.email,
         role: user.role,
         lastActive: user.lastActive,
-        settings: user.settings
+        settings: user.settings,
+        timezone: user.timezone
       }
     });
   } catch (error) {
@@ -258,9 +215,6 @@ router.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-/**
- * Reset password request
- */
 router.post('/reset-password-request', async (req, res) => {
   try {
     const { email } = req.body;
@@ -269,30 +223,21 @@ router.post('/reset-password-request', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
     
-    // Find user by email
     const user = await User.findByEmail(email);
     if (!user) {
-      // Don't reveal if user exists or not for security
       return res.status(200).json({ message: 'If an account exists, a reset link will be sent' });
     }
     
-    // Generate reset token
     const resetToken = crypto.randomBytes(20).toString('hex');
     const resetTokenExpires = new Date();
-    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1); // 1 hour expiry
+    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1);
     
-    // Save reset token to user
     user.resetToken = resetToken;
     user.resetTokenExpires = resetTokenExpires;
     await user.save();
     
-    // In a real app, would send an email here
-    // For development, return the token directly
     res.status(200).json({ 
-      message: 'Password reset requested',
-      // Remove these in production!
-      devToken: resetToken,
-      devExpiry: resetTokenExpires
+      message: 'Password reset requested'
     });
     
   } catch (error) {
@@ -301,9 +246,6 @@ router.post('/reset-password-request', async (req, res) => {
   }
 });
 
-/**
- * Reset password with token
- */
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, password } = req.body;
@@ -316,26 +258,20 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
     
-    // Find user with this reset token
     const user = await User.findOne({
       resetToken: token,
-      resetTokenExpires: { $gt: new Date() } // Token not expired
+      resetTokenExpires: { $gt: new Date() }
     });
     
     if (!user) {
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
     
-    // Get password secret from environment or use default
-    const PASSWORD_SECRET = process.env.PASSWORD_SECRET || 'timemachine-password-secret';
-    
-    // Hash the password with CryptoJS
     const hashedPassword = CryptoJS.PBKDF2(password, PASSWORD_SECRET, { 
       keySize: 512/32, 
       iterations: 1000 
     }).toString();
     
-    // Update user password
     user.password = hashedPassword;
     user.resetToken = undefined;
     user.resetTokenExpires = undefined;
@@ -349,9 +285,6 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-/**
- * Update user settings (requires authentication)
- */
 router.post('/update-settings', authenticateToken, async (req, res) => {
   try {
     const { receiveReports, reportFrequency, categories } = req.body;
@@ -361,7 +294,6 @@ router.post('/update-settings', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Update settings
     if (receiveReports !== undefined) {
       user.settings.receiveReports = receiveReports;
     }
@@ -388,27 +320,20 @@ router.post('/update-settings', authenticateToken, async (req, res) => {
   }
 });
 
-/**
- * Get user stats - for admin dashboard (requires admin role)
- */
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    // Check if user has admin role
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
     
-    // Count total users
     const totalUsers = await User.countDocuments();
     
-    // Get active users (active in last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const activeUsers = await User.countDocuments({
       lastActive: { $gte: sevenDaysAgo }
     });
     
-    // Get users by email domain
     const domainStats = await User.aggregate([
       { 
         $project: {
@@ -439,6 +364,19 @@ router.get('/stats', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
+
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function isValidPassword(password) {
+  return password && password.length >= 6;
+}
+
+function generateDeviceId() {
+  return crypto.randomBytes(16).toString('hex');
+}
 
 module.exports = router;
 module.exports.authenticateToken = authenticateToken;

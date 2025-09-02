@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeMachine",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Track your browsing habits and boost productivity with insightful stats.",
   "permissions": [
     "tabs",
@@ -13,10 +13,9 @@
     "notifications"
   ],
   "host_permissions": [
-  "http://localhost:3000/*",
-  "https://timemachine-1.onrender.com/*",
-  "https://api.emailjs.com/*",
-  "https://quickchart.io/*"
+    "https://timemachine-1.onrender.com/*",
+    "https://api.emailjs.com/*",
+    "https://quickchart.io/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -27,7 +26,7 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+  "service_worker": "background.js"
   },
   "commands": {
     "tm_toggle_pomodoro": {
@@ -40,14 +39,16 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 https://timemachine-1.onrender.com https://api.emailjs.com https://quickchart.io"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://timemachine-1.onrender.com https://api.emailjs.com https://quickchart.io"
   },
   "web_accessible_resources": [
     {
       "resources": [
         "chart.min.js",
-  "report-scheduler.js",
-  "user_guide.html"
+        "report-scheduler.js",
+        "user_guide.html",
+        "blocked.html",
+        "blocked.js"
       ],
       "matches": ["<all_urls>"]
     }

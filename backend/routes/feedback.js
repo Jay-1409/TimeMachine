@@ -3,10 +3,6 @@ const router = express.Router();
 const Feedback = require('../models/Feedback');
 const { authenticateToken } = require('./auth');
 
-/**
- * Submit feedback
- * Requires authentication
- */
 router.post('/submit', authenticateToken, async (req, res) => {
   try {
     const { message } = req.body;
@@ -15,7 +11,6 @@ router.post('/submit', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
     
-    // Create feedback entry
     const feedback = await Feedback.create({
       userEmail: req.user.email,
       message,
@@ -35,17 +30,12 @@ router.post('/submit', authenticateToken, async (req, res) => {
   }
 });
 
-/**
- * Get all feedback (admin only)
- */
 router.get('/all', authenticateToken, async (req, res) => {
   try {
-    // Check if user has admin role
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
     
-    // Get all feedback, newest first
     const allFeedback = await Feedback.find()
       .sort({ timestamp: -1 });
     
@@ -60,15 +50,11 @@ router.get('/all', authenticateToken, async (req, res) => {
   }
 });
 
-/**
- * Update feedback status (admin only)
- */
 router.patch('/status/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
     
-    // Check if user has admin role
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -77,7 +63,6 @@ router.patch('/status/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Status is required' });
     }
     
-    // Update feedback status
     const feedback = await Feedback.findByIdAndUpdate(
       id,
       { status },
@@ -100,12 +85,8 @@ router.patch('/status/:id', authenticateToken, async (req, res) => {
   }
 });
 
-/**
- * Get my feedback - get all feedback submitted by the current user
- */
 router.get('/my', authenticateToken, async (req, res) => {
   try {
-    // Get feedback for current user, newest first
     const myFeedback = await Feedback.find({ userEmail: req.user.email })
       .sort({ timestamp: -1 });
     

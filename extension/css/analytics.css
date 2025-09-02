@@ -1,0 +1,116 @@
+/* Analytics tab (modernized with nesting, logical properties) */
+.nav-pills {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+
+.nav-pill {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover { color: var(--accent); }
+
+  &.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+.productivity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block-end: 10px;
+  border-block-end: 1px solid var(--border);
+}
+
+.productivity-subtitle {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.score-badge {
+  padding: 8px 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 800;
+}
+
+.quick-insights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  inline-size: 100%;
+
+  @container (min-inline-size: 380px) {
+    grid-template-columns: repeat(2, 1fr); /* Consolidated media query */
+  }
+}
+
+.qi-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.qi-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.qi-value {
+  font-weight: 700;
+}
+
+.chart-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.sites-header {
+  margin-block-start: 8px;
+  padding-block-end: 6px;
+  border-block-end: 1px solid var(--border);
+}
+
+.site-list-wrapper {
+  max-block-size: 160px;
+  overflow: auto;
+  inline-size: 100%;
+}
+
+/* Compact domain rows */
+.site-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.site-item .site-info { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
+.site-item .site-domain { max-inline-size: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-item .category-select { inline-size: auto; padding: 4px 6px; font-size: 12px; border-radius: 8px; }
+.site-item .site-time { color: var(--text); font-weight: 600; white-space: nowrap; }

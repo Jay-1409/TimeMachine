@@ -1,0 +1,277 @@
+/* Focus tab (modernized with nesting, logical properties) */
+.focus-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stopwatch-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.stopwatch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.daily-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.timer-circle {
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: linear-gradient(145deg, var(--bg-2), var(--bg));
+  border: 1px solid var(--border);
+  padding: 18px;
+}
+
+.digital-time {
+  font-size: 36px;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.15);
+}
+
+.stopwatch-container, .progress-overview, .recent-sessions {
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.quick-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.quick-presets > * { min-inline-size: 0; }
+
+.preset-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 700;
+}
+
+.preset-btn:hover { background: var(--accent-2); color: #fff; }
+.preset-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+.preset-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent); outline-offset: 2px; }
+
+.control-panel {
+  display: flex;
+  gap: 8px;
+}
+
+.control-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover { background: var(--accent-2); color: #fff; }
+
+  &.start-control { /* green */
+    color: #fff;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+  }
+
+  &.pause-control { /* neutral/primary */
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+
+  &.stop-control {
+    color: #fff;
+    background: linear-gradient(135deg, #ef4444, #f87171);
+  }
+
+  &.resume-control { /* yellow */
+    color: #111827;
+    background: linear-gradient(135deg, #f59e0b, #facc15);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    outline-offset: 2px;
+  }
+
+  & .control-icon svg { color: currentColor; stroke: currentColor; }
+}
+
+.progress-rail {
+  position: relative;
+  block-size: 8px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.progress-indicator {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0;
+  inset-block-end: 0;
+  inline-size: 0%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.stats-horizontal {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  inline-size: 100%;
+
+  @container (min-inline-size: 360px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @container (min-inline-size: 400px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.recent-sessions .empty-history {
+  text-align: center;
+  color: var(--muted);
+  padding: 10px;
+}
+
+/* Recent Sessions list */
+.sessions-list {
+  display: grid;
+  gap: 10px;
+}
+
+.session-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+  overflow: hidden;
+}
+
+.session-item::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0;
+  inline-size: 3px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+
+/* Accent color varies by status using :has() */
+.sessions-list .session-item:has(.status-interrupted)::before {
+  background: linear-gradient(180deg, #f59e0b, #facc15);
+}
+.sessions-list .session-item:has(.status-completed)::before {
+  background: linear-gradient(180deg, #16a34a, #22c55e);
+}
+
+.session-item:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--border) 60%, var(--accent) 40%);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.session-left { display: flex; flex-direction: column; gap: 4px; }
+.session-top { display: flex; align-items: center; gap: 8px; }
+.session-duration { font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.03);
+  text-transform: none;
+}
+.status-completed { color: #065f46; background: #ecfdf5; border-color: #a7f3d0; }
+.status-interrupted { color: #7c2d12; background: #fffbeb; border-color: #fde68a; }
+
+/* Dark theme adjustments for badge readability */
+body.theme-dark .status-completed { color: #d1fae5; background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); }
+body.theme-dark .status-interrupted { color: #fde68a; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
+
+.session-meta { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.session-ago { white-space: nowrap; }
+.session-sep { opacity: .6; }
+
+.session-actions { display: flex; align-items: center; gap: 8px; }
+.chip-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.chip-btn:hover { background: var(--accent-2); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+
+/* Chip variants */
+.resume-session-btn { border-color: #f59e0b; background: linear-gradient(135deg, #fef3c7, #fffbeb); color: #7c2d12; }
+.resume-session-btn:hover { background: linear-gradient(135deg, #fde68a, #fef3c7); color: #7c2d12; }
+.repeat-session-btn { border-color: var(--accent); background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--card)), color-mix(in srgb, var(--accent-2) 8%, var(--card))); color: var(--text); }
+.repeat-session-btn:hover { color: #fff; }
+
+.delete-session-btn { inline-size: 28px; block-size: 28px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-2); color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.delete-session-btn:hover { color: #b91c1c; background: color-mix(in srgb, #ef4444 8%, var(--bg)); border-color: color-mix(in srgb, #ef4444 35%, var(--border)); }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .session-item { transition: none; }
+  .session-item:hover { transform: none; }
+  .chip-btn { transition: none; }
+}
+
+/* Theme-specific tuning for better contrast */
+body.theme-dark .timer-circle,
+body.theme-cyberpunk .timer-circle,
+body.theme-ocean .timer-circle,
+body.theme-forest .timer-circle,
+body.theme-sunset .timer-circle {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--bg-2) 85%, transparent), var(--bg));
+}
+
+body.theme-dark .preset-btn,
+body.theme-cyberpunk .preset-btn,
+body.theme-ocean .preset-btn,
+body.theme-forest .preset-btn,
+body.theme-sunset .preset-btn {
+  background: color-mix(in srgb, var(--bg-2) 85%, transparent);
+  color: var(--text);
+}

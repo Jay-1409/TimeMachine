@@ -4,10 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TimeMachine</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="scroll.css" />
-    <link rel="stylesheet" href="report-scheduler.css" />
-    <link rel="stylesheet" href="authentication.css" />
+  <!-- Modular styles (legacy styles.css removed) -->
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/analytics.css" />
+  <link rel="stylesheet" href="css/stopwatch.css" />
+  <link rel="stylesheet" href="css/summary.css" />
+  <link rel="stylesheet" href="css/focus.css" />
+  <link rel="stylesheet" href="css/guard.css" />
     <script src="chart.min.js"></script>
     <script src="config.js"></script>
     <script src="auth.js"></script>
@@ -49,7 +52,18 @@
       <!-- Update Notification -->
       <div id="updateNotification" class="update-notification hidden">
         <div class="notification-content">
-          <span class="notification-icon">🎉</span>
+          <span class="notification-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v4"/>
+              <path d="M5.22 5.22l2.83 2.83"/>
+              <path d="M2 12h4"/>
+              <path d="M5.22 18.78l2.83-2.83"/>
+              <path d="M12 18v4"/>
+              <path d="M18.78 18.78l-2.83-2.83"/>
+              <path d="M18 12h4"/>
+              <path d="M18.78 5.22l-2.83 2.83"/>
+            </svg>
+          </span>
           <div class="notification-text">
             <strong>New Feature Added!</strong>
             <span id="updateMessage">Check out our latest improvements</span>
@@ -66,7 +80,17 @@
             title="Theme Settings"
             aria-label="Theme Settings"
           >
-            <span class="theme-icon">🎨</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"/>
+              <path d="M12 1v2"/>
+              <path d="M12 21v2"/>
+              <path d="M4.22 4.22l1.42 1.42"/>
+              <path d="M18.36 18.36l1.42 1.42"/>
+              <path d="M1 12h2"/>
+              <path d="M21 12h2"/>
+              <path d="M4.22 19.78l1.42-1.42"/>
+              <path d="M18.36 5.64l1.42-1.42"/>
+            </svg>
           </button>
           <div id="themeDropdown" class="theme-dropdown hidden">
             <div class="dropdown-header">Choose Theme</div>
@@ -106,60 +130,47 @@
         <h1 class="title">TimeMachine</h1>
         <div class="header-actions">
           <button id="helpBtn" class="icon-btn help-btn" title="User Guide">
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <circle cx="12" cy="17" r="0.01"/>
             </svg>
           </button>
           <button id="settingsBtn" class="icon-btn hamburger-btn" title="Settings">
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
         </div>
       </div>
 
-      <div class="nav-pills">
-        <button class="nav-pill active" data-tab="daily">Daily</button>
-        <button class="nav-pill" data-tab="weekly">Weekly</button>
-        <button class="nav-pill" data-tab="monthly">Monthly</button>
+      <!-- Main Tab Navigation -->
+      <div class="main-tabs">
+        <button class="main-tab active" data-maintab="analytics">
+          <span class="tab-text">Analytics</span>
+        </button>
+        <button class="main-tab" data-maintab="stopwatch">
+          <span class="tab-text">Solver</span>
+        </button>
+        <button class="main-tab" data-maintab="summary">
+          <span class="tab-text">Summary</span>
+        </button>
+        <button class="main-tab" data-maintab="focus">
+          <span class="tab-text">Focus</span>
+        </button>
+        <button class="main-tab" data-maintab="guard">
+          <span class="tab-text">Guard</span>
+        </button>
       </div>
 
-      <div id="insightsTabContent" class="tab-content">
-        
-
-        <div class="card focus-card" id="pomodoroCard">
-          <div class="flex justify-between items-center mb-2">
-            <h2>Focus Timer</h2>
-          </div>
-          <div class="focus-display">
-            <div class="focus-timer">
-              <div id="pomodoroStatus" class="timer-digits">25:00</div>
-              <div class="timer-label">Focus Session</div>
-            </div>
-            <div class="focus-controls">
-              <button id="pomodoroToggle" class="btn primary">Start Focus</button>
-            </div>
-          </div>
+      <!-- Analytics Tab Content -->
+      <div id="analyticsTabContent" class="main-tab-content active">
+        <div class="nav-pills">
+          <button class="nav-pill active" data-tab="daily">Daily</button>
+          <button class="nav-pill" data-tab="weekly">Weekly</button>
+          <button class="nav-pill" data-tab="monthly">Monthly</button>
         </div>
 
         <div class="card productivity-card">
@@ -167,15 +178,16 @@
             <div class="productivity-title">
               <h2>Your Productivity</h2>
               <span class="productivity-subtitle">Time allocation insights</span>
+              <div id="dateRangeDisplay" class="date-range-display"></div>
             </div>
-                <div class="flex items-center gap-2">
-                  <div id="productivityScore" class="score-badge">0%</div>
-                </div>
+            <div class="flex items-center gap-2">
+              <div id="productivityScore" class="score-badge">0%</div>
+            </div>
           </div>
           <div id="errorDisplay" class="error-text hidden"></div>
-            <div id="quickInsights" class="quick-insights-grid"></div>
-          <div id="stats" class="grid grid-cols-1 gap-6">
-            <div class="chart-container h-64">
+          <div id="quickInsights" class="quick-insights-grid"></div>
+          <div id="stats" class="stats">
+            <div class="chart-container" style="height: 200px;">
               <canvas id="timeChart"></canvas>
             </div>
             <div class="sites-header">
@@ -184,6 +196,418 @@
             </div>
             <div class="site-list-wrapper">
               <div class="site-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Problem Solver Tab Content -->
+      <div id="stopwatchTabContent" class="main-tab-content">
+        <!-- Header Section -->
+        <div class="solver-header">
+          <div class="header-content">
+            <h2>Problem Solver</h2>
+            <p class="header-subtitle">Track your coding and learning sessions</p>
+          </div>
+          <div class="daily-stats">
+            <div class="stat-item">
+              <span class="stat-value" id="dailyProblems">0</span>
+              <span class="stat-label">Today</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="dailyTime">0m</span>
+              <span class="stat-label">Time</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Session Card -->
+        <div id="activeSessionCard" class="session-card active-session hidden">
+          <div class="session-header">
+            <div class="session-info">
+              <div class="session-title" id="sessionTitle">Working on Problem</div>
+              <div class="session-details">
+                <span class="session-site" id="sessionSite">Auto-detected</span>
+                <span class="session-category" id="sessionCategory">Coding</span>
+              </div>
+            </div>
+            <div class="session-status">
+              <div class="status-indicator active"></div>
+              <span>In Progress</span>
+            </div>
+          </div>
+          
+          <div class="timer-display">
+            <div class="timer-time" id="stopwatchTime">00:00:00</div>
+            <div class="timer-controls">
+              <button id="pauseResumeBtn" class="control-btn pause">
+                <span class="btn-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="6" y="4" width="4" height="16"/>
+                    <rect x="14" y="4" width="4" height="16"/>
+                  </svg>
+                </span>
+                <span class="btn-text">Pause</span>
+              </button>
+              <button id="completeBtn" class="control-btn complete">
+                <span class="btn-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                </span>
+                <span class="btn-text">Complete</span>
+              </button>
+              <button id="abandonBtn" class="control-btn abandon">
+                <span class="btn-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </span>
+                <span class="btn-text">Stop</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Start Card -->
+        <div id="newSessionCard" class="session-card quick-start">
+          <div class="start-header">
+            <h3>Start New Session</h3>
+            <p>Begin tracking a coding problem or learning task</p>
+          </div>
+          
+          <div class="detected-page" id="currentPageInfo">
+            <div class="page-preview">
+              <div class="page-icon">•</div>
+              <div class="page-info">
+                <div class="page-title" id="detectedTitle">Current Tab</div>
+                <div class="page-url" id="detectedUrl">Auto-detect from browser</div>
+              </div>
+            </div>
+            <div class="detection-status" id="detectionStatus">
+              <span class="status-dot"></span>
+              <span class="status-text">Ready to detect</span>
+            </div>
+          </div>
+          
+          <div class="start-options">
+            <div class="option-group">
+              <label for="quickCategory" class="option-label">Problem Type</label>
+              <select id="quickCategory" class="styled-select">
+                <option value="Coding">Coding Challenge</option>
+                <option value="Algorithm">Algorithm</option>
+                <option value="Debug">Debugging</option>
+                <option value="Study">Learning</option>
+                <option value="Research">Research</option>
+              </select>
+            </div>
+            
+            <button id="startSessionBtn" class="start-button">
+              <span class="btn-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <path d="M8 5v14l11-7-11-7z"/>
+                </svg>
+              </span>
+              <span class="btn-text">Start Tracking</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Stats & History -->
+        <div class="stats-section">
+          <div class="section-header">
+            <h3>Your Progress</h3>
+            <select id="historyFilter" class="time-filter">
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          
+          <div class="progress-grid">
+            <div class="progress-card">
+              <div class="progress-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 6L9 17l-5-5"/>
+                </svg>
+              </div>
+              <div class="progress-info">
+                <div class="progress-value" id="completedCount">0</div>
+                <div class="progress-label">Completed</div>
+              </div>
+            </div>
+            
+            <div class="progress-card">
+              <div class="progress-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="9"/>
+                  <path d="M12 7v5l3 3"/>
+                </svg>
+              </div>
+              <div class="progress-info">
+                <div class="progress-value" id="totalTime">0h 0m</div>
+                <div class="progress-label">Total Time</div>
+              </div>
+            </div>
+            
+            <div class="progress-card">
+              <div class="progress-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 17l6-6 4 4 8-8"/>
+                </svg>
+              </div>
+              <div class="progress-info">
+                <div class="progress-value" id="streakCount">0</div>
+                <div class="progress-label">Day Streak</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Sessions -->
+        <div class="recent-sessions">
+          <h3>Recent Sessions</h3>
+          <div id="sessionsList" class="sessions-list">
+            <div class="empty-state">
+              <div class="empty-icon">•</div>
+              <div class="empty-text">No sessions yet</div>
+              <div class="empty-subtext">Start your first problem-solving session!</div>
+            </div>
+          </div>
+        </div>
+          
+        <div id="sessionHistory" class="compact-history">
+          <div class="loading-text">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Daily Summary Tab Content -->
+      <div id="summaryTabContent" class="main-tab-content">
+        <h2 id="summaryTitle">Daily Activity Summary</h2>
+        <div class="date-navigation">
+          <button id="prevDayBtn" class="nav-btn" title="Previous Day (←)">‹</button>
+          <input type="date" id="summaryDate" class="date-picker" />
+          <button id="nextDayBtn" class="nav-btn" title="Next Day (→)">›</button>
+          <button id="todayBtn" class="today-btn" title="Go to Today">Today</button>
+        </div>
+
+        <!-- Loading indicator -->
+        <div id="summaryLoading" class="loading-indicator hidden">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Loading summary...</div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8"/>
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M17.66 6.34l1.41-1.41M4.93 19.07l1.41-1.41"/>
+              </svg>
+            </div>
+            <div class="metric-info">
+              <div class="metric-value" id="totalFocusSessions">0</div>
+              <div class="metric-label">Focus Sessions</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M2 12h20"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+            </div>
+            <div class="metric-info">
+              <div class="metric-value" id="totalSitesVisited">0</div>
+              <div class="metric-label">Sites Visited</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="13" r="8"/>
+                <path d="M12 9v4l2 2"/>
+                <path d="M9 2h6"/>
+              </svg>
+            </div>
+            <div class="metric-info">
+              <div class="metric-value" id="totalActiveTime">0h 0m</div>
+              <div class="metric-label">Active Time</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+            <div class="metric-info">
+              <div class="metric-value" id="problemsSolved">0</div>
+              <div class="metric-label">Problems Solved</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top 3 Sites -->
+        <h3>Top Sites by Time Spent</h3>
+        <div class="site-item rank-1">
+          <div class="site-rank" aria-hidden="true">1</div>
+          <div class="site-details">
+            <div class="site-name" id="topSite1Name">-</div>
+            <div class="site-time" id="topSite1Time">-</div>
+          </div>
+        </div>
+        <div class="site-item rank-2">
+          <div class="site-rank" aria-hidden="true">2</div>
+          <div class="site-details">
+            <div class="site-name" id="topSite2Name">-</div>
+            <div class="site-time" id="topSite2Time">-</div>
+          </div>
+        </div>
+        <div class="site-item rank-3">
+          <div class="site-rank" aria-hidden="true">3</div>
+          <div class="site-details">
+            <div class="site-name" id="topSite3Name">-</div>
+            <div class="site-time" id="topSite3Time">-</div>
+          </div>
+        </div>
+
+        <!-- Additional Insights -->
+        <div class="insight-card">
+          <div class="insight-title">Productivity Score</div>
+          <div class="productivity-score" id="productivityScore">-</div>
+          <div class="score-description" id="scoreDescription">-</div>
+        </div>
+        <div class="insight-card">
+          <div class="insight-title">Focus Quality</div>
+          <div class="focus-quality" id="focusQuality">-</div>
+          <div class="quality-description" id="qualityDescription">-</div>
+        </div>
+      </div>
+
+      <!-- Focus Zone Tab Content -->
+      <div id="focusTabContent" class="main-tab-content">
+        <div class="focus-container">
+          <!-- Stopwatch Timer Box -->
+          <div class="stopwatch-container">
+            <div class="stopwatch-header">
+              <h2 class="stopwatch-title">Focus Timer</h2>
+              <span id="dailyFocusTime" class="daily-badge">0h 0m today</span>
+            </div>
+            
+            <div class="stopwatch-display">
+              <div class="timer-circle">
+                <div id="pomodoroStatus" class="digital-time">25:00</div>
+                <div id="timerLabel" class="timer-label">Ready to Focus</div>
+              </div>
+            </div>
+            
+            <div class="quick-presets">
+              <button class="preset-btn" data-time="5">5m</button>
+              <button class="preset-btn" data-time="15">15m</button>
+              <button class="preset-btn active" data-time="25">25m</button>
+              <button class="preset-btn" data-time="45">45m</button>
+              <button class="preset-btn" data-time="60">60m</button>
+            </div>
+            
+            <div class="control-panel">
+              <button id="pomodoroToggle" class="control-button start-control">
+                <span class="control-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M8 5v14l11-7-11-7z"/>
+                  </svg>
+                </span>
+                <span class="control-label">Start</span>
+              </button>
+              <button id="pomodoroStop" class="control-button stop-control hidden">
+                <span class="control-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <rect x="6" y="6" width="12" height="12" rx="1"/>
+                  </svg>
+                </span>
+                <span class="control-label">Stop</span>
+              </button>
+            </div>
+            
+            <div class="progress-track">
+              <div id="focusProgressBar" class="progress-rail">
+                <div class="progress-indicator"></div>
+              </div>
+              <div class="progress-info">
+                <span id="progressPercent">0%</span>
+                <span id="timeRemaining">25:00 remaining</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's Progress - Horizontal Layout -->
+          <div class="progress-overview">
+            <h3 class="overview-title">Today's Progress</h3>
+            <div class="stats-horizontal">
+              <div class="stat-item">
+                <div class="stat-value" id="completedSessions">0</div>
+                <div class="stat-name">Sessions</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="totalFocusTime">0m</div>
+                <div class="stat-name">Focus Time</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="focusStreak">0</div>
+                <div class="stat-name">Streak</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="productivityScore">0%</div>
+                <div class="stat-name">Productivity</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Session History -->
+          <div class="recent-sessions">
+            <h3>Recent Sessions</h3>
+            <div id="focusSessionsList" class="sessions-list">
+              <div class="empty-history">
+                <div class="empty-graphic" aria-hidden="true">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="7" r="3"/>
+                    <path d="M5 22c3-3 11-3 14 0"/>
+                    <path d="M9 10l-4 7"/>
+                    <path d="M15 10l4 7"/>
+                  </svg>
+                </div>
+                <div class="empty-message">No sessions yet</div>
+                <div class="empty-hint">Start your first focus session!</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Site Guard Tab Content -->
+      <div id="guardTabContent" class="main-tab-content">
+        <div class="guard-container">
+          <div class="guard-header">
+            <h2>Website Guard</h2>
+            <p>Block websites and keywords that distract you</p>
+          </div>
+          
+          <div class="guard-input-section">
+            <input type="text" id="blockInput" placeholder="Enter website or keyword (e.g., facebook.com, games)" class="guard-input">
+            <button id="addBlockBtn" class="guard-btn">Block</button>
+          </div>
+          
+          <div class="blocked-list-section">
+            <h3>Blocked Items (
+              <span id="blockedSitesCount">0</span>
+              <span id="blockedCount" class="hidden">0</span>
+            )</h3>
+            <div id="blockedItemsList" class="blocked-list">
+              <!-- Items will be populated here -->
             </div>
           </div>
         </div>
@@ -252,7 +676,14 @@
           <!-- Report Scheduling Section -->
           <div class="schedule-settings">
             <div class="schedule-title">
-              <span class="schedule-icon">🔄</span>
+              <span class="schedule-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <polyline points="23 20 23 14 17 14"/>
+                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10"/>
+                  <path d="M3.51 15A9 9 0 0 0 18.36 18.36L23 14"/>
+                </svg>
+              </span>
               <span>Automated Reports</span>
             </div>
             <div class="schedule-row">
@@ -309,6 +740,136 @@
       </div>
 
       <div id="feedbackToast" class="feedback-toast"></div>
+
+      <!-- Modal Dialogs -->
+      <!-- Add Blocked Site Modal -->
+      <div id="addSiteModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+          <div class="modal-header">
+            <h3>Add Blocked Website or Keyword</h3>
+            <button class="modal-close" id="closeAddSiteModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Block Type</label>
+              <div class="radio-group">
+                <label class="radio-label">
+                  <input type="radio" name="blockType" value="url" id="blockTypeUrl" checked>
+                  Website URL
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="blockType" value="keyword" id="blockTypeKeyword">
+                  Keyword
+                </label>
+              </div>
+            </div>
+            <div class="form-group" id="urlGroup">
+              <label for="addSiteUrl">Website URL</label>
+              <input type="text" id="addSiteUrl" placeholder="e.g., youtube.com, facebook.com" class="form-input">
+              <small class="form-help">Enter the domain without 'www.' or 'https://'</small>
+            </div>
+            <div class="form-group hidden" id="keywordGroup">
+              <label for="addSiteKeyword">Keyword</label>
+              <input type="text" id="addSiteKeyword" placeholder="e.g., chess, games, social" class="form-input">
+              <small class="form-help">Blocks any site containing this keyword in URL</small>
+            </div>
+            <div class="form-group">
+              <label for="addSiteName">Display Name (optional)</label>
+              <input type="text" id="addSiteName" placeholder="e.g., YouTube, Chess Sites" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="addSiteSchedule">
+                Block on schedule only
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn secondary" id="cancelAddSiteModal">Cancel</button>
+            <button id="addSiteBtn" class="btn primary">Add Block Rule</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Focus Session Modal -->
+      <!-- Start Focus Session Modal -->
+      <div id="focusSessionModal" class="modal-overlay hidden">
+        <div class="modal-dialog">
+          <div class="modal-header">
+            <h3>Start Focus Session</h3>
+            <button class="modal-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="focusDuration">Session Duration (minutes)</label>
+              <input type="number" id="focusDuration" class="form-input" min="1" max="480" value="25" placeholder="25">
+              <small class="form-help">Enter duration between 1-480 minutes</small>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="blockAllSites">
+                Block all websites during this session
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn cancel">Cancel</button>
+            <button id="startFocusBtn" class="btn primary">Start Session</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Focus Settings Modal -->
+      <div id="focusSettingsModal" class="modal-overlay hidden">
+        <div class="modal-dialog small">
+          <div class="modal-header">
+            <h3>Focus Settings</h3>
+            <button class="modal-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="focusDurationSetting">Default Session (minutes)</label>
+              <input type="number" id="focusDurationSetting" class="form-input" min="5" max="120" value="25">
+            </div>
+            <div class="form-group">
+              <label for="breakDuration">Break Duration (minutes)</label>
+              <input type="number" id="breakDuration" class="form-input" min="1" max="30" value="5">
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="notificationSounds" checked>
+                Play notification sounds
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="blockWebsitesDuringFocus">
+                Block distracting websites during focus
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn cancel">Cancel</button>
+            <button id="saveFocusSettingsBtn" class="btn primary">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confirmation Modal -->
+      <div id="confirmModal" class="modal-overlay hidden">
+        <div class="modal-dialog small">
+          <div class="modal-header">
+            <h3 id="confirmTitle">Confirm Action</h3>
+          </div>
+          <div class="modal-body">
+            <p id="confirmMessage">Are you sure you want to proceed?</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn secondary" id="cancelConfirmModal">Cancel</button>
+            <button class="btn btn-danger" id="confirmButton">Confirm</button>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>

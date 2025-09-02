@@ -1,0 +1,280 @@
+/* Guard tab (modernized with nesting, logical properties, fluid sizing, and width constraints) */
+/* Added data-type based selectors for distinguishing websites and keywords with visual indicators */
+
+.guard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: 100%;
+  max-inline-size: 100%; /* Ensure container doesn't exceed parent width */
+  box-sizing: border-box;
+  padding-inline: 8px; /* Reduced padding to prevent overflow */
+  container-type: inline-size; /* Enable container queries for responsive adjustments */
+
+  @container (max-inline-size: 380px) {
+    gap: 10px;
+    padding-inline: 6px;
+  }
+}
+
+.guard-header {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--shadow);
+  inline-size: 100%;
+  box-sizing: border-box;
+
+  & p {
+    color: var(--muted);
+    font-size: clamp(12px, 1.2vw, 14px);
+    margin: 0;
+  }
+}
+
+.guard-input-section {
+  display: flex;
+  gap: 8px;
+  inline-size: 100%;
+  align-items: center;
+
+  @container (max-inline-size: 360px) {
+    flex-wrap: wrap; /* Allow wrapping to prevent overflow on smaller screens */
+    gap: 6px;
+  }
+}
+
+.guard-input {
+  flex: 1;
+  inline-size: 100%;
+  min-inline-size: 0; /* Prevent flex item from overflowing */
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  font: 500 clamp(12px, 1.4vw, 14px) var(--font);
+  transition: var(--transition);
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+.guard-btn {
+  inline-size: auto;
+  padding: 10px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font-weight: 600;
+  font-size: clamp(12px, 1.3vw, 14px);
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow);
+  white-space: nowrap; /* Prevent button text wrapping */
+
+  &:hover {
+    translate: 0 -2px;
+    box-shadow: var(--shadow-md);
+    background: linear-gradient(135deg, var(--accent-2), var(--accent));
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    outline-offset: 2px;
+  }
+
+  @container (max-inline-size: 360px) {
+    padding: 8px 12px;
+  }
+}
+
+.blocked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-block-size: 200px;
+  overflow-y: auto;
+  inline-size: 100%;
+  box-sizing: border-box;
+  overscroll-behavior: contain; /* Prevent scroll chaining */
+  border: 1px solid var(--border); /* Added subtle border for list container */
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  background: var(--bg-2);
+}
+
+.blocked-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  box-shadow: var(--shadow);
+  inline-size: 100%;
+  box-sizing: border-box;
+  position: relative; /* For positioning pseudo-elements */
+
+  & > span {
+    flex: 1;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap; /* Truncate long URLs/keywords */
+    font-size: clamp(12px, 1.3vw, 13px);
+    color: var(--text);
+    padding-inline-start: 40px; /* Space for type badge */
+  }
+
+  & .icon-btn {
+    flex-shrink: 0; /* Prevent button from shrinking */
+    inline-size: 32px;
+    block-size: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-2);
+    color: var(--muted);
+
+    &:hover {
+      background: linear-gradient(135deg, #ef4444, #f87171); /* Red for delete */
+      color: #fff;
+    }
+  }
+
+  /* Distinguish website and keyword with data-type attribute */
+  /* Assume HTML like <div class="blocked-item" data-type="website">Website chess.com</div> */
+  &[data-type="website"] {
+    --type-color: color-mix(in srgb, var(--accent) 70%, #fff); /* Light blue tint */
+
+    &::before {
+      content: "Site";
+      position: absolute;
+      inset-inline-start: 8px;
+      background: var(--type-color);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+
+  &[data-type="keyword"] {
+    --type-color: color-mix(in srgb, var(--accent-2) 70%, #fff); /* Lighter tint for keywords */
+
+    &::before {
+      content: "Key";
+      position: absolute;
+      inset-inline-start: 8px;
+      background: var(--type-color);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+}
+
+/* Styles matching actual DOM from popup.js */
+.blocked-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0; /* allow text to truncate */
+}
+
+.block-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.block-badge.url {
+  /* Website badge */
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.block-badge.keyword {
+  /* Keyword badge */
+  background: color-mix(in srgb, var(--accent-2) 20%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--accent-2) 40%, var(--border));
+}
+
+.blocked-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.blocked-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0; /* keep actions tight */
+}
+
+.action-btn {
+  inline-size: 32px;
+  block-size: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.action-btn:hover {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: #fff;
+  border-color: #ef4444;
+}
+
+.action-btn svg { color: currentColor; stroke: currentColor; }
+
+/* Animation for adding new blocked items */
+.blocked-item {
+  animation: slideIn 0.3s ease-out;
+
+  @keyframes slideIn {
+    from { opacity: 0; translate: 0 8px; }
+    to { opacity: 1; translate: 0 0; }
+  }
+}
+
+/* Ensure dark/colorful themes have sufficient contrast */
+body.theme-dark, body.theme-ocean, body.theme-sunset, body.theme-forest, body.theme-cyberpunk {
+  .guard-btn:hover { background: linear-gradient(135deg, var(--accent-2), color-mix(in srgb, var(--accent) 80%, #fff)); }
+  .blocked-item .icon-btn:hover { background: linear-gradient(135deg, #f87171, #dc2626); }
+  .blocked-item[data-type="website"]::before { background: color-mix(in srgb, var(--accent) 50%, var(--bg-2)); color: #fff; }
+  .blocked-item[data-type="keyword"]::before { background: color-mix(in srgb, var(--accent-2) 50%, var(--bg-2)); color: #fff; }
+}

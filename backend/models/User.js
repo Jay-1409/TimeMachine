@@ -1,13 +1,7 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const CryptoJS = require('crypto-js');
-
-/**
- * User Schema with simplified email/password authentication
- * and basic device tracking
- */
 const userSchema = new mongoose.Schema({
-  // Email - main identifier
   email: {
     type: String,
     required: true,
@@ -16,7 +10,6 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  // Registered devices for multi-device support
   devices: [{
     deviceId: {
       type: String,
@@ -56,18 +49,15 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  // Password for authentication (hashed)
   password: {
     type: String,
     required: true,
-    select: false // Don't include in query results by default
+    select: false
   },
-  // Password reset token
   resetToken: {
     type: String,
     select: false
   },
-  // Reset token expiry time
   resetTokenExpires: {
     type: Date,
     select: false
@@ -87,26 +77,33 @@ const userSchema = new mongoose.Schema({
       of: String,
       default: {}
     }
+  },
+  timezone: {
+    name: {
+      type: String,
+      default: 'UTC'
+    },
+    offset: {
+      type: Number,
+      default: 0
+    },
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
   }
 });
 
-/**
- * Static method to find user by email
- */
 userSchema.statics.findByEmail = function(email) {
   if (!email) return null;
   return this.findOne({ email: email.toLowerCase().trim() });
 };
 
-/**
- * Static method to create a new user
- */
 userSchema.statics.createUser = async function(email, password, deviceInfo = {}, role = 'user') {
   if (!email || !password) throw new Error('Email and password are required');
   
   const lowercaseEmail = email.toLowerCase().trim();
   
-  // Create device object
   const device = {
     deviceId: deviceInfo.deviceId || crypto.randomBytes(16).toString('hex'),
     deviceName: deviceInfo.deviceName || 'Unknown Device',
@@ -117,10 +114,8 @@ userSchema.statics.createUser = async function(email, password, deviceInfo = {},
     isActive: true
   };
   
-  // Get password secret from environment or use default
   const PASSWORD_SECRET = process.env.PASSWORD_SECRET || 'timemachine-password-secret';
   
-  // Hash the password with CryptoJS
   const hashedPassword = CryptoJS.PBKDF2(password, PASSWORD_SECRET, { 
     keySize: 512/32, 
     iterations: 1000 
@@ -206,6 +201,43 @@ userSchema.methods.deactivateDevice = async function(deviceId) {
   }
   
   return this;
+};
+
+/**
+ * Method to update user's timezone
+ */
+userSchema.methods.updateTimezone = async function(timezoneName, timezoneOffset) {
+  this.timezone = {
+    name: timezoneName || 'UTC',
+    offset: timezoneOffset || 0,
+    lastUpdated: new Date()
+  };
+  this.lastUpdated = new Date();
+  return this.save();
+};
+
+/**
+ * Method to get current date in user's timezone
+ */
+userSchema.methods.getCurrentDateInUserTimezone = function() {
+  const now = new Date();
+  const userTime = new Date(now.getTime() + (this.timezone.offset * 60000));
+  return userTime.toISOString().split('T')[0];
+};
+
+/**
+ * Method to check if it's a new day in user's timezone
+ */
+userSchema.methods.isNewDayInUserTimezone = function(lastActivityDate) {
+  const currentUserDate = this.getCurrentDateInUserTimezone();
+  return currentUserDate !== lastActivityDate;
+};
+
+/**
+ * Static method to get users in a specific timezone for midnight processing
+ */
+userSchema.statics.getUsersInTimezone = function(timezoneOffset) {
+  return this.find({ 'timezone.offset': timezoneOffset });
 };
 
 module.exports = mongoose.model('User', userSchema);

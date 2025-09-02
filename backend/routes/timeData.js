@@ -12,7 +12,15 @@ const ALLOWED_CATEGORIES = [
 ];
 
 router.post("/sync", async (req, res) => {
-  const { userEmail, date, domain, sessions, category = "Other", timezone = 0 } = req.body;
+  const { 
+    userEmail, 
+    date, 
+    domain, 
+    sessions, 
+    category = "Other", 
+    timezone = 0,
+    timezoneName = 'UTC'
+  } = req.body;
 
   if (!userEmail || !date || !domain || !sessions || !Array.isArray(sessions)) {
     console.warn(
@@ -24,57 +32,71 @@ router.post("/sync", async (req, res) => {
       .json({ error: "Missing or invalid required fields" });
   }
 
-  // Validate and cap session durations to prevent unrealistic values (max 12 hours per session)
-  const MAX_SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+  const MAX_SESSION_DURATION = 12 * 60 * 60 * 1000;
   
-  // Process and validate each session
   const validatedSessions = sessions.filter(session => {
-    // Basic structural validation
     if (!session || typeof session.duration !== 'number' || session.duration <= 0) {
       console.warn(`Skipping invalid session for ${domain}: `, session);
       return false;
     }
     
-    // Cap overly long durations
     if (session.duration > MAX_SESSION_DURATION) {
       console.warn(`Capping extremely long session duration for ${domain}: ${session.duration}ms -> ${MAX_SESSION_DURATION}ms`);
       session.duration = MAX_SESSION_DURATION;
     }
     
+    if (session.startTime && session.endTime) {
+      session.userLocalStartTime = new Date(session.startTime - (timezone * 60000));
+      session.userLocalEndTime = new Date(session.endTime - (timezone * 60000));
+    }
+    
     return true;
   });
 
-  // Calculate total time for this batch of sessions
   const newTotalTimeForSessionBatch = validatedSessions.reduce(
     (sum, s) => sum + (s.duration || 0),
     0
   );
 
   try {
-    // Find existing record to check current totalTime
-    const existingRecord = await TimeData.findOne({ userEmail, date, domain });
+    const userLocalDate = TimeData.getUserTimezoneDate(Date.now(), timezone);
+    
+    const existingRecord = await TimeData.findOne({ 
+      userEmail, 
+      userLocalDate, 
+      domain 
+    });
+    
     let newTotalTime = newTotalTimeForSessionBatch;
     
-    // If record exists, add the new time but cap at MAX_DAILY_TIME
     if (existingRecord) {
-      const MAX_DAILY_TIME = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+      const MAX_DAILY_TIME = 24 * 60 * 60 * 1000;
       newTotalTime = Math.min(existingRecord.totalTime + newTotalTimeForSessionBatch, MAX_DAILY_TIME);
       
-      // If already at cap, log it but still add sessions for record keeping
       if (existingRecord.totalTime >= MAX_DAILY_TIME) {
-        console.warn(`Domain ${domain} already reached maximum daily time (${MAX_DAILY_TIME}ms) for user ${userEmail} on ${date}`);
-        // Still store the sessions but don't increment totalTime
+        console.warn(`Domain ${domain} already reached maximum daily time (${MAX_DAILY_TIME}ms) for user ${userEmail} on ${userLocalDate}`);
         newTotalTime = MAX_DAILY_TIME;
       }
     }
 
-    // Update the record with the new sessions
     const timeData = await TimeData.findOneAndUpdate(
-      { userEmail, date, domain },
+      { userEmail, userLocalDate, domain },
       {
-        $set: { totalTime: newTotalTime, category, timezone },
+        $set: { 
+          totalTime: newTotalTime, 
+          category,
+          timezone: {
+            name: timezoneName,
+            offset: timezone
+          },
+          date: date,
+          utcDate: new Date()
+        },
         $push: { sessions: { $each: validatedSessions } },
-        $setOnInsert: { createdAt: new Date() },
+        $setOnInsert: { 
+          createdAt: new Date(),
+          userLocalDate: userLocalDate
+        },
       },
       {
         upsert: true,
@@ -83,7 +105,7 @@ router.post("/sync", async (req, res) => {
       }
     );
 
-    res.status(200).json({ success: true, timeData });
+    res.status(200).json({ success: true, timeData, userLocalDate });
   } catch (error) {
     console.error("Error in /api/time-data/sync:", error);
 
@@ -97,34 +119,61 @@ router.get("/report/:userEmail", async (req, res) => {
   try {
     const { userEmail } = req.params;
     const date = req.query.date || new Date().toISOString().split("T")[0];
-    const endDate = req.query.endDate || date; // Support for date range queries
-    const timezoneOffset = parseInt(req.query.timezone || "0", 10); // Get user's timezone offset
+    const endDate = req.query.endDate || date;
+    const timezoneOffset = parseInt(req.query.timezone || "0", 10);
+    const timezoneName = req.query.timezoneName || 'UTC';
 
     if (!userEmail) {
       return res.status(400).json({ error: "User email is required" });
     }
 
-    // Create date range for the query
-    const dateRange = { $gte: date, $lte: endDate };
+    let startUserDate, endUserDate;
     
-    // Find all time data within the date range
-    const timeData = await TimeData.find({ 
+    if (req.query.useUserTimezone === 'true') {
+      const startTimestamp = new Date(date + 'T00:00:00.000Z').getTime();
+      const endTimestamp = new Date(endDate + 'T23:59:59.999Z').getTime();
+      
+      startUserDate = TimeData.getUserTimezoneDate(startTimestamp, timezoneOffset);
+      endUserDate = TimeData.getUserTimezoneDate(endTimestamp, timezoneOffset);
+    } else {
+      startUserDate = date;
+      endUserDate = endDate;
+    }
+
+    console.log(`Fetching report for ${userEmail} from ${startUserDate} to ${endUserDate} (timezone: ${timezoneName}, offset: ${timezoneOffset})`);
+
+    const dateRange = { $gte: startUserDate, $lte: endUserDate };
+    
+    let timeData = await TimeData.find({ 
       userEmail, 
-      date: dateRange
+      userLocalDate: dateRange
     }).lean();
+
+    if (!timeData || timeData.length === 0) {
+      timeData = await TimeData.find({ 
+        userEmail, 
+        date: dateRange
+      }).lean();
+    }
 
     const formattedData = timeData.map((entry) => ({
       domain: entry.domain,
-      date: entry.date,
+      date: entry.userLocalDate || entry.date,
       sessions: entry.sessions || [],
       totalTime: entry.totalTime || 0,
       category: ALLOWED_CATEGORIES.includes(entry.category)
         ? entry.category
         : "Other",
-      timezone: entry.timezone || timezoneOffset, // Include timezone info
+      timezone: entry.timezone || { name: timezoneName, offset: timezoneOffset },
+      userLocalDate: entry.userLocalDate
     }));
 
-    res.status(200).json(formattedData);
+    res.status(200).json({
+      data: formattedData,
+      timezone: { name: timezoneName, offset: timezoneOffset },
+      dateRange: { start: startUserDate, end: endUserDate },
+      serverTime: new Date().toISOString()
+    });
   } catch (error) {
     console.error("Error fetching report:", error);
     res.status(500).json({
@@ -134,30 +183,52 @@ router.get("/report/:userEmail", async (req, res) => {
   }
 });
 
-// Lightweight refresh endpoint (alias-style) to fetch current aggregated data quickly
-// GET /api/time-data/refresh/:userEmail?date=YYYY-MM-DD
 router.get('/refresh/:userEmail', async (req, res) => {
   try {
     const { userEmail } = req.params;
     const date = req.query.date || new Date().toISOString().split('T')[0];
+    const timezoneOffset = parseInt(req.query.timezone || "0", 10);
+    const timezoneName = req.query.timezoneName || 'UTC';
+    
     if (!userEmail) return res.status(400).json({ error: 'User email is required' });
 
-    const rows = await TimeData.find({ userEmail, date }).lean();
+    const userLocalDate = req.query.useUserTimezone === 'true' 
+      ? TimeData.getUserTimezoneDate(Date.now(), timezoneOffset)
+      : date;
+
+    let rows = await TimeData.find({ userEmail, userLocalDate }).lean();
+    
+    if (!rows || rows.length === 0) {
+      rows = await TimeData.find({ userEmail, date }).lean();
+    }
+
     const data = rows.map(entry => ({
       domain: entry.domain,
-      date: entry.date,
+      date: entry.userLocalDate || entry.date,
       totalTime: entry.totalTime || 0,
       category: ALLOWED_CATEGORIES.includes(entry.category) ? entry.category : 'Other',
-      sessions: entry.sessions || []
+      sessions: entry.sessions || [],
+      timezone: entry.timezone || { name: timezoneName, offset: timezoneOffset }
     }));
-    return res.json({ success: true, date, count: data.length, serverTime: new Date().toISOString(), data });
+
+    const isNewDay = await TimeData.isNewDayForUser(userEmail, timezoneOffset);
+    
+    return res.json({ 
+      success: true, 
+      date: userLocalDate, 
+      count: data.length, 
+      serverTime: new Date().toISOString(),
+      userTime: new Date(Date.now() - (timezoneOffset * 60000)).toISOString(),
+      isNewDay,
+      timezone: { name: timezoneName, offset: timezoneOffset },
+      data 
+    });
   } catch (e) {
     console.error('Error in /api/time-data/refresh:', e);
     return res.status(500).json({ error: 'Failed to refresh data', details: e.message });
   }
 });
 
-// Debug: recent documents (limit 10) - NOT for production permanently
 router.get('/debug/recent/:userEmail', async (req, res) => {
   try {
     const { userEmail } = req.params;
@@ -201,31 +272,114 @@ router.patch("/category", async (req, res) => {
   }
 });
 
-// Route to check if there's any activity for a specific date
 router.post("/check-activity", async (req, res) => {
-  const { date, userEmail, timezone = 0 } = req.body;
+  const { date, userEmail, timezone = 0, timezoneName = 'UTC', useUserTimezone = false } = req.body;
   
   if (!date || !userEmail) {
     return res.status(400).json({ error: "Date and userEmail are required" });
   }
   
   try {
-    // Check if there's any time data for this date
-    const timeDataCount = await TimeData.countDocuments({
+    let queryDate = date;
+    
+    if (useUserTimezone) {
+      const timestamp = new Date(date + 'T00:00:00.000Z').getTime();
+      queryDate = TimeData.getUserTimezoneDate(timestamp, timezone);
+    }
+    
+    let timeDataCount = await TimeData.countDocuments({
       userEmail,
-      date: date,
-      totalTime: { $gt: 0 } // Only count records with some activity
+      userLocalDate: queryDate,
+      totalTime: { $gt: 0 }
     });
+    
+    if (timeDataCount === 0) {
+      timeDataCount = await TimeData.countDocuments({
+        userEmail,
+        date: queryDate,
+        totalTime: { $gt: 0 }
+      });
+    }
+    
+    const isNewDay = await TimeData.isNewDayForUser(userEmail, timezone);
     
     return res.json({ 
       hasActivity: timeDataCount > 0,
       count: timeDataCount,
-      timezone: timezone // Return the timezone that was used
+      queryDate,
+      originalDate: date,
+      isNewDay,
+      timezone: { name: timezoneName, offset: timezone },
+      userTime: new Date(Date.now() - (timezone * 60000)).toISOString()
     });
   } catch (error) {
     console.error("Error checking activity:", error);
     return res.status(500).json({ 
       error: "Failed to check for activity",
+      details: error.message
+    });
+  }
+});
+
+router.post("/update-timezone", async (req, res) => {
+  const { userEmail, timezoneName, timezoneOffset } = req.body;
+  
+  if (!userEmail || typeof timezoneOffset !== 'number') {
+    return res.status(400).json({ error: "userEmail and timezoneOffset are required" });
+  }
+  
+  try {
+    const user = await User.findByEmail(userEmail);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    await user.updateTimezone(timezoneName || 'UTC', timezoneOffset);
+    
+    return res.json({ 
+      success: true,
+      message: "Timezone updated successfully",
+      timezone: {
+        name: timezoneName || 'UTC',
+        offset: timezoneOffset
+      }
+    });
+  } catch (error) {
+    console.error("Error updating timezone:", error);
+    return res.status(500).json({ 
+      error: "Failed to update timezone",
+      details: error.message
+    });
+  }
+});
+
+router.post("/check-new-day", async (req, res) => {
+  const { userEmail, lastActiveDate, timezone = 0, timezoneName = 'UTC' } = req.body;
+  
+  if (!userEmail) {
+    return res.status(400).json({ error: "userEmail is required" });
+  }
+  
+  try {
+    const currentUserDate = TimeData.getUserTimezoneDate(Date.now(), timezone);
+    const isNewDay = !lastActiveDate || currentUserDate !== lastActiveDate;
+    
+    if (isNewDay && lastActiveDate) {
+      await TimeData.processMidnightReset(userEmail, timezone, timezoneName);
+    }
+    
+    return res.json({ 
+      isNewDay,
+      currentUserDate,
+      lastActiveDate,
+      timezone: { name: timezoneName, offset: timezone },
+      userTime: new Date(Date.now() - (timezone * 60000)).toISOString(),
+      serverTime: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error checking new day:", error);
+    return res.status(500).json({ 
+      error: "Failed to check new day",
       details: error.message
     });
   }

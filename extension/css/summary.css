@@ -1,0 +1,149 @@
+/* Summary tab (modernized with nesting, logical properties) */
+.date-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  & .date-picker { flex: 1; min-inline-size: 0; }
+}
+
+.nav-btn, .today-btn {
+  inline-size: 32px;
+  block-size: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  cursor: pointer;
+  color: var(--text);
+  transition: var(--transition);
+
+  &:hover { background: var(--accent-2); color: #fff; }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+.today-btn {
+  inline-size: auto;
+  padding: 6px 10px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  inline-size: 100%;
+
+  @container (min-inline-size: 360px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @container (min-inline-size: 400px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.metric-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  min-inline-size: 0;
+}
+
+.metric-icon {
+  inline-size: 32px;
+  block-size: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text);
+
+  & svg { color: currentColor; stroke: currentColor; }
+}
+
+.site-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--card);
+  overflow: hidden;
+  min-inline-size: 0;
+
+  /* Rank marker */
+  & .site-rank {
+    inline-size: 28px;
+    block-size: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  & .site-details {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-inline-size: 0;
+  }
+
+  & .site-name, & .site-time {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.insight-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* Gold / Silver / Bronze highlighting */
+.rank-1 { border-color: #f59e0b; box-shadow: 0 1px 0 rgba(0,0,0,0.03); }
+.rank-1 .site-rank { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #111827; }
+.rank-2 { border-color: #9ca3af; box-shadow: 0 1px 0 rgba(0,0,0,0.03); }
+.rank-2 .site-rank { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #111827; }
+.rank-3 { border-color: #b45309; box-shadow: 0 1px 0 rgba(0,0,0,0.03); }
+.rank-3 .site-rank { background: linear-gradient(135deg, #f59e0b, #b45309); color: #111827; }
+
+/* Dark theme tuning */
+body.theme-dark .rank-1 { border-color: rgba(245, 158, 11, 0.55); }
+body.theme-dark .rank-2 { border-color: rgba(156, 163, 175, 0.55); }
+body.theme-dark .rank-3 { border-color: rgba(180, 83, 9, 0.55); }
+
+.activity-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-block: 10px;
+}
+.summary-stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; }
+.summary-stat-value { font-weight: 800; color: var(--text); }
+.summary-stat-label { color: var(--muted); font-size: 12px; }
+
+.activity-timeline { display: grid; gap: 10px; margin-block-start: 10px; }
+.timeline-item { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; }
+.timeline-time { color: var(--muted); font-size: 12px; }
+.timeline-content { background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+.timeline-content h4 { margin: 0 0 4px 0; font-size: 13px; }
+.timeline-content p { margin: 0; color: var(--text); font-size: 12px; }
+.timeline-meta { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.timeline-tag { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-size: 11px; color: var(--muted); }

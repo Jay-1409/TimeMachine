@@ -1,0 +1,211 @@
+/* Problem Solver tab (modernized with nesting, logical properties) */
+.solver-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-block-end: 10px;
+}
+
+.header-subtitle {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.daily-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-item {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.stat-value {
+  font-weight: 800;
+}
+
+.session-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-block-end: 10px;
+}
+
+.session-header, .session-card, .timer-display {
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: 10px;
+}
+
+.status-indicator {
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.timer-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.timer-time {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.control-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover { background: var(--accent-2); color: #fff; }
+
+  &.complete {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+  }
+
+  &.abandon {
+    background: linear-gradient(135deg, #ef4444, #f87171);
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+.quick-start .start-header p {
+  color: var(--muted);
+}
+
+/* Quick Start card spacing and controls */
+.quick-start { display: grid; gap: 10px; }
+.detected-page { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-2); }
+.page-preview { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
+.page-icon { inline-size: 24px; block-size: 24px; display: grid; place-items: center; border-radius: 6px; background: var(--card); border: 1px solid var(--border); color: var(--text); }
+.page-info { min-inline-size: 0; }
+.page-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-url { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detection-status { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.status-dot { inline-size: 8px; block-size: 8px; border-radius: 999px; background: var(--accent); }
+
+.start-options { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+.option-group { display: grid; gap: 6px; }
+.option-label { font-size: 12px; color: var(--muted); }
+.styled-select { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+
+/* Themed Start button */
+.start-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.start-button:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+.start-button:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent); outline-offset: 2px; }
+.start-button .btn-icon svg { color: currentColor; fill: currentColor; }
+
+.styled-select, .time-filter {
+  background: var(--card);
+}
+
+.progress-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  inline-size: 100%;
+
+  @container (min-inline-size: 380px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.progress-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  & > * { min-inline-size: 0; }
+}
+
+.progress-icon {
+  inline-size: 32px;
+  block-size: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+
+  & svg { color: currentColor; stroke: currentColor; }
+}
+
+.sessions-list .empty-state {
+  text-align: center;
+  color: var(--muted);
+  padding: 10px;
+}
+
+/* Modern session list within Solver */
+.recent-sessions { margin-block: 10px; }
+.sessions-list { display: grid; gap: 8px; }
+.sessions-list .session-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+.sessions-list .session-info { display: grid; gap: 4px; }
+.session-name { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.session-status-icon { opacity: .8; }
+.session-meta { display: flex; gap: 6px; align-items: center; }
+.session-site-badge, .session-category-badge { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 11px; color: var(--muted); background: var(--bg-2); }
+.sessions-list .session-stats { text-align: right; }
+.sessions-list .session-duration { font-weight: 800; }
+.sessions-list .session-time { color: var(--muted); font-size: 12px; }
