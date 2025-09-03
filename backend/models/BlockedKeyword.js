@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const blockedSiteSchema = new mongoose.Schema({
+const blockedKeywordSchema = new mongoose.Schema({
   userEmail: {
     type: String,
     required: true,
@@ -10,15 +10,11 @@ const blockedSiteSchema = new mongoose.Schema({
       message: 'Invalid email format'
     }
   },
-  domain: {
+  keyword: {
     type: String,
     required: true,
     lowercase: true,
-    trim: true,
-    validate: {
-      validator: value => /^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,}$/.test(value),
-      message: 'Invalid domain format'
-    }
+    trim: true
   },
   enabled: {
     type: Boolean,
@@ -63,18 +59,16 @@ const blockedSiteSchema = new mongoose.Schema({
   }
 }, { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } });
 
-blockedSiteSchema.index({ userEmail: 1, domain: 1 }, { unique: true });
+blockedKeywordSchema.index({ userEmail: 1, keyword: 1 }, { unique: true });
 
-blockedSiteSchema.statics.getUserBlockedSites = function(userEmail) {
-  if (!userEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
-    throw new Error('Valid user email is required');
-  }
-  return this.find({ userEmail }).sort({ createdAt: -1 }).lean();
-};
-
-blockedSiteSchema.methods.toggle = function() {
+blockedKeywordSchema.methods.toggle = async function() {
   this.enabled = !this.enabled;
   return this.save();
 };
 
-module.exports = mongoose.model('BlockedSite', blockedSiteSchema);
+blockedKeywordSchema.statics.getUserBlockedKeywords = function(userEmail) {
+  if (!userEmail) throw new Error('User email is required');
+  return this.find({ userEmail }).lean();
+};
+
+module.exports = mongoose.model('BlockedKeyword', blockedKeywordSchema);

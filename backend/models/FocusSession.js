@@ -5,7 +5,14 @@ const focusSessionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    index: true
+    index: true,
+    validate: {
+      validator: async function(value) {
+        const user = await mongoose.model('User').findById(value);
+        return !!user;
+      },
+      message: 'Invalid user ID'
+    }
   },
   duration: {
     type: Number,
@@ -20,7 +27,13 @@ const focusSessionSchema = new mongoose.Schema({
   },
   endTime: {
     type: Date,
-    required: true
+    required: true,
+    validate: {
+      validator: function(value) {
+        return value > this.startTime;
+      },
+      message: 'endTime must be after startTime'
+    }
   },
   status: {
     type: String,
@@ -40,23 +53,25 @@ const focusSessionSchema = new mongoose.Schema({
   },
   notes: {
     type: String,
-    maxlength: 500
+    maxlength: 500,
+    trim: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true }
 });
 
-// Index for efficient queries
 focusSessionSchema.index({ userId: 1, startTime: -1 });
 focusSessionSchema.index({ userId: 1, status: 1 });
 
-// Virtual for session date
 focusSessionSchema.virtual('sessionDate').get(function() {
   return this.startTime.toDateString();
 });
 
-// Static method to get user's daily stats
 focusSessionSchema.statics.getDailyStats = async function(userId, date = new Date()) {
+  if (!mongoose.isValidObjectId(userId)) throw new Error('Invalid user ID');
+  if (!(date instanceof Date) || isNaN(date)) throw new Error('Invalid date');
+
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
   
@@ -67,7 +82,7 @@ focusSessionSchema.statics.getDailyStats = async function(userId, date = new Dat
     userId,
     startTime: { $gte: startOfDay, $lte: endOfDay },
     status: 'completed'
-  });
+  }).lean();
   
   const totalMinutes = sessions.reduce((sum, session) => sum + session.duration, 0);
   const sessionCount = sessions.length;
@@ -79,12 +94,14 @@ focusSessionSchema.statics.getDailyStats = async function(userId, date = new Dat
     totalMinutes,
     sessionCount,
     productivity,
-    sessions: sessions.slice(-5) // Last 5 sessions
+    sessions: sessions.slice(-5)
   };
 };
 
-// Static method to get weekly stats
 focusSessionSchema.statics.getWeeklyStats = async function(userId, weekStart = new Date()) {
+  if (!mongoose.isValidObjectId(userId)) throw new Error('Invalid user ID');
+  if (!(weekStart instanceof Date) || isNaN(weekStart)) throw new Error('Invalid weekStart date');
+
   const startOfWeek = new Date(weekStart);
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
@@ -97,7 +114,7 @@ focusSessionSchema.statics.getWeeklyStats = async function(userId, weekStart = n
     userId,
     startTime: { $gte: startOfWeek, $lte: endOfWeek },
     status: 'completed'
-  });
+  }).lean();
   
   const dailyStats = {};
   sessions.forEach(session => {

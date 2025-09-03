@@ -1,15 +1,13 @@
-/**
- * Timezone utility functions for TimeMachine
- * Handles timezone-aware date calculations and conversions
- */
+const moment = require('moment-timezone');
 
 /**
  * Get current date in user's timezone
+ * @param {number} timestamp - Unix timestamp
  * @param {number} timezoneOffset - Timezone offset in minutes from UTC
  * @returns {string} Date in YYYY-MM-DD format
  */
 function getUserTimezoneDate(timestamp = Date.now(), timezoneOffset = 0) {
-  // Adjust timestamp by timezone offset
+  if (isNaN(timezoneOffset)) throw new Error('Invalid timezone offset');
   const userTime = new Date(timestamp - (timezoneOffset * 60000));
   return userTime.toISOString().split('T')[0];
 }
@@ -18,16 +16,16 @@ function getUserTimezoneDate(timestamp = Date.now(), timezoneOffset = 0) {
  * Check if it's midnight (00:00) in user's timezone
  * @param {number} timezoneOffset - Timezone offset in minutes from UTC
  * @param {number} toleranceMinutes - Tolerance window around midnight (default: 5 minutes)
- * @returns {boolean} True if it's within tolerance of midnight
+ * @returns {boolean} True if within tolerance of midnight
  */
 function isMidnightInUserTimezone(timezoneOffset = 0, toleranceMinutes = 5) {
+  if (isNaN(timezoneOffset)) throw new Error('Invalid timezone offset');
   const now = Date.now();
   const userTime = new Date(now - (timezoneOffset * 60000));
   
   const hours = userTime.getUTCHours();
   const minutes = userTime.getUTCMinutes();
   
-  // Check if within tolerance of midnight (00:00)
   const minutesFromMidnight = hours * 60 + minutes;
   return minutesFromMidnight <= toleranceMinutes || minutesFromMidnight >= (24 * 60 - toleranceMinutes);
 }
@@ -58,6 +56,7 @@ function getTimezonesAtMidnight(toleranceMinutes = 5) {
  * @returns {Date} Date object in user's timezone
  */
 function timestampToUserTime(timestamp, timezoneOffset = 0) {
+  if (isNaN(timezoneOffset) || isNaN(timestamp)) throw new Error('Invalid timestamp or timezone offset');
   return new Date(timestamp - (timezoneOffset * 60000));
 }
 
@@ -68,11 +67,12 @@ function timestampToUserTime(timestamp, timezoneOffset = 0) {
  * @returns {object} Object with startOfDay and endOfDay timestamps
  */
 function getUserDayBounds(date, timezoneOffset = 0) {
-  // Create start of day (00:00:00) in user timezone
+  if (isNaN(timezoneOffset)) throw new Error('Invalid timezone offset');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid date format');
+  
   const startOfDay = new Date(date + 'T00:00:00.000Z');
   const startTimestamp = startOfDay.getTime() + (timezoneOffset * 60000);
   
-  // Create end of day (23:59:59.999) in user timezone
   const endOfDay = new Date(date + 'T23:59:59.999Z');
   const endTimestamp = endOfDay.getTime() + (timezoneOffset * 60000);
   
@@ -88,10 +88,10 @@ function getUserDayBounds(date, timezoneOffset = 0) {
  * @returns {string} Formatted duration (e.g., "2h 30m", "45m", "30s")
  */
 function formatDuration(milliseconds) {
-  if (isNaN(milliseconds) || milliseconds < 0) return "0m";
+  if (isNaN(milliseconds) || milliseconds < 0) return '0m';
   
   const seconds = Math.floor(milliseconds / 1000);
-  if (seconds === 0) return "0m";
+  if (seconds === 0) return '0m';
   
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -103,28 +103,17 @@ function formatDuration(milliseconds) {
 }
 
 /**
- * Get timezone name from offset (approximate)
+ * Get timezone name from offset
  * @param {number} offsetMinutes - Timezone offset in minutes from UTC
- * @returns {string} Approximate timezone name
+ * @returns {string} Timezone name
  */
 function getTimezoneNameFromOffset(offsetMinutes) {
-  const offsetHours = offsetMinutes / 60;
-  
-  // Common timezone mappings
-  const timezoneMap = {
-    0: 'UTC',
-    60: 'CET', // Central European Time
-    120: 'EET', // Eastern European Time
-    330: 'IST', // India Standard Time
-    480: 'CST', // China Standard Time
-    540: 'JST', // Japan Standard Time
-    '-300': 'EST', // Eastern Standard Time
-    '-360': 'CST', // Central Standard Time
-    '-420': 'MST', // Mountain Standard Time
-    '-480': 'PST', // Pacific Standard Time
-  };
-  
-  return timezoneMap[offsetMinutes] || `UTC${offsetHours >= 0 ? '+' : ''}${offsetHours}`;
+  if (isNaN(offsetMinutes)) throw new Error('Invalid timezone offset');
+  const zones = moment.tz.names().filter(name => {
+    const zone = moment.tz.zone(name);
+    return zone && moment.tz(name).utcOffset() === offsetMinutes;
+  });
+  return zones[0] || `UTC${offsetMinutes / 60 >= 0 ? '+' : ''}${offsetMinutes / 60}`;
 }
 
 /**
@@ -134,7 +123,7 @@ function getTimezoneNameFromOffset(offsetMinutes) {
  */
 function scheduleAtMidnight(callback, timezoneOffsets = []) {
   setInterval(() => {
-    const midnightTimezones = getTimezonesAtMidnight(2); // 2-minute tolerance
+    const midnightTimezones = getTimezonesAtMidnight(2);
     
     for (const offset of timezoneOffsets) {
       if (midnightTimezones.includes(offset)) {
@@ -156,5 +145,6 @@ module.exports = {
   getUserDayBounds,
   formatDuration,
   getTimezoneNameFromOffset,
-  scheduleAtMidnight
+  scheduleAtMidnight,
+  generateDeviceId: () => uuidv4()
 };

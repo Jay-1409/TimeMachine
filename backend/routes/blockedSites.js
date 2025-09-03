@@ -1,30 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const BlockedSite = require('../models/BlockedSite');
+const { authenticateToken } = require('./auth');
+const mongoose = require('mongoose');
+const rateLimit = require('express-rate-limit');
 
-// Middleware to check authentication
-const requireAuth = (req, res, next) => {
-  const userEmail = req.headers['x-user-email'];
-  if (!userEmail) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  req.userEmail = userEmail;
-  next();
-};
+const postLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: 'Too many requests to add blocked sites, please try again later'
+});
 
-// GET /api/blocked-sites - Get all blocked sites for user
-router.get('/', requireAuth, async (req, res) => {
+const syncLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: 'Too many sync requests, please try again later'
+});
+
+router.use(authenticateToken);
+
+router.get('/', async (req, res) => {
   try {
-    const blockedSites = await BlockedSite.getUserBlockedSites(req.userEmail);
+    const blockedSites = await BlockedSite.getUserBlockedSites(req.user.email);
     res.json({ blockedSites });
   } catch (error) {
     console.error('Error fetching blocked sites:', error);
-    res.status(500).json({ error: 'Failed to fetch blocked sites' });
+    res.status(500).json({ error: 'Failed to fetch blocked sites', details: error.message });
   }
 });
 
-// POST /api/blocked-sites - Add new blocked site
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', postLimiter, async (req, res) => {
   try {
     const { domain, blockType = 'focus-only', enabled = true, blockDuring, schedule, redirectUrl } = req.body;
 
@@ -32,22 +37,12 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Domain is required' });
     }
 
-    // Clean and validate domain
-    const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').trim();
-    
-    if (!cleanDomain) {
-      return res.status(400).json({ error: 'Invalid domain format' });
-    }
-
     const blockedSite = new BlockedSite({
-      userEmail: req.userEmail,
-      domain: cleanDomain,
+      userEmail: req.user.email,
+      domain,
       blockType,
       enabled,
-      blockDuring: blockDuring || {
-        focusSessions: true,
-        breakTime: false
-      },
+      blockDuring: blockDuring || { focusSessions: true, breakTime: false },
       schedule,
       redirectUrl: redirectUrl || 'chrome://newtab'
     });
@@ -59,27 +54,33 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(409).json({ error: 'This site is already blocked' });
     }
     console.error('Error adding blocked site:', error);
-    res.status(500).json({ error: 'Failed to add blocked site' });
+    res.status(500).json({ error: 'Failed to add blocked site', details: error.message });
   }
 });
 
-// PUT /api/blocked-sites/:id - Update blocked site
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid site ID' });
+    }
     const { enabled, blockType, blockDuring, schedule, redirectUrl } = req.body;
 
     const blockedSite = await BlockedSite.findOne({
       _id: req.params.id,
-      userEmail: req.userEmail
+      userEmail: req.user.email
     });
 
     if (!blockedSite) {
       return res.status(404).json({ error: 'Blocked site not found' });
     }
 
-    // Update fields
     if (typeof enabled !== 'undefined') blockedSite.enabled = enabled;
-    if (blockType) blockedSite.blockType = blockType;
+    if (blockType) {
+      if (!['always', 'focus-only', 'scheduled'].includes(blockType)) {
+        return res.status(400).json({ error: 'Invalid blockType' });
+      }
+      blockedSite.blockType = blockType;
+    }
     if (blockDuring) blockedSite.blockDuring = blockDuring;
     if (schedule) blockedSite.schedule = schedule;
     if (redirectUrl) blockedSite.redirectUrl = redirectUrl;
@@ -88,16 +89,18 @@ router.put('/:id', requireAuth, async (req, res) => {
     res.json({ blockedSite, message: 'Blocked site updated successfully' });
   } catch (error) {
     console.error('Error updating blocked site:', error);
-    res.status(500).json({ error: 'Failed to update blocked site' });
+    res.status(500).json({ error: 'Failed to update blocked site', details: error.message });
   }
 });
 
-// DELETE /api/blocked-sites/:id - Remove blocked site
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid site ID' });
+    }
     const blockedSite = await BlockedSite.findOneAndDelete({
       _id: req.params.id,
-      userEmail: req.userEmail
+      userEmail: req.user.email
     });
 
     if (!blockedSite) {
@@ -107,16 +110,18 @@ router.delete('/:id', requireAuth, async (req, res) => {
     res.json({ message: 'Blocked site removed successfully' });
   } catch (error) {
     console.error('Error deleting blocked site:', error);
-    res.status(500).json({ error: 'Failed to delete blocked site' });
+    res.status(500).json({ error: 'Failed to delete blocked site', details: error.message });
   }
 });
 
-// POST /api/blocked-sites/:id/toggle - Toggle enabled status
-router.post('/:id/toggle', requireAuth, async (req, res) => {
+router.post('/:id/toggle', async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid site ID' });
+    }
     const blockedSite = await BlockedSite.findOne({
       _id: req.params.id,
-      userEmail: req.userEmail
+      userEmail: req.user.email
     });
 
     if (!blockedSite) {
@@ -127,39 +132,37 @@ router.post('/:id/toggle', requireAuth, async (req, res) => {
     res.json({ blockedSite, message: `Blocked site ${blockedSite.enabled ? 'enabled' : 'disabled'}` });
   } catch (error) {
     console.error('Error toggling blocked site:', error);
-    res.status(500).json({ error: 'Failed to toggle blocked site' });
+    res.status(500).json({ error: 'Failed to toggle blocked site', details: error.message });
   }
 });
 
-// POST /api/blocked-sites/sync - Sync blocked sites from extension
-router.post('/sync', requireAuth, async (req, res) => {
+router.post('/sync', syncLimiter, async (req, res) => {
   try {
     const { blockedSites } = req.body;
 
     if (!Array.isArray(blockedSites)) {
       return res.status(400).json({ error: 'blockedSites must be an array' });
     }
+    if (blockedSites.some(site => !site.domain || !String(site.domain).trim())) {
+      return res.status(400).json({ error: 'All sites must have a valid domain' });
+    }
 
     const results = [];
-    
     for (const site of blockedSites) {
       try {
-        const cleanDomain = site.domain.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').trim();
-        
-        await BlockedSite.findOneAndUpdate(
-          { userEmail: req.userEmail, domain: cleanDomain },
+        const doc = await BlockedSite.findOneAndUpdate(
+          { userEmail: req.user.email, domain: String(site.domain).toLowerCase().trim() },
           {
-            userEmail: req.userEmail,
-            domain: cleanDomain,
+            userEmail: req.user.email,
+            domain: String(site.domain).toLowerCase().trim(),
             enabled: site.enabled !== false,
             blockType: site.blockType || 'focus-only',
             blockDuring: site.blockDuring || { focusSessions: true, breakTime: false },
             redirectUrl: site.redirectUrl || 'chrome://newtab'
           },
-          { upsert: true, new: true }
+          { upsert: true, new: true, runValidators: true }
         );
-        
-        results.push({ domain: cleanDomain, status: 'synced' });
+        results.push({ domain: doc.domain, status: 'synced' });
       } catch (error) {
         results.push({ domain: site.domain, status: 'error', error: error.message });
       }
@@ -168,7 +171,7 @@ router.post('/sync', requireAuth, async (req, res) => {
     res.json({ message: 'Blocked sites synced successfully', results });
   } catch (error) {
     console.error('Error syncing blocked sites:', error);
-    res.status(500).json({ error: 'Failed to sync blocked sites' });
+    res.status(500).json({ error: 'Failed to sync blocked sites', details: error.message });
   }
 });
 

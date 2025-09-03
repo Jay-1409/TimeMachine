@@ -2,11 +2,14 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const CryptoJS = require('crypto-js');
+const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'timemachine-development-secret';
-const PASSWORD_SECRET = process.env.PASSWORD_SECRET || 'timemachine-password-secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS);
+
+if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required');
+if (!BCRYPT_ROUNDS || isNaN(BCRYPT_ROUNDS)) throw new Error('BCRYPT_ROUNDS environment variable is required and must be a number');
 
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,7 +42,7 @@ function getDeviceInfo(req) {
   else if (userAgent.includes('Tablet')) deviceType = 'tablet';
   
   return {
-    deviceId: req.body.deviceId || crypto.randomBytes(16).toString('hex'),
+    deviceId: req.body.deviceId || uuidv4(),
     deviceName: req.body.deviceName || `${browser} on ${os}`,
     deviceType,
     browser,
@@ -74,8 +77,8 @@ router.post('/signup', async (req, res) => {
     const token = jwt.sign(
       { 
         id: user._id,
-        email: email,
-        role: user.role || 'user' 
+        email: user.email,
+        role: user.role
       },
       JWT_SECRET,
       { expiresIn: '30d' }
@@ -84,12 +87,11 @@ router.post('/signup', async (req, res) => {
     res.status(201).json({
       message: 'User created successfully',
       token,
-      email
+      email: user.email
     });
-    
   } catch (error) {
     console.error('Sign up error:', error);
-    res.status(500).json({ error: 'Server error during signup' });
+    res.status(500).json({ error: 'Server error during signup', details: error.message });
   }
 });
 
@@ -101,23 +103,26 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
     
-    const user = await User.findByEmail(email).select('+password');
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-    
-    if (!user.verifyPassword(password)) {
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    if (!user || !await user.verifyPassword(password)) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
     
     const deviceInfo = getDeviceInfo(req);
-    await user.addDevice(deviceInfo);
+    try {
+      await user.addDevice(deviceInfo);
+    } catch (error) {
+      if (error.message === 'Device ID already exists') {
+        return res.status(400).json({ error: 'Device already registered' });
+      }
+      throw error;
+    }
     
     const token = jwt.sign(
       { 
         id: user._id,
-        email: email,
-        role: user.role || 'user' 
+        email: user.email,
+        role: user.role
       },
       JWT_SECRET,
       { expiresIn: '30d' }
@@ -126,7 +131,7 @@ router.post('/login', async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token,
-      email,
+      email: user.email,
       user: {
         email: user.email,
         role: user.role,
@@ -135,10 +140,9 @@ router.post('/login', async (req, res) => {
         timezone: user.timezone
       }
     });
-    
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Server error during login' });
+    res.status(500).json({ error: 'Server error during login', details: error.message });
   }
 });
 
@@ -148,7 +152,6 @@ const authenticateToken = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
     
     if (!token) {
-      console.warn('Auth middleware: missing bearer token for', req.method, req.path);
       return res.status(401).json({ 
         error: 'Authentication required',
         code: 'AUTH_REQUIRED',
@@ -156,31 +159,28 @@ const authenticateToken = async (req, res, next) => {
       });
     }
     
-    jwt.verify(token, JWT_SECRET, async (err, decoded) => {
-      if (err) {
-        if (err.name === 'TokenExpiredError') {
-          return res.status(401).json({ 
-            error: 'Token expired',
-            code: 'TOKEN_EXPIRED',
-            message: 'Your session has expired. Please login again'
-          });
-        } else {
-          return res.status(403).json({ 
-            error: 'Token invalid',
-            code: 'INVALID_TOKEN',
-            message: 'Your authentication is invalid. Please login again'
-          });
-        }
-      }
-      
-      req.user = decoded;
-      next();
+    const decoded = await new Promise((resolve, reject) => {
+      jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) reject(err);
+        else resolve(decoded);
+      });
     });
+    
+    req.user = decoded;
+    next();
   } catch (error) {
     console.error('Authentication middleware error:', error);
-    return res.status(500).json({ 
-      error: 'Authentication error',
-      message: 'An unexpected error occurred during authentication'
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        error: 'Token expired',
+        code: 'TOKEN_EXPIRED',
+        message: 'Your session has expired. Please login again'
+      });
+    }
+    return res.status(403).json({ 
+      error: 'Token invalid',
+      code: 'INVALID_TOKEN',
+      message: 'Your authentication is invalid. Please login again'
     });
   }
 };
@@ -219,30 +219,26 @@ router.post('/reset-password-request', async (req, res) => {
   try {
     const { email } = req.body;
     
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
     }
     
-    const user = await User.findByEmail(email);
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+resetToken +resetTokenExpires');
     if (!user) {
       return res.status(200).json({ message: 'If an account exists, a reset link will be sent' });
     }
     
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    const resetTokenExpires = new Date();
-    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1);
+    const resetToken = uuidv4().replace(/-/g, '');
+    const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
     
     user.resetToken = resetToken;
     user.resetTokenExpires = resetTokenExpires;
     await user.save();
     
-    res.status(200).json({ 
-      message: 'Password reset requested'
-    });
-    
+    res.status(200).json({ message: 'Password reset link sent' });
   } catch (error) {
     console.error('Password reset request error:', error);
-    res.status(500).json({ error: 'Server error during password reset request' });
+    res.status(500).json({ error: 'Server error during password reset request', details: error.message });
   }
 });
 
@@ -261,27 +257,21 @@ router.post('/reset-password', async (req, res) => {
     const user = await User.findOne({
       resetToken: token,
       resetTokenExpires: { $gt: new Date() }
-    });
+    }).select('+resetToken +resetTokenExpires +password');
     
     if (!user) {
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
     
-    const hashedPassword = CryptoJS.PBKDF2(password, PASSWORD_SECRET, { 
-      keySize: 512/32, 
-      iterations: 1000 
-    }).toString();
-    
-    user.password = hashedPassword;
+    user.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
     user.resetToken = undefined;
     user.resetTokenExpires = undefined;
     await user.save();
     
     res.status(200).json({ message: 'Password reset successful' });
-    
   } catch (error) {
     console.error('Password reset error:', error);
-    res.status(500).json({ error: 'Server error during password reset' });
+    res.status(500).json({ error: 'Server error during password reset', details: error.message });
   }
 });
 
@@ -299,14 +289,16 @@ router.post('/update-settings', authenticateToken, async (req, res) => {
     }
     
     if (reportFrequency) {
+      if (!['daily', 'weekly', 'monthly'].includes(reportFrequency)) {
+        return res.status(400).json({ error: 'Invalid report frequency' });
+      }
       user.settings.reportFrequency = reportFrequency;
     }
     
-    if (categories) {
-      user.settings.categories = categories;
+    if (categories && typeof categories === 'object') {
+      user.settings.categories = new Map(Object.entries(categories));
     }
     
-    user.lastUpdated = new Date();
     await user.save();
     
     res.json({
@@ -337,12 +329,12 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const domainStats = await User.aggregate([
       { 
         $project: {
-          domain: { $arrayElemAt: [{ $split: ["$email", "@"] }, 1] }
+          domain: { $arrayElemAt: [{ $split: ['$email', '@'] }, 1] }
         }
       },
       { 
         $group: { 
-          _id: "$domain", 
+          _id: '$domain', 
           count: { $sum: 1 } 
         }
       },
@@ -364,19 +356,6 @@ router.get('/stats', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
-
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-function isValidPassword(password) {
-  return password && password.length >= 6;
-}
-
-function generateDeviceId() {
-  return crypto.randomBytes(16).toString('hex');
-}
 
 module.exports = router;
 module.exports.authenticateToken = authenticateToken;
