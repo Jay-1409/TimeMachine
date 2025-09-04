@@ -3,68 +3,76 @@ const router = express.Router();
 const ProblemSession = require('../models/ProblemSession');
 const { authenticateToken } = require('./auth');
 const mongoose = require('mongoose');
-const { getUserTimezoneDate, getTimezoneNameFromOffset } = require('../utils/timezone');
+const { getUserTimezoneDate } = require('../utils/timezone');
 
 router.use(authenticateToken);
 
+const VALID_CATEGORIES = ['Coding', 'Math', 'Study', 'Research', 'Debug', 'Design', 'Other'];
+const VALID_DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Expert'];
+const VALID_STATUSES = ['active', 'paused', 'completed', 'abandoned'];
+
+const validateSessionData = (data, isUpdate = false) => {
+  const { title, category, difficulty, tags, url, timezone, reason, completionNotes, notes } = data;
+  const errors = [];
+
+  if (!isUpdate && !title) errors.push('Title is required');
+  if (isUpdate && title === '' && !['description', 'category', 'difficulty', 'tags', 'notes'].some(k => data[k] !== undefined)) {
+    errors.push('At least one field must be provided for update');
+  }
+  if (category && !VALID_CATEGORIES.includes(category)) errors.push('Invalid category');
+  if (difficulty && !VALID_DIFFICULTIES.includes(difficulty)) errors.push('Invalid difficulty');
+  if (url && !/^https?:\/\/.+$/.test(url)) errors.push('Invalid URL format');
+  if (timezone !== undefined && (!Number.isInteger(timezone) || timezone < -720 || timezone > 840)) {
+    errors.push('Invalid timezone offset; must be an integer between -720 and 840');
+  }
+  if (reason && reason.length > 200) errors.push('Pause reason must not exceed 200 characters');
+  if (completionNotes && completionNotes.length > 1000) errors.push('Completion notes must not exceed 1000 characters');
+  if (notes && notes.length > 1000) errors.push('Notes must not exceed 1000 characters');
+  if (tags && (!Array.isArray(tags) || tags.some(tag => !tag.trim() || typeof tag !== 'string'))) {
+    errors.push('Tags must be an array of non-empty strings');
+  }
+
+  return errors.length ? { valid: false, message: errors.join('; ') } : { valid: true };
+};
+
+const handleError = (res, error, message) => {
+  console.error(`${message}:`, error);
+  res.status(500).json({
+    error: message,
+    details: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
+};
+
 router.post('/start', async (req, res) => {
   try {
-    const { title, description, category, difficulty, tags, timezone, url, site } = req.body;
-    
-    if (!title) {
-      return res.status(400).json({ error: 'Title is required' });
-    }
+    const validation = validateSessionData(req.body);
+    if (!validation.valid) return res.status(400).json({ error: validation.message });
 
-    if (category && !['Coding', 'Math', 'Study', 'Research', 'Debug', 'Design', 'Other'].includes(category)) {
-      return res.status(400).json({ error: 'Invalid category' });
-    }
-
-    if (difficulty && !['Easy', 'Medium', 'Hard', 'Expert'].includes(difficulty)) {
-      return res.status(400).json({ error: 'Invalid difficulty' });
-    }
-
-    if (url && !/^https?:\/\/.+$/.test(url)) {
-      return res.status(400).json({ error: 'Invalid URL format' });
-    }
-
-    if (timezone !== undefined && (!Number.isInteger(timezone) || timezone < -720 || timezone > 840)) {
-      return res.status(400).json({ error: 'Invalid timezone offset; must be an integer between -720 and 840' });
-    }
-
+    const { title, description = '', category = 'Other', difficulty = 'Medium', tags = [], url = '', site = '', timezone = 0 } = req.body;
     const activeSession = await ProblemSession.getCurrentSession(req.user.email);
     if (activeSession) {
-      return res.status(400).json({ 
-        error: 'You already have an active problem session. Please complete or abandon it first.',
-        activeSession: {
-          id: activeSession._id,
-          title: activeSession.title,
-          startTime: activeSession.startTime
-        }
+      return res.status(400).json({
+        error: 'Active problem session exists',
+        activeSession: { id: activeSession._id, title: activeSession.title, startTime: activeSession.startTime }
       });
     }
 
     const now = new Date();
-    const userLocalDate = getUserTimezoneDate(now.getTime(), timezone || 0);
-
     const session = new ProblemSession({
       userEmail: req.user.email,
       title: title.trim(),
-      description: description?.trim() || '',
-      category: category || 'Other',
-      difficulty: difficulty || 'Medium',
-      tags: Array.isArray(tags) ? tags.filter(tag => tag.trim()).slice(0, 10) : [],
-      url: url || '',
-      site: site?.trim() || '',
+      description: description.trim(),
+      category,
+      difficulty,
+      tags: tags.slice(0, 10),
+      url,
+      site: site.trim(),
       startTime: now,
-      userLocalDate,
-      timezone: {
-        name: timezone !== undefined ? getTimezoneNameFromOffset(timezone) : 'UTC',
-        offset: timezone || 0
-      }
+      userLocalDate: getUserTimezoneDate(now.getTime(), timezone),
+      timezone: { offset: timezone }
     });
 
     await session.save();
-    
     res.status(201).json({
       success: true,
       session: {
@@ -80,153 +88,101 @@ router.post('/start', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error starting problem session:', error);
-    res.status(500).json({
-      error: 'Failed to start session',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    handleError(res, error, 'Failed to start session');
   }
 });
 
 router.patch('/:sessionId/pause', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { reason } = req.body;
+    if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
 
-    if (!mongoose.isValidObjectId(sessionId)) {
-      return res.status(400).json({ error: 'Invalid session ID' });
-    }
-
-    if (reason && reason.length > 200) {
-      return res.status(400).json({ error: 'Pause reason must not exceed 200 characters' });
-    }
+    const validation = validateSessionData(req.body);
+    if (!validation.valid) return res.status(400).json({ error: validation.message });
 
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+    if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const now = new Date();
-
     if (session.status === 'active') {
       session.status = 'paused';
       session.pauseHistory.push({
         pausedAt: now,
-        reason: reason?.trim() || 'Manual pause'
+        reason: req.body.reason?.trim() || 'Manual pause'
       });
     } else if (session.status === 'paused') {
       session.status = 'active';
       const lastPause = session.pauseHistory[session.pauseHistory.length - 1];
       if (lastPause && !lastPause.resumedAt) {
         lastPause.resumedAt = now;
-        const pauseDuration = now.getTime() - lastPause.pausedAt.getTime();
-        session.pausedDuration += pauseDuration;
+        session.pausedDuration += now.getTime() - lastPause.pausedAt.getTime();
       }
     } else {
       return res.status(400).json({ error: 'Cannot pause/resume a completed or abandoned session' });
     }
 
     await session.save();
-    
-    res.json({
-      success: true,
-      session: {
-        id: session._id,
-        status: session.status,
-        pausedDuration: session.pausedDuration
-      }
-    });
+    res.json({ success: true, session: { id: session._id, status: session.status, pausedDuration: session.pausedDuration } });
   } catch (error) {
-    console.error('Error pausing/resuming session:', error);
-    res.status(500).json({
-      error: 'Failed to update session',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    handleError(res, error, 'Failed to update session');
   }
 });
 
 router.patch('/:sessionId/complete', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { completionNotes, wasSuccessful } = req.body;
+    if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
 
-    if (!mongoose.isValidObjectId(sessionId)) {
-      return res.status(400).json({ error: 'Invalid session ID' });
-    }
-
-    if (completionNotes && completionNotes.length > 1000) {
-      return res.status(400).json({ error: 'Completion notes must not exceed 1000 characters' });
-    }
+    const validation = validateSessionData(req.body);
+    if (!validation.valid) return res.status(400).json({ error: validation.message });
 
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+    if (!session) return res.status(404).json({ error: 'Session not found' });
 
     if (session.status === 'completed' || session.status === 'abandoned') {
-      return res.status(400).json({ error: 'Session is already completed or abandoned' });
+      return res.status(400).json({ error: 'Session already completed or abandoned' });
     }
 
     const now = new Date();
     if (session.status === 'paused') {
       const lastPause = session.pauseHistory[session.pauseHistory.length - 1];
       if (lastPause && !lastPause.resumedAt) {
-        const pauseDuration = now.getTime() - lastPause.pausedAt.getTime();
-        session.pausedDuration += pauseDuration;
+        session.pausedDuration += now.getTime() - lastPause.pausedAt.getTime();
         lastPause.resumedAt = now;
       }
     }
 
     session.endTime = now;
     session.status = 'completed';
-    session.completionNotes = completionNotes?.trim() || '';
-    session.wasSuccessful = wasSuccessful !== false;
+    session.completionNotes = req.body.completionNotes?.trim() || '';
+    session.wasSuccessful = req.body.wasSuccessful !== false;
 
     await session.save();
-    
     res.json({
       success: true,
-      session: {
-        id: session._id,
-        title: session.title,
-        duration: session.duration,
-        status: session.status,
-        wasSuccessful: session.wasSuccessful
-      }
+      session: { id: session._id, title: session.title, duration: session.duration, status: session.status, wasSuccessful: session.wasSuccessful }
     });
   } catch (error) {
-    console.error('Error completing session:', error);
-    res.status(500).json({
-      error: 'Failed to complete session',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    handleError(res, error, 'Failed to complete session');
   }
 });
 
 router.patch('/:sessionId/abandon', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { reason } = req.body;
+    if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
 
-    if (!mongoose.isValidObjectId(sessionId)) {
-      return res.status(400).json({ error: 'Invalid session ID' });
-    }
-
-    if (reason && reason.length > 1000) {
-      return res.status(400).json({ error: 'Abandon reason must not exceed 1000 characters' });
-    }
+    const validation = validateSessionData(req.body);
+    if (!validation.valid) return res.status(400).json({ error: validation.message });
 
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+    if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const now = new Date();
     if (session.status === 'paused') {
       const lastPause = session.pauseHistory[session.pauseHistory.length - 1];
       if (lastPause && !lastPause.resumedAt) {
-        const pauseDuration = now.getTime() - lastPause.pausedAt.getTime();
-        session.pausedDuration += pauseDuration;
+        session.pausedDuration += now.getTime() - lastPause.pausedAt.getTime();
         lastPause.resumedAt = now;
       }
     }
@@ -234,41 +190,25 @@ router.patch('/:sessionId/abandon', async (req, res) => {
     session.endTime = now;
     session.status = 'abandoned';
     session.wasSuccessful = false;
-    session.completionNotes = reason?.trim() || 'Session abandoned';
+    session.completionNotes = req.body.reason?.trim() || 'Session abandoned';
 
     await session.save();
-    
-    res.json({
-      success: true,
-      session: {
-        id: session._id,
-        status: session.status
-      }
-    });
+    res.json({ success: true, session: { id: session._id, status: session.status } });
   } catch (error) {
-    console.error('Error abandoning session:', error);
-    res.status(500).json({
-      error: 'Failed to abandon session',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    handleError(res, error, 'Failed to abandon session');
   }
 });
 
 router.get('/current/:userEmail', async (req, res) => {
   try {
     const { userEmail } = req.params;
-
     if (userEmail !== req.user.email && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     const session = await ProblemSession.getCurrentSession(userEmail);
-    if (!session) {
-      return res.json({ activeSession: null });
-    }
-
     res.json({
-      activeSession: {
+      activeSession: session ? {
         id: session._id,
         title: session.title,
         description: session.description,
@@ -280,57 +220,59 @@ router.get('/current/:userEmail', async (req, res) => {
         status: session.status,
         pausedDuration: session.pausedDuration,
         tags: session.tags
-      }
+      } : null
     });
   } catch (error) {
-    console.error('Error getting current session:', error);
-    res.status(500).json({
-      error: 'Failed to get current session',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    handleError(res, error, 'Failed to get current session');
   }
 });
 
 router.get('/history/:userEmail', async (req, res) => {
   try {
     const { userEmail } = req.params;
-    const { date, endDate, category, status } = req.query;
+    const { date, endDate, category, status, timezone = '0', useUserTimezone = 'false' } = req.query;
 
-    if (userEmail !== req.user.email && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied' });
+    if (userEmail !== req.user.email && req.user.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+
+    const tz = parseInt(timezone, 10);
+    if (!Number.isFinite(tz) || tz < -720 || tz > 840) return res.status(400).json({ error: 'Invalid timezone offset' });
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date) && useUserTimezone !== 'true') return res.status(400).json({ error: 'Invalid date format' });
+    if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate) && useUserTimezone !== 'true') return res.status(400).json({ error: 'Invalid endDate format' });
+    if (category && category !== 'all' && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Invalid category' });
+    if (status && status !== 'all' && !VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+
+    let fromDate = date;
+    let toDate = endDate;
+    if (useUserTimezone === 'true') {
+      if (date) {
+        const ts = /^\d{4}-\d{2}-\d{2}$/.test(date) ? Date.parse(date + 'T00:00:00.000Z') : Date.parse(date);
+        if (isNaN(ts)) return res.status(400).json({ error: 'Invalid date' });
+        fromDate = getUserTimezoneDate(ts, tz);
+      }
+      if (endDate) {
+        const ts2 = /^\d{4}-\d{2}-\d{2}$/.test(endDate) ? Date.parse(endDate + 'T23:59:59.999Z') : Date.parse(endDate);
+        if (isNaN(ts2)) return res.status(400).json({ error: 'Invalid endDate' });
+        toDate = getUserTimezoneDate(ts2, tz);
+      }
     }
 
-    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return res.status(400).json({ error: 'Invalid date format (use YYYY-MM-DD)' });
-    }
-    if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
-      return res.status(400).json({ error: 'Invalid endDate format (use YYYY-MM-DD)' });
-    }
-    if (category && category !== 'all' && !['Coding', 'Math', 'Study', 'Research', 'Debug', 'Design', 'Other'].includes(category)) {
-      return res.status(400).json({ error: 'Invalid category' });
-    }
-    if (status && status !== 'all' && !['active', 'paused', 'completed', 'abandoned'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-
-    const sessions = await ProblemSession.getHistory(userEmail, { date, endDate, category, status });
-
-    const formattedSessions = sessions.map(session => ({
-      id: session._id,
-      title: session.title,
-      description: session.description,
-      category: session.category,
-      difficulty: session.difficulty,
-      site: session.site,
-      url: session.url,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      duration: session.duration,
-      status: session.status,
-      wasSuccessful: session.wasSuccessful,
-      tags: session.tags,
-      completionNotes: session.completionNotes,
-      userLocalDate: session.userLocalDate
+    const sessions = await ProblemSession.getHistory(userEmail, { date: fromDate, endDate: toDate, category, status });
+    const formattedSessions = sessions.map(s => ({
+      id: s._id,
+      title: s.title,
+      description: s.description,
+      category: s.category,
+      difficulty: s.difficulty,
+      site: s.site,
+      url: s.url,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      duration: s.duration,
+      status: s.status,
+      wasSuccessful: s.wasSuccessful,
+      tags: s.tags,
+      completionNotes: s.completionNotes,
+      userLocalDate: s.userLocalDate
     }));
 
     res.json({
@@ -339,78 +281,40 @@ router.get('/history/:userEmail', async (req, res) => {
         total: sessions.length,
         completed: sessions.filter(s => s.status === 'completed').length,
         totalTime: sessions.reduce((sum, s) => sum + (s.duration || 0), 0),
-        successRate: sessions.length ? 
-          (sessions.filter(s => s.wasSuccessful).length / sessions.length * 100).toFixed(1) : 0
+        successRate: sessions.length ? (sessions.filter(s => s.wasSuccessful).length / sessions.length * 100).toFixed(1) : 0
       }
     });
   } catch (error) {
-    console.error('Error getting session history:', error);
-    res.status(500).json({
-      error: 'Failed to get session history',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    handleError(res, error, 'Failed to get session history');
   }
 });
 
 router.patch('/:sessionId/update', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { title, description, category, difficulty, tags, notes } = req.body;
+    if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
 
-    if (!mongoose.isValidObjectId(sessionId)) {
-      return res.status(400).json({ error: 'Invalid session ID' });
-    }
-
-    if (!title && !description && !category && !difficulty && !tags && !notes) {
-      return res.status(400).json({ error: 'At least one field must be provided for update' });
-    }
-
-    if (category && !['Coding', 'Math', 'Study', 'Research', 'Debug', 'Design', 'Other'].includes(category)) {
-      return res.status(400).json({ error: 'Invalid category' });
-    }
-
-    if (difficulty && !['Easy', 'Medium', 'Hard', 'Expert'].includes(difficulty)) {
-      return res.status(400).json({ error: 'Invalid difficulty' });
-    }
-
-    if (notes && notes.length > 1000) {
-      return res.status(400).json({ error: 'Notes must not exceed 1000 characters' });
-    }
+    const validation = validateSessionData(req.body, true);
+    if (!validation.valid) return res.status(400).json({ error: validation.message });
 
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+    if (!session) return res.status(404).json({ error: 'Session not found' });
 
+    const { title, description, category, difficulty, tags, notes } = req.body;
     if (title) session.title = title.trim();
     if (description !== undefined) session.description = description.trim();
     if (category) session.category = category;
     if (difficulty) session.difficulty = difficulty;
+    if (Array.isArray(tags)) session.tags = tags.slice(0, 10);
     if (notes !== undefined) session.notes = notes.trim();
-    if (Array.isArray(tags)) {
-      session.tags = tags.filter(tag => tag.trim()).slice(0, 10);
-    }
 
     await session.save();
-    
     res.json({
       success: true,
-      session: {
-        id: session._id,
-        title: session.title,
-        description: session.description,
-        category: session.category,
-        difficulty: session.difficulty,
-        tags: session.tags,
-        notes: session.notes
-      }
+      session: { id: session._id, title: session.title, description: session.description, category: session.category, difficulty: session.difficulty, tags: session.tags, notes: session.notes }
     });
   } catch (error) {
-    console.error('Error updating session:', error);
-    res.status(500).json({
-      error: 'Failed to update session',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    handleError(res, error, 'Failed to update session');
   }
 });
 

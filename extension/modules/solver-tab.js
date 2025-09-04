@@ -76,7 +76,8 @@ export const SolverTab = (() => {
       const { token } = await TokenStorage.getToken();
       if (!token) return;
       const today = new Date().toISOString().split('T')[0];
-      const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${today}&endDate=${today}`, { headers: { 'Authorization': `Bearer ${token}` } });
+  const tz = new Date().getTimezoneOffset();
+  const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${today}&endDate=${today}&timezone=${tz}&useUserTimezone=true`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!resp.ok) return;
       const data = await resp.json();
       const sessions = data.sessions || [];
@@ -99,8 +100,9 @@ export const SolverTab = (() => {
       if (filter === 'week') start.setDate(end.getDate() - 7);
       else if (filter === 'month') start.setMonth(end.getMonth() - 1);
       else start.setHours(0,0,0,0);
-      const qs = new URLSearchParams({ date: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0] });
-      const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers: { 'Authorization': `Bearer ${token}` } });
+  const tz = new Date().getTimezoneOffset();
+  const qs = new URLSearchParams({ date: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0], timezone: String(tz), useUserTimezone: 'true' });
+  const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!resp.ok) return;
       const data = await resp.json();
       const sessions = data.sessions || [];
@@ -248,8 +250,9 @@ export const SolverTab = (() => {
       if (filter === 'week') start.setDate(end.getDate() - 7);
       else if (filter === 'month') start.setMonth(end.getMonth() - 1);
       else start.setHours(0,0,0,0);
-      const qs = new URLSearchParams({ date: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0] });
-      const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } });
+  const tz = new Date().getTimezoneOffset();
+  const qs = new URLSearchParams({ date: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0], timezone: String(tz), useUserTimezone: 'true' });
+  const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } });
       if (!resp.ok) return;
       const data = await resp.json();
       displayCompactHistory(data.sessions || []);

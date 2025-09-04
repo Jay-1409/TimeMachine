@@ -1,14 +1,14 @@
-/* Summary tab (modernized with nesting, logical properties) */
+/* Summary tab (modernized) */
 .date-navigation {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-
-  & .date-picker { flex: 1; min-inline-size: 0; }
 }
+.date-navigation .date-picker { flex: 1; min-inline-size: 0; }
 
-.nav-btn, .today-btn {
+.nav-btn,
+.today-btn {
   inline-size: 32px;
   block-size: 32px;
   display: inline-grid;
@@ -19,13 +19,13 @@
   cursor: pointer;
   color: var(--text);
   transition: var(--transition);
-
-  &:hover { background: var(--accent-2); color: #fff; }
-
-  &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
-    outline-offset: 2px;
-  }
+}
+.nav-btn:hover,
+.today-btn:hover { background: var(--accent-2); color: #fff; }
+.nav-btn:focus-visible,
+.today-btn:focus-visible {
+  outline: 2px solid rgba(59,130,246,0.65);
+  outline-offset: 2px;
 }
 
 .today-btn {
@@ -40,14 +40,6 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   inline-size: 100%;
-
-  @container (min-inline-size: 360px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  @container (min-inline-size: 400px) {
-    grid-template-columns: repeat(4, 1fr);
-  }
 }
 
 .metric-card {
@@ -69,9 +61,8 @@
   border-radius: 8px;
   background: var(--bg-2);
   color: var(--text);
-
-  & svg { color: currentColor; stroke: currentColor; }
 }
+.metric-icon svg { color: currentColor; stroke: currentColor; }
 
 .site-item {
   display: flex;
@@ -83,30 +74,27 @@
   background: var(--card);
   overflow: hidden;
   min-inline-size: 0;
-
-  /* Rank marker */
-  & .site-rank {
-    inline-size: 28px;
-    block-size: 28px;
-    display: grid;
-    place-items: center;
-    border-radius: 999px;
-    font-weight: 800;
-    color: #111827;
-  }
-
-  & .site-details {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    min-inline-size: 0;
-  }
-
-  & .site-name, & .site-time {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+}
+.site-item .site-rank {
+  inline-size: 28px;
+  block-size: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #111827;
+}
+.site-item .site-details {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-inline-size: 0;
+}
+.site-item .site-name,
+.site-item .site-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .insight-card {

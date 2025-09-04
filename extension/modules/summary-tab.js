@@ -6,6 +6,7 @@ import { formatDuration } from './utils.js';
 
 export const SummaryTab = (() => {
   let initialized = false;
+  let loading = false;
 
   const el = {
     get container() { return document.getElementById('summaryTabContent'); },
@@ -120,24 +121,28 @@ export const SummaryTab = (() => {
   }
 
   async function loadForDate() {
-    showLoading();
+  if (loading) return; loading = true; showLoading();
     try {
       const selectedDate = getSelectedDate();
       const { userEmail } = await chrome.storage.local.get(['userEmail']);
       if (!userEmail) { hideLoading(); return; }
       const backend = await resolveBackendUrl();
-      const { token } = await TokenStorage.getToken();
+      const { token, userId } = await TokenStorage.getToken();
 
       const tz = new Date().getTimezoneOffset();
-      const [browsingData, problemSessions] = await Promise.all([
-        // Use backend report endpoint with timezone-aware date
-        fetch(`${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${selectedDate}&endDate=${selectedDate}&timezone=${tz}&useUserTimezone=true`, {
-          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }
-        }).then(r => r.ok ? r.json() : { data: [] }).then(d => d.data || []),
-        fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${selectedDate}`, {
-          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }
-        }).then(r => r.ok ? r.json() : { sessions: [] }).then(d => d.sessions || [])
-      ]);
+      // Fetch browsing report, problem sessions, focus daily stats, and focus session list concurrently
+      const headers = { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Content-Type': 'application/json' };
+      const queries = [
+        fetch(`${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${selectedDate}&endDate=${selectedDate}&timezone=${tz}&useUserTimezone=true`, { headers })
+          .then(r => r.ok ? r.json() : { data: [] }).then(d => d.data || []),
+  fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${selectedDate}&timezone=${tz}&useUserTimezone=true`, { headers })
+          .then(r => r.ok ? r.json() : { sessions: [] }).then(d => d.sessions || []),
+        userId ? fetch(`${backend}/api/focus-sessions/${encodeURIComponent(userId)}/stats/daily?date=${encodeURIComponent(selectedDate)}&timezone=${tz}&useUserTimezone=true`, { headers })
+          .then(r => r.ok ? r.json() : null).then(d => (d && d.success ? d.stats : null)) : Promise.resolve(null),
+        userId ? fetch(`${backend}/api/focus-sessions/${encodeURIComponent(userId)}?date=${encodeURIComponent(selectedDate)}&timezone=${tz}&useUserTimezone=true&limit=50`, { headers })
+          .then(r => r.ok ? r.json() : { sessions: [] }).then(d => (d && d.success ? d.sessions : [])) : Promise.resolve([])
+      ];
+      const [browsingData, problemSessions, focusDailyStats, focusSessions] = await Promise.all(queries);
 
       const targetDate = new Date(selectedDate);
       const filteredBrowsing = (browsingData || []).filter(item => {
@@ -147,38 +152,42 @@ export const SummaryTab = (() => {
 
       const allActivities = [
         ...filteredBrowsing.map(item => ({ title: item.site || item.domain, time: item.totalTime, type: 'browsing', category: item.category || 'Other' })),
-        ...problemSessions.map(session => ({ title: session.title, time: session.duration || 0, type: 'problem', category: session.category || 'Coding' }))
+        ...problemSessions.map(session => ({ title: session.title, time: session.duration || 0, type: 'problem', category: session.category || 'Coding' })),
+        ...(Array.isArray(focusSessions) ? focusSessions.map(s => ({ title: 'Focus Session', time: (s.duration || 0) * 60000, type: 'focus', category: s.sessionType || 'focus', startTime: s.startTime })) : [])
       ].sort((a,b) => b.time - a.time);
 
-      updateSummaryInsights(filteredBrowsing, problemSessions, allActivities, selectedDate);
+      updateSummaryInsights(filteredBrowsing, problemSessions, allActivities, selectedDate, focusDailyStats, focusSessions);
       if (allActivities.length === 0) showEmptyState(); else hideEmptyState();
 
       // Render optional older daily summary block if present
       if (el.dailyContent) {
-        renderDailyContent(selectedDate, filteredBrowsing, problemSessions);
+        renderDailyContent(selectedDate, filteredBrowsing, problemSessions, focusSessions);
       }
     } catch (e) {
       console.error('SummaryTab.loadForDate error:', e);
-    } finally { hideLoading(); }
+  } finally { hideLoading(); loading = false; }
   }
 
   function showLoading() { el.loading?.classList.remove('hidden'); }
   function hideLoading() { el.loading?.classList.add('hidden'); }
 
-  function updateSummaryInsights(browsingData, problemSessions, allActivities, selectedDate) {
-    updateKeyMetrics(browsingData, problemSessions);
+  function updateSummaryInsights(browsingData, problemSessions, allActivities, selectedDate, focusDailyStats, focusSessions) {
+    updateKeyMetrics(browsingData, problemSessions, focusDailyStats, focusSessions);
     updateTopSites(browsingData);
-    updateProductivityInsights(browsingData, problemSessions);
+    updateProductivityInsights(browsingData, problemSessions, focusDailyStats);
     updateActivityList(allActivities);
   }
 
-  function updateKeyMetrics(browsingData, problemSessions) {
+  function updateKeyMetrics(browsingData, problemSessions, focusDailyStats, focusSessions) {
     const key = el.key;
-    if (key.totalFocusSessions) key.totalFocusSessions.textContent = String(problemSessions.length);
+    // Focus sessions count from focus API
+    const focusCount = Array.isArray(focusSessions) ? focusSessions.length : (focusDailyStats?.sessionCount || 0);
+    if (key.totalFocusSessions) key.totalFocusSessions.textContent = String(focusCount);
     if (key.totalSitesVisited) key.totalSitesVisited.textContent = String(browsingData.length);
     const totalBrowsing = browsingData.reduce((t, i) => t + (i.totalTime||0), 0);
     const totalSolving = problemSessions.reduce((t, s) => t + (s.duration||0), 0);
-    if (key.totalActiveTime) key.totalActiveTime.textContent = formatDuration(totalBrowsing + totalSolving);
+    const totalFocusMs = (focusDailyStats?.totalMinutes || 0) * 60000;
+    if (key.totalActiveTime) key.totalActiveTime.textContent = formatDuration(totalBrowsing + totalSolving + totalFocusMs);
     const solved = problemSessions.filter(s => s.status === 'completed').length;
     if (key.problemsSolved) key.problemsSolved.textContent = String(solved);
   }
@@ -194,13 +203,15 @@ export const SummaryTab = (() => {
     set(1, sorted[0]); set(2, sorted[1]); set(3, sorted[2]);
   }
 
-  function updateProductivityInsights(browsingData, problemSessions) {
+  function updateProductivityInsights(browsingData, problemSessions, focusDailyStats) {
     const key = el.key; const totalBrowsing = browsingData.reduce((t,i)=>t+(i.totalTime||0),0);
     const totalSolving = problemSessions.reduce((t,s)=>t+(s.duration||0),0);
-    const total = totalBrowsing + totalSolving;
+    const totalFocusMs = (focusDailyStats?.totalMinutes || 0) * 60000;
+    const total = totalBrowsing + totalSolving + totalFocusMs;
     let productivityScore = 0; let scoreDesc = 'No activity';
     if (total > 0) {
-      const ratio = totalSolving / total; productivityScore = Math.round(ratio * 100);
+      // Consider focus time + problem-solving time as productive
+      const productive = totalSolving + totalFocusMs; const ratio = productive / total; productivityScore = Math.round(ratio * 100);
       if (productivityScore >= 70) scoreDesc = 'Excellent focus!';
       else if (productivityScore >= 50) scoreDesc = 'Good balance';
       else if (productivityScore >= 25) scoreDesc = 'Room for improvement';
@@ -234,21 +245,23 @@ export const SummaryTab = (() => {
   function hideEmptyState() { /* placeholder for any overlay cleanup */ }
 
   // Render optional daily content block (legacy/alternate layout)
-  function renderDailyContent(date, browsingData, problemSessions) {
+  function renderDailyContent(date, browsingData, problemSessions, focusSessions) {
     const container = el.dailyContent; if (!container) return;
-    const hasActivity = (browsingData?.length||0) > 0 || (problemSessions?.length||0) > 0;
+    const hasActivity = (browsingData?.length||0) > 0 || (problemSessions?.length||0) > 0 || (focusSessions?.length||0) > 0;
     if (!hasActivity) {
       container.innerHTML = `<div class="no-activity"><h4>No activity recorded</h4><p>No browsing or problem-solving activity found for ${new Date(date).toLocaleDateString()}</p></div>`;
       return;
     }
     const totalBrowsingTime = browsingData.reduce((sum, e) => sum + (e.totalTime||0), 0);
     const totalProblemTime = problemSessions.reduce((sum, s) => sum + (s.duration||0), 0);
+    const totalFocusTime = (Array.isArray(focusSessions) ? focusSessions.reduce((sum, s) => sum + ((s.duration||0) * 60000), 0) : 0);
     const completed = problemSessions.filter(s => s.status==='completed').length;
     const uniqueDomains = new Set(browsingData.map(e => e.domain || e.site)).size;
-    const timeline = createActivityTimeline(browsingData, problemSessions);
+    const timeline = createActivityTimeline(browsingData, problemSessions, focusSessions);
     container.innerHTML = `
       <div class="activity-summary">
         <div class="summary-stat"><span class="summary-stat-value">${formatDuration(totalBrowsingTime)}</span><span class="summary-stat-label">Browsing Time</span></div>
+        <div class="summary-stat"><span class="summary-stat-value">${formatDuration(totalFocusTime)}</span><span class="summary-stat-label">Focus Time</span></div>
         <div class="summary-stat"><span class="summary-stat-value">${formatDuration(totalProblemTime)}</span><span class="summary-stat-label">Problem Solving</span></div>
         <div class="summary-stat"><span class="summary-stat-value">${completed}</span><span class="summary-stat-label">Problems Solved</span></div>
         <div class="summary-stat"><span class="summary-stat-value">${uniqueDomains}</span><span class="summary-stat-label">Websites Visited</span></div>
@@ -267,7 +280,7 @@ export const SummaryTab = (() => {
       </div>`;
   }
 
-  function createActivityTimeline(browsingData, problemSessions) {
+  function createActivityTimeline(browsingData, problemSessions, focusSessions) {
     const timeline = [];
     (problemSessions||[]).forEach(session => {
       const start = new Date(session.startTime);
@@ -278,6 +291,18 @@ export const SummaryTab = (() => {
         description: `${session.category} • ${session.difficulty} • Duration: ${formatDuration(session.duration)}`,
         tags: [session.status, session.category, session.difficulty].concat(session.tags || []),
         type: 'problem'
+      });
+    });
+    (focusSessions||[]).forEach(s => {
+      const st = new Date(s.startTime);
+      const ms = (s.duration || 0) * 60000;
+      timeline.push({
+        time: st.toLocaleTimeString(),
+        timestamp: st.getTime(),
+        title: 'Focus Session',
+        description: `Duration: ${formatDuration(ms)} • ${s.status || 'completed'}`,
+        tags: ['focus', s.sessionType || 'focus'],
+        type: 'focus'
       });
     });
     (browsingData||[]).filter(e => (e.totalTime||0) > 300000).forEach(entry => {
