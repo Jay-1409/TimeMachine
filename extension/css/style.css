@@ -604,6 +604,7 @@ canvas, img, video {
   border-radius: 8px;
 }
 .loading-indicator { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.loading-indicator.hidden { display: none !important; }
 .loading-spinner {
   inline-size: 16px; block-size: 16px; border-radius: 50%;
   border: 2px solid var(--border); border-top-color: var(--accent);

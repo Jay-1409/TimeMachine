@@ -1,5 +1,3 @@
-// Analytics Tab Controller (ES Module)
-// Encapsulates analytics data loading, aggregation, chart rendering, and insights UI.
 import { resolveBackendUrl } from './api.js';
 import { formatDuration } from './utils.js';
 
@@ -7,15 +5,15 @@ export const AnalyticsTab = (() => {
   let initialized = false;
   let timeChart = null;
 
-  // Local color palette (temporary; can be moved to a shared UI module)
-  const CHART_COLORS = {
-    light: { work: '#3b82f6', social: '#ef4444', entertainment: '#8b5cf6', professional: '#10b981', other: '#6b7280' },
-    dark: { work: '#60a5fa', social: '#f87171', entertainment: '#a78bfa', professional: '#34d399', other: '#9ca3af' },
-    cyberpunk: { work: '#00ff9f', social: '#ff0080', entertainment: '#00d4ff', professional: '#ffff00', other: '#8000ff' },
-    minimal: { work: '#1f2937', social: '#7c3aed', entertainment: '#059669', professional: '#dc2626', other: '#64748b' },
-    ocean: { work: '#0ea5e9', social: '#06b6d4', entertainment: '#3b82f6', professional: '#0891b2', other: '#64748b' },
-    sunset: { work: '#f59e0b', social: '#ef4444', entertainment: '#f97316', professional: '#eab308', other: '#6b7280' },
-    forest: { work: '#059669', social: '#dc2626', entertainment: '#16a34a', professional: '#15803d', other: '#6b7280' },
+  const ELEMENTS = {
+    siteList: '.site-list',
+    errorDisplay: 'errorDisplay',
+    totalTimeToday: 'totalTimeToday',
+    productivityScore: 'productivityScore',
+    sitesVisited: 'sitesVisited',
+    dateRangeDisplay: 'dateRangeDisplay',
+    quickInsights: 'quickInsights',
+    timeChart: 'timeChart'
   };
 
   const CHART_CONFIG = {
@@ -25,34 +23,25 @@ export const AnalyticsTab = (() => {
       maintainAspectRatio: false,
       plugins: {
         legend: { position: 'right', labels: { font: { family: 'inherit' } } },
-        tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatDuration(ctx.raw)}` } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${formatDuration(ctx.raw)}` } }
       },
-      cutout: '65%',
-    },
+      cutout: '65%'
+    }
   };
 
+  const getElement = id => document.getElementById(id) || document.querySelector(id);
+
   function getCurrentTheme() {
-    // Prefer explicit localStorage theme
-    const t = localStorage.getItem('theme');
-    if (t) return t;
-    // Fallback to body class name pattern "theme-*"
-    const cls = document.body?.className || '';
-    const match = cls.match(/theme-([a-z]+)/i);
-    return match ? match[1] : 'light';
+    const theme = localStorage.getItem('theme') || document.body.className.match(/theme-([a-z]+)/i)?.[1] || 'light';
+    return theme;
   }
 
-  function getLegendColor() {
-    const theme = getCurrentTheme();
-    switch (theme) {
-      case 'light': return '#1e293b';
-      case 'dark': return '#f1f5f9';
-      case 'cyberpunk': return '#e0e7ff';
-      case 'minimal': return '#1e293b';
-      case 'ocean': return '#0f172a';
-      case 'sunset': return '#451a03';
-      case 'forest': return '#1a2e05';
-      default: return '#1e293b';
-    }
+  function getLegendColor(theme = getCurrentTheme()) {
+    const colors = {
+      light: '#1e293b', dark: '#f1f5f9', cyberpunk: '#e0e7ff', minimal: '#1e293b',
+      ocean: '#0f172a', sunset: '#451a03', forest: '#1a2e05'
+    };
+    return colors[theme] || colors.light;
   }
 
   function getDateRangeForTab(tab) {
@@ -66,7 +55,7 @@ export const AnalyticsTab = (() => {
       const start = new Date(today); start.setDate(today.getDate() - 29);
       startDate = start.toISOString().split('T')[0];
     }
-    return { startDate, endDate, timezone: today.getTimezoneOffset() };
+    return { startDate, endDate, timezone: -330 }; // IST offset
   }
 
   function getDateRangeDisplayText(tab) {
@@ -84,46 +73,45 @@ export const AnalyticsTab = (() => {
   }
 
   function updateDateRangeDisplay(tab) {
-    const el = document.getElementById('dateRangeDisplay');
-    if (!el) return;
-    const periodInfo = tab === 'weekly' ? ' (7 days)' : tab === 'monthly' ? ' (30 days)' : '';
-    el.textContent = getDateRangeDisplayText(tab) + periodInfo;
+    const el = getElement(ELEMENTS.dateRangeDisplay);
+    if (el) el.textContent = getDateRangeDisplayText(tab) + (tab === 'weekly' ? ' (7 days)' : tab === 'monthly' ? ' (30 days)' : '');
   }
 
   function updateInsightsOverview({ totalTime, domainTimes, productivityScore }) {
-    const totalTimeElement = document.getElementById('totalTimeToday');
-    if (totalTimeElement && totalTime) totalTimeElement.textContent = formatDuration(totalTime);
-    const productivityScoreElement = document.getElementById('productivityScore');
-    if (productivityScoreElement && typeof productivityScore !== 'undefined') {
-      productivityScoreElement.textContent = `${productivityScore}%`;
+    const totalTimeEl = getElement(ELEMENTS.totalTimeToday);
+    const scoreEl = getElement(ELEMENTS.productivityScore);
+    const sitesVisitedEl = getElement(ELEMENTS.sitesVisited);
+    if (totalTimeEl) totalTimeEl.textContent = formatDuration(totalTime);
+    if (scoreEl) {
+      scoreEl.textContent = `${productivityScore}%`;
+      scoreEl.className = `score-badge ${productivityScore >= 70 ? 'bg-green-500' : productivityScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`;
     }
-    const sitesVisitedElement = document.getElementById('sitesVisited');
-    if (sitesVisitedElement && domainTimes) sitesVisitedElement.textContent = String(Object.keys(domainTimes).length);
+    if (sitesVisitedEl) sitesVisitedEl.textContent = String(Object.keys(domainTimes).length);
   }
 
   async function updateSiteCategory(domain, category) {
+    const validCategories = ['Work', 'Social', 'Entertainment', 'Professional', 'Other'];
+    if (!validCategories.includes(category)) throw new Error('Invalid category');
+    const categorySelect = document.querySelector(`.category-select[data-domain="${domain}"]`);
     try {
-      const valid = ['Work','Social','Entertainment','Professional','Other'];
-      if (!valid.includes(category)) throw new Error('Invalid category');
-      const categorySelect = document.querySelector(`.category-select[data-domain="${domain}"]`);
       if (categorySelect) categorySelect.disabled = true;
-      // Use SiteTracker from global
-      const tracker = window.SiteTracker || SiteTracker;
-      const response = await tracker.updateSiteCategory(domain, category);
+      const response = await window.SiteTracker.updateSiteCategory(domain, category);
       if (response?.status !== 'success') throw new Error(response?.error || 'Failed to update category');
-      categorySelect && (categorySelect.disabled = false);
-      // Reload to reflect updates
+      const stored = await chrome.storage.local.get(['siteCategories']);
+      const siteCategories = stored.siteCategories || {};
+      siteCategories[domain] = category;
+      await chrome.storage.local.set({ siteCategories });
       return true;
     } catch (e) {
       console.error('updateSiteCategory failed:', e);
-      const categorySelect = document.querySelector(`.category-select[data-domain="${domain}"]`);
-      if (categorySelect) categorySelect.disabled = false;
       throw e;
+    } finally {
+      if (categorySelect) categorySelect.disabled = false;
     }
   }
 
   function buildQuickInsights({ totalTime, productivityScore, categoryData, sortedDomainTimes, timeframe }) {
-    const container = document.getElementById('quickInsights');
+    const container = getElement(ELEMENTS.quickInsights);
     if (!container) return;
     if (!totalTime) {
       const emptyMsg = timeframe === 'weekly' ? 'No activity this week' : timeframe === 'monthly' ? 'No activity this month' : 'No activity today';
@@ -134,21 +122,21 @@ export const AnalyticsTab = (() => {
     const secondEntry = sortedDomainTimes[1];
     const topPct = topEntry ? ((topEntry[1].time / totalTime) * 100).toFixed(1) : 0;
     const secondPct = secondEntry ? ((secondEntry[1].time / totalTime) * 100).toFixed(1) : 0;
-    const focusTime = (categoryData.Work + categoryData.Professional);
-    const focusPct = totalTime ? ((focusTime/ totalTime) * 100).toFixed(1) : 0;
+    const focusTime = categoryData.Work + categoryData.Professional;
+    const focusPct = totalTime ? ((focusTime / totalTime) * 100).toFixed(1) : 0;
     const leisureTime = categoryData.Entertainment + categoryData.Social;
     const leisurePct = totalTime ? ((leisureTime / totalTime) * 100).toFixed(1) : 0;
-    let balanceScore = 100 - Math.min(100, Math.abs(62.5 - parseFloat(focusPct || '0')) * 2.4);
-    balanceScore = Math.max(0, Math.min(100, Math.round(balanceScore)));
-    const dominance = topPct >= 50 ? `${topEntry[0]} dominates (${topPct}%)` : topPct>=35? `High concentration on ${topEntry[0]}` : 'Balanced domain usage';
+    const balanceScore = Math.max(0, Math.min(100, Math.round(100 - Math.min(100, Math.abs(62.5 - parseFloat(focusPct || '0')) * 2.4))));
+    const dominance = topPct >= 50 ? `${topEntry[0]} dominates (${topPct}%)` : topPct >= 35 ? `High concentration on ${topEntry[0]}` : 'Balanced domain usage';
     const timeframePeriod = timeframe === 'weekly' ? 'this week' : timeframe === 'monthly' ? 'this month' : 'today';
     const trendMsg = productivityScore >= 75 ? `High productivity ${timeframePeriod}` : productivityScore >= 50 ? `Moderate productivity ${timeframePeriod}` : `Low productivity ${timeframePeriod}`;
-    const categoryBreak = Object.entries(categoryData).filter(([_,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,v])=> `${c} ${(v/totalTime*100).toFixed(1)}%`).join(', ');
+    const categoryBreak = Object.entries(categoryData).filter(([_, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, v]) => `${c} ${(v / totalTime * 100).toFixed(1)}%`).join(', ');
+
     container.innerHTML = `
       <div class="qi-card">
         <div class="qi-label">Top Site</div>
         <div class="qi-value">${topEntry ? topEntry[0] : '—'}</div>
-        <div class="qi-sub">${topPct}%${secondEntry? ` · Next ${secondPct}%`:''}</div>
+        <div class="qi-sub">${topPct}%${secondEntry ? ` · Next ${secondPct}%` : ''}</div>
       </div>
       <div class="qi-card">
         <div class="qi-label">Focus Time</div>
@@ -174,167 +162,137 @@ export const AnalyticsTab = (() => {
 
   function renderSiteList(timeData, timeframe, siteCategories) {
     if (timeChart) { timeChart.destroy(); timeChart = null; }
-    const siteListEl = document.querySelector('.site-list');
-    const scoreEl = document.getElementById('productivityScore');
-    if (!Array.isArray(timeData) || timeData.length === 0) {
-      let message = 'No data available';
-      if (timeframe === 'weekly') message = 'No data available for the past 7 days. Start browsing to track your activity.';
-      else if (timeframe === 'monthly') message = 'No data available for the past 30 days. Continue using TimeMachine to build your productivity insights.';
-      else message = 'No activity tracked today. Start browsing to collect data.';
+    const siteListEl = getElement(ELEMENTS.siteList);
+    if (!Array.isArray(timeData) || !timeData.length) {
+      const message = timeframe === 'weekly' ? 'No data available for the past 7 days. Start browsing to track your activity.' :
+                      timeframe === 'monthly' ? 'No data available for the past 30 days. Continue using TimeMachine to build your productivity insights.' :
+                      'No activity tracked today. Start browsing to collect data.';
       siteListEl.innerHTML = `<div class="empty-state">${message}</div>`;
-      if (scoreEl) scoreEl.textContent = '0%';
+      getElement(ELEMENTS.productivityScore).textContent = '0%';
       return;
     }
 
-  const categoryData = { Work:0, Social:0, Entertainment:0, Professional:0, Other:0 };
-  const domainTimes = {};
-
-    timeData.forEach((entry) => {
-      if (!entry || typeof entry !== 'object' || !entry.domain) return;
-      const totalTime = (entry.totalTime || 0);
+    const categoryData = { Work: 0, Social: 0, Entertainment: 0, Professional: 0, Other: 0 };
+    const domainTimes = {};
+    timeData.forEach(entry => {
+      if (!entry?.domain) return;
+      const totalTime = entry.totalTime || 0;
       const category = siteCategories[entry.domain] || entry.category || 'Other';
       categoryData[category] += totalTime;
-      if (domainTimes[entry.domain]) domainTimes[entry.domain].time += totalTime;
-      else domainTimes[entry.domain] = { time: totalTime, category };
+      domainTimes[entry.domain] = domainTimes[entry.domain] ? { time: domainTimes[entry.domain].time + totalTime, category } : { time: totalTime, category };
     });
 
-    const totalTime = Object.values(categoryData).reduce((s,t)=>s+t,0);
+    const totalTime = Object.values(categoryData).reduce((s, t) => s + t, 0);
     const productiveTime = categoryData.Work + categoryData.Professional + categoryData.Other * 0.5;
     const productivityScore = totalTime > 0 ? Math.round((productiveTime / totalTime) * 100) : 0;
-    if (scoreEl) {
-      scoreEl.textContent = `${productivityScore}%`;
-      scoreEl.className = `score-badge ${ productivityScore>=70 ? 'bg-green-500' : productivityScore>=40 ? 'bg-yellow-500' : 'bg-red-500' }`;
-    }
 
-    const sortedDomainTimes = Object.entries(domainTimes).sort((a,b)=> b[1].time - a[1].time);
-    buildQuickInsights({ totalTime, productivityScore, categoryData, sortedDomainTimes, timeframe });
-    updateInsightsOverview({ totalTime, productivityScore, domainTimes });
+    updateInsightsOverview({ totalTime, domainTimes, productivityScore });
+    buildQuickInsights({ totalTime, productivityScore, categoryData, sortedDomainTimes: Object.entries(domainTimes).sort((a, b) => b[1].time - a[1].time), timeframe });
 
-    // Render domain list
-    document.querySelector('.site-list').innerHTML = sortedDomainTimes.map(([domain, data], index) => `
+    siteListEl.innerHTML = Object.entries(domainTimes).sort((a, b) => b[1].time - a[1].time).map(([domain, data], index) => `
       <div class="site-item ${index < 3 ? 'top-site' : ''}">
         <div class="site-info">
           <span class="site-domain">${domain}</span>
           <select class="category-select" data-domain="${domain}">
-            <option value="Work" ${data.category==='Work'?'selected':''}>Work</option>
-            <option value="Social" ${data.category==='Social'?'selected':''}>Social</option>
-            <option value="Entertainment" ${data.category==='Entertainment'?'selected':''}>Entertainment</option>
-            <option value="Professional" ${data.category==='Professional'?'selected':''}>Professional</option>
-            <option value="Other" ${data.category==='Other'?'selected':''}>Other</option>
+            ${['Work', 'Social', 'Entertainment', 'Professional', 'Other'].map(cat => `<option value="${cat}" ${data.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
           </select>
         </div>
         <span class="site-time">${formatDuration(data.time)}</span>
       </div>`).join('');
 
-    // Chart
-    const ctx = document.getElementById('timeChart').getContext('2d');
-    const theme = getCurrentTheme();
-    const colors = CHART_COLORS[theme] || CHART_COLORS.light;
-    timeChart = new Chart(ctx, {
-      ...CHART_CONFIG,
-      data: {
-        labels: Object.keys(categoryData),
-        datasets: [{
-          data: Object.values(categoryData),
-          backgroundColor: [colors.work, colors.social, colors.entertainment, colors.professional, colors.other],
-          borderWidth: 0,
-        }],
-      },
-      options: {
-        ...CHART_CONFIG.options,
-        plugins: { ...CHART_CONFIG.options.plugins, legend: { ...CHART_CONFIG.options.plugins.legend, labels: { ...CHART_CONFIG.options.plugins.legend.labels, color: getLegendColor() } } },
-      },
-    });
+    const ctx = getElement(ELEMENTS.timeChart)?.getContext('2d');
+    if (ctx) {
+      const theme = getCurrentTheme();
+      timeChart = new Chart(ctx, {
+        ...CHART_CONFIG,
+        data: {
+          labels: Object.keys(categoryData),
+          datasets: [{
+            data: Object.values(categoryData),
+            backgroundColor: Object.values(window.CONFIG.CHART_COLORS[theme] || window.CONFIG.CHART_COLORS.light),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          ...CHART_CONFIG.options,
+          plugins: { ...CHART_CONFIG.options.plugins, legend: { ...CHART_CONFIG.options.plugins.legend, labels: { ...CHART_CONFIG.options.plugins.legend.labels, color: getLegendColor() } } }
+        }
+      });
+    }
 
-    // Category change events
-    document.querySelectorAll('.category-select').forEach((select) => {
-      select.addEventListener('change', async (event) => {
-        const domain = event.target.dataset.domain;
-        const newCategory = event.target.value;
+    document.querySelectorAll('.category-select').forEach(select => {
+      select.addEventListener('change', async e => {
+        const domain = e.target.dataset.domain;
+        const newCategory = e.target.value;
         try {
           await updateSiteCategory(domain, newCategory);
-          const stored = await chrome.storage.local.get(['siteCategories']);
-          const sc = stored.siteCategories || {}; sc[domain] = newCategory; await chrome.storage.local.set({ siteCategories: sc });
-          // Reload current view
+          window.showToast?.(`Category for ${domain} updated to ${newCategory}`);
           await load(window.currentSubTab || 'daily');
         } catch (e) {
-          // Show a toast if available
-          try { window.showFeedback?.(`Category for ${domain} updated to ${newCategory}`); } catch(_){ }
+          window.showToast?.(`Error updating category for ${domain}: ${e.message}`, 'error');
         }
       });
     });
   }
 
   async function load(subTab = 'daily') {
+    const errorDisplay = getElement(ELEMENTS.errorDisplay);
+    const siteList = getElement(ELEMENTS.siteList);
     try {
-      const user = await chrome.storage.local.get(['userEmail']);
-      const userEmail = user.userEmail;
-      const errorDisplay = document.getElementById('errorDisplay');
-      const siteList = document.querySelector('.site-list');
+      const { userEmail } = await chrome.storage.local.get(['userEmail']);
       if (!userEmail) {
-        errorDisplay?.classList?.remove('hidden');
-        errorDisplay && (errorDisplay.textContent = 'Please set an email first');
-        siteList && (siteList.innerHTML = '<div class="empty-state">Set your email to load data</div>');
+        errorDisplay?.classList.remove('hidden');
+        errorDisplay.textContent = 'Please set an email first';
+        siteList.innerHTML = '<div class="empty-state">Set your email to load data</div>';
         return;
       }
-      if (siteList) siteList.innerHTML = '<div class="loading-text"><span class="loader"></span>Loading data...</div>';
-      errorDisplay?.classList?.add('hidden');
+      siteList.innerHTML = '<div class="loading-text"><span class="loader"></span>Loading data...</div>';
+      errorDisplay?.classList.add('hidden');
 
-      // Sync local data to backend first
-      const tracker = window.SiteTracker || SiteTracker;
-      if (tracker && typeof tracker.forceSync === 'function') await tracker.forceSync();
-
+      await window.SiteTracker?.forceSync?.();
       const { startDate, endDate, timezone } = getDateRangeForTab(subTab);
       const backend = await resolveBackendUrl();
-      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
-      let token = null; try { token = (await TokenStorage.getToken())?.token; } catch(_) {}
+      const deviceId = window.Auth?.getDeviceId?.() || 'unknown';
+      const { token } = await window.TokenStorage?.getToken?.() || {};
 
-      const response = await fetch(`${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${startDate}&endDate=${endDate}&timezone=${timezone}&useUserTimezone=true`, { headers: { 'X-Device-ID': deviceId || 'unknown', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) } });
+      const response = await fetch(`${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${startDate}&endDate=${endDate}&timezone=${timezone}&useUserTimezone=true`, {
+        headers: { 'X-Device-ID': deviceId, ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      });
       if (!response.ok) {
-        let msg = `Failed to load data (${response.status})`;
-        if (response.status === 401) msg = 'Unauthorized. Please log in again.';
-        if (response.status === 429) {
-          // Rate-limited: show friendly message and keep UI usable
-          siteList && (siteList.innerHTML = '<div class="empty-state">Rate limited. Please try again in a few minutes.</div>');
-          errorDisplay && (errorDisplay.textContent = 'Rate limited (429). Try again later.');
-          errorDisplay?.classList?.remove('hidden');
-          return;
-        }
-        try { const errJson = await response.json(); if (errJson?.error) msg = errJson.error; } catch(_) {}
+        const msg = response.status === 401 ? 'Unauthorized. Please log in again.' :
+                    response.status === 429 ? 'Rate limited. Please try again in a few minutes.' :
+                    (await response.json().catch(() => ({}))).error || `Failed to load data (${response.status})`;
         throw new Error(msg);
       }
-      const raw = await response.json();
-      const actualData = raw?.data || raw;
+      const data = await response.json();
+      const actualData = Array.isArray(data) ? data : data?.data || [];
       if (!Array.isArray(actualData)) throw new Error('Invalid data format received from server');
 
-  const stored = await chrome.storage.local.get(['siteCategories']);
-  const siteCategories = stored.siteCategories || {};
-  renderSiteList(actualData, subTab, siteCategories);
+      const { siteCategories = {} } = await chrome.storage.local.get(['siteCategories']);
+      renderSiteList(actualData, subTab, siteCategories);
       updateDateRangeDisplay(subTab);
     } catch (error) {
       console.error('AnalyticsTab.load failed:', error);
-      const siteList = document.querySelector('.site-list');
-      const errEl = document.getElementById('errorDisplay');
-      const msg = error?.message || 'Error loading data';
-      if (siteList) siteList.innerHTML = `<div class="empty-state">${msg.includes('Unauthorized') ? 'Please log in to view analytics.' : 'Error loading data'}</div>`;
-      if (errEl) { errEl.textContent = `Error loading data: ${msg}`; errEl.classList.remove('hidden'); }
+      const msg = error.message.includes('Unauthorized') ? 'Please log in to view analytics.' : 'Error loading data';
+      siteList.innerHTML = `<div class="empty-state">${msg}</div>`;
+      errorDisplay.textContent = `Error loading data: ${error.message}`;
+      errorDisplay.classList.remove('hidden');
     }
   }
 
   function updateChartTheme() {
-    if (!timeChart) return;
-    timeChart.options.plugins.legend.labels.color = getLegendColor();
-    timeChart.update();
+    if (timeChart) {
+      const theme = getCurrentTheme();
+      timeChart.data.datasets[0].backgroundColor = Object.values(window.CONFIG.CHART_COLORS[theme] || window.CONFIG.CHART_COLORS.light);
+      timeChart.options.plugins.legend.labels.color = getLegendColor();
+      timeChart.update();
+    }
   }
 
   async function init() {
-    if (initialized) return; initialized = true;
-    // nothing yet; called from popup to ensure module is ready
+    if (initialized) return;
+    initialized = true;
   }
 
-  return { init, load, updateChartTheme, updateDateRangeDisplay };
+  return { init, load, updateChartTheme, updateDateRangeDisplay, getDateRangeDisplayText };
 })();
-
-if (typeof window !== 'undefined') {
-  window.AnalyticsTab = AnalyticsTab;
-}

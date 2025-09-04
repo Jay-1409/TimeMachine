@@ -7,9 +7,27 @@ import { formatDuration } from './utils.js';
 export const SummaryTab = (() => {
   let initialized = false;
   let loading = false;
+  let queued = false;
+
+  // Local date helpers to avoid UTC parsing issues
+  function toLocalDateString(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  function parseLocalDate(str) {
+    const [y, m, d] = (str || '').split('-').map(n => parseInt(n, 10));
+    if (!y || !m || !d) return new Date();
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
+  }
+  function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
 
   const el = {
     get container() { return document.getElementById('summaryTabContent'); },
+  get error() { return document.getElementById('summaryError'); },
     get dateInput() { return document.getElementById('summaryDate'); },
     get prevBtn() { return document.getElementById('prevDayBtn'); },
     get nextBtn() { return document.getElementById('nextDayBtn'); },
@@ -43,7 +61,7 @@ export const SummaryTab = (() => {
     if (initialized) return;
     initialized = true;
     // Default date to today
-    const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString(new Date());
     if (el.dateInput) {
       el.dateInput.value = today;
       el.dateInput.addEventListener('change', handleDateChange);
@@ -58,39 +76,40 @@ export const SummaryTab = (() => {
 
   async function show() {
     el.container?.classList.add('active');
+  hideError();
     await init();
     await loadForDate();
     updateNavigationButtons();
   }
 
   function getSelectedDate() {
-    return (el.dateInput?.value || new Date().toISOString().split('T')[0]);
+  return (el.dateInput?.value || toLocalDateString(new Date()));
   }
 
   async function handleDateChange() {
-    await loadForDate();
+  await loadForDate();
     updateNavigationButtons();
   }
 
   function navigateToPreviousDay() {
     if (!el.dateInput) return;
-    const d = new Date(el.dateInput.value);
-    d.setDate(d.getDate() - 1);
-    el.dateInput.value = d.toISOString().split('T')[0];
+  const d = parseLocalDate(el.dateInput.value);
+  d.setDate(d.getDate() - 1);
+  el.dateInput.value = toLocalDateString(d);
     handleDateChange();
   }
 
   function navigateToNextDay() {
     if (!el.dateInput) return;
-    const d = new Date(el.dateInput.value);
-    d.setDate(d.getDate() + 1);
-    el.dateInput.value = d.toISOString().split('T')[0];
+  const d = parseLocalDate(el.dateInput.value);
+  d.setDate(d.getDate() + 1);
+  el.dateInput.value = toLocalDateString(d);
     handleDateChange();
   }
 
   function navigateToToday() {
     if (!el.dateInput) return;
-    el.dateInput.value = new Date().toISOString().split('T')[0];
+  el.dateInput.value = toLocalDateString(new Date());
     handleDateChange();
   }
 
@@ -107,13 +126,14 @@ export const SummaryTab = (() => {
 
   function updateNavigationButtons() {
     const dateStr = getSelectedDate();
-    const selected = new Date(dateStr);
+    const selected = parseLocalDate(dateStr);
     const today = new Date(); today.setHours(0,0,0,0);
-    if (el.nextBtn) el.nextBtn.disabled = selected >= today;
-    if (el.todayBtn) el.todayBtn.disabled = selected.toDateString() === today.toDateString();
+    if (el.nextBtn) el.nextBtn.disabled = selected.getTime() >= today.getTime();
+    if (el.todayBtn) el.todayBtn.disabled = isSameDay(selected, today);
     if (el.title) {
-      const isToday = selected.toDateString() === today.toDateString();
-      const isYesterday = selected.toDateString() === new Date(today.getTime() - 86400000).toDateString();
+      const isToday = isSameDay(selected, today);
+      const yest = new Date(today.getTime() - 86400000);
+      const isYesterday = isSameDay(selected, yest);
       if (isToday) el.title.textContent = "Today's Activity Summary";
       else if (isYesterday) el.title.textContent = "Yesterday's Activity Summary";
       else el.title.textContent = `${selected.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })} Summary`;
@@ -121,42 +141,74 @@ export const SummaryTab = (() => {
   }
 
   async function loadForDate() {
-  if (loading) return; loading = true; showLoading();
+  if (loading) { queued = true; return; }
+  loading = true; showLoading();
     try {
       const selectedDate = getSelectedDate();
       const { userEmail } = await chrome.storage.local.get(['userEmail']);
-      if (!userEmail) { hideLoading(); return; }
+  if (!userEmail) { showError('Please sign in to view your summary.'); return; }
       const backend = await resolveBackendUrl();
-      const { token, userId } = await TokenStorage.getToken();
+  let token = null, userId = null;
+  try { ({ token, userId } = await TokenStorage.getToken()); } catch(_) {}
 
       const tz = new Date().getTimezoneOffset();
       // Fetch browsing report, problem sessions, focus daily stats, and focus session list concurrently
       const headers = { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Content-Type': 'application/json' };
       const queries = [
         fetch(`${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${selectedDate}&endDate=${selectedDate}&timezone=${tz}&useUserTimezone=true`, { headers })
-          .then(r => r.ok ? r.json() : { data: [] }).then(d => d.data || []),
-  fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${selectedDate}&timezone=${tz}&useUserTimezone=true`, { headers })
-          .then(r => r.ok ? r.json() : { sessions: [] }).then(d => d.sessions || []),
+          .then(async r => { if (!r.ok) throw new Error(`report ${r.status}`); const j = await r.json(); return j.data || []; })
+          .catch(err => { console.warn('summary: report failed', err); return []; }),
+        fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${selectedDate}&timezone=${tz}&useUserTimezone=true`, { headers })
+          .then(async r => { if (!r.ok) throw new Error(`problems ${r.status}`); const j = await r.json(); return j.sessions || []; })
+          .catch(err => { console.warn('summary: problems failed', err); return []; }),
         userId ? fetch(`${backend}/api/focus-sessions/${encodeURIComponent(userId)}/stats/daily?date=${encodeURIComponent(selectedDate)}&timezone=${tz}&useUserTimezone=true`, { headers })
-          .then(r => r.ok ? r.json() : null).then(d => (d && d.success ? d.stats : null)) : Promise.resolve(null),
+          .then(async r => { if (!r.ok) throw new Error(`focus-stats ${r.status}`); const j = await r.json(); return (j && j.success ? j.stats : null); })
+          .catch(err => { console.warn('summary: focus-stats failed', err); return null; }) : Promise.resolve(null),
         userId ? fetch(`${backend}/api/focus-sessions/${encodeURIComponent(userId)}?date=${encodeURIComponent(selectedDate)}&timezone=${tz}&useUserTimezone=true&limit=50`, { headers })
-          .then(r => r.ok ? r.json() : { sessions: [] }).then(d => (d && d.success ? d.sessions : [])) : Promise.resolve([])
+          .then(async r => { if (!r.ok) throw new Error(`focus-list ${r.status}`); const j = await r.json(); return (j && j.success ? j.sessions : []); })
+          .catch(err => { console.warn('summary: focus-list failed', err); return []; }) : Promise.resolve([])
       ];
-      const [browsingData, problemSessions, focusDailyStats, focusSessions] = await Promise.all(queries);
+  const [browsingData, problemSessions, focusDailyStats, focusSessions] = await Promise.all(queries);
 
-      const targetDate = new Date(selectedDate);
-      const filteredBrowsing = (browsingData || []).filter(item => {
-        const itemDate = item?.date ? new Date(item.date) : null;
-        return itemDate && itemDate.toDateString() === targetDate.toDateString();
-      });
+  // The backend already returns data scoped to the selected local day; avoid re-filtering by Date parsing
+  const filteredBrowsing = Array.isArray(browsingData) ? browsingData : [];
+
+      // Fallback: compute focus stats from local data if backend focus endpoints unavailable
+      let computedFocusStats = focusDailyStats;
+      let computedFocusSessions = focusSessions;
+      if ((!computedFocusStats && (!Array.isArray(computedFocusSessions) || computedFocusSessions.length === 0))) {
+        try {
+          const sel = new Date(selectedDate);
+          const today = new Date(); today.setHours(0,0,0,0);
+          const isToday = sel.toDateString() === today.toDateString();
+          let localSessions = [];
+          if (isToday && window.FocusSessionsManager?.getRecentSessions) {
+            localSessions = await window.FocusSessionsManager.getRecentSessions({ todayOnly: true, limit: 50 }) || [];
+          }
+          if (!Array.isArray(localSessions) || localSessions.length === 0) {
+            const { focusHistory = [] } = await chrome.storage.local.get(['focusHistory']);
+            localSessions = (focusHistory || []).filter(s => new Date(s.startTime).toDateString() === sel.toDateString());
+          }
+          if (Array.isArray(localSessions) && localSessions.length) {
+            const completed = localSessions.filter(s => (s.status || 'completed') === 'completed');
+            const totalMinutes = completed.reduce((t, s) => {
+              const raw = Number(s.duration) || 0; const ms = raw >= 1000 ? raw : raw * 60000; return t + Math.max(1, Math.round(ms / 60000));
+            }, 0);
+            computedFocusStats = { totalMinutes, sessionCount: completed.length, productivity: 0 };
+            computedFocusSessions = localSessions;
+          }
+        } catch (e) {
+          console.warn('summary: fallback focus computation failed', e);
+        }
+      }
 
       const allActivities = [
         ...filteredBrowsing.map(item => ({ title: item.site || item.domain, time: item.totalTime, type: 'browsing', category: item.category || 'Other' })),
         ...problemSessions.map(session => ({ title: session.title, time: session.duration || 0, type: 'problem', category: session.category || 'Coding' })),
-        ...(Array.isArray(focusSessions) ? focusSessions.map(s => ({ title: 'Focus Session', time: (s.duration || 0) * 60000, type: 'focus', category: s.sessionType || 'focus', startTime: s.startTime })) : [])
+        ...(Array.isArray(computedFocusSessions) ? computedFocusSessions.map(s => { const raw = Number(s.duration) || 0; const ms = raw >= 1000 ? raw : raw * 60000; return ({ title: 'Focus Session', time: ms, type: 'focus', category: s.sessionType || 'focus', startTime: s.startTime }); }) : [])
       ].sort((a,b) => b.time - a.time);
 
-      updateSummaryInsights(filteredBrowsing, problemSessions, allActivities, selectedDate, focusDailyStats, focusSessions);
+      updateSummaryInsights(filteredBrowsing, problemSessions, allActivities, selectedDate, computedFocusStats, computedFocusSessions);
       if (allActivities.length === 0) showEmptyState(); else hideEmptyState();
 
       // Render optional older daily summary block if present
@@ -165,7 +217,10 @@ export const SummaryTab = (() => {
       }
     } catch (e) {
       console.error('SummaryTab.loadForDate error:', e);
-  } finally { hideLoading(); loading = false; }
+      showError(e?.message || 'Failed to load summary.');
+    } finally { hideLoading(); loading = false; if (queued) { queued = false; // re-run for latest date selection
+        try { await loadForDate(); } catch (_) {}
+      } }
   }
 
   function showLoading() { el.loading?.classList.remove('hidden'); }
@@ -177,6 +232,14 @@ export const SummaryTab = (() => {
     updateProductivityInsights(browsingData, problemSessions, focusDailyStats);
     updateActivityList(allActivities);
   }
+
+  function showError(msg) {
+    if (!el.error) return;
+    el.error.textContent = msg;
+    el.error.classList.remove('hidden');
+    hideLoading();
+  }
+  function hideError() { el.error?.classList.add('hidden'); }
 
   function updateKeyMetrics(browsingData, problemSessions, focusDailyStats, focusSessions) {
     const key = el.key;
@@ -204,14 +267,26 @@ export const SummaryTab = (() => {
   }
 
   function updateProductivityInsights(browsingData, problemSessions, focusDailyStats) {
-    const key = el.key; const totalBrowsing = browsingData.reduce((t,i)=>t+(i.totalTime||0),0);
+    const key = el.key;
+    const totalBrowsing = browsingData.reduce((t,i)=>t+(i.totalTime||0),0);
     const totalSolving = problemSessions.reduce((t,s)=>t+(s.duration||0),0);
     const totalFocusMs = (focusDailyStats?.totalMinutes || 0) * 60000;
     const total = totalBrowsing + totalSolving + totalFocusMs;
+
+    // Compute productive time similar to Analytics: Work + Professional + (Other * 0.5) + Focus + Problem
+    const catSums = browsingData.reduce((acc, item) => {
+      const cat = item?.category || 'Other';
+      acc[cat] = (acc[cat] || 0) + (item.totalTime || 0); return acc;
+    }, {});
+    const work = catSums.Work || 0;
+    const prof = catSums.Professional || 0;
+    const other = catSums.Other || 0;
+    const productiveBrowsing = work + prof + (other * 0.5);
+
     let productivityScore = 0; let scoreDesc = 'No activity';
     if (total > 0) {
-      // Consider focus time + problem-solving time as productive
-      const productive = totalSolving + totalFocusMs; const ratio = productive / total; productivityScore = Math.round(ratio * 100);
+      const productive = productiveBrowsing + totalSolving + totalFocusMs;
+      const ratio = productive / total; productivityScore = Math.round(ratio * 100);
       if (productivityScore >= 70) scoreDesc = 'Excellent focus!';
       else if (productivityScore >= 50) scoreDesc = 'Good balance';
       else if (productivityScore >= 25) scoreDesc = 'Room for improvement';
@@ -220,11 +295,16 @@ export const SummaryTab = (() => {
     if (key.productivityScore) key.productivityScore.textContent = total > 0 ? `${productivityScore}%` : '-';
     if (key.scoreDescription) key.scoreDescription.textContent = scoreDesc;
 
-    const completed = problemSessions.filter(s => s.status === 'completed').length; const totalSess = problemSessions.length;
+    // "Focus Quality" reflects focus sessions, not solver sessions
+    const focusSessionsCount = Math.max(0, parseInt(focusDailyStats?.sessionCount || 0, 10));
     let quality = '-'; let qDesc = 'No focus sessions';
-    if (totalSess > 0) {
-      const rate = (completed / totalSess) * 100; quality = `${Math.round(rate)}%`;
-      if (rate >= 80) qDesc = 'Outstanding!'; else if (rate >= 60) qDesc = 'Good completion'; else if (rate >= 40) qDesc = 'Needs focus'; else qDesc = 'Low completion';
+    if (focusSessionsCount > 0) {
+      const fp = Math.max(0, Math.min(100, parseInt(focusDailyStats?.productivity || 0, 10)));
+      quality = `${fp}%`;
+      if (fp >= 80) qDesc = 'Great consistency';
+      else if (fp >= 60) qDesc = 'Good focus';
+      else if (fp >= 40) qDesc = 'Needs improvement';
+      else qDesc = 'Low quality';
     }
     if (key.focusQuality) key.focusQuality.textContent = quality;
     if (key.qualityDescription) key.qualityDescription.textContent = qDesc;
