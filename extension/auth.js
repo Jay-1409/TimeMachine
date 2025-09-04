@@ -5,21 +5,46 @@
 const STORAGE_KEYS = {
   USER_EMAIL: 'userEmail',
   AUTH_TOKEN: 'tm_auth_token',
-  DEVICE_ID: 'tm_device_id'
+  DEVICE_ID: 'tm_device_id',
+  USER_ID: 'userId'
 };
 
 // Helper functions for token storage management
-const TokenStorage = {
+var TokenStorage = {
+  // Decode a JWT without verification to extract payload (for user id)
+  _decodeJwt(token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      const payload = parts[1]
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      const json = decodeURIComponent(atob(payload).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(json);
+    } catch (_) {
+      return null;
+    }
+  },
   // Set token in both localStorage and chrome.storage.local
   async setToken(token, email) {
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
     localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+    // Try to decode user id from JWT
+    let userId = null;
+    try {
+      const decoded = this._decodeJwt(token);
+      if (decoded && (decoded.id || decoded.userId || decoded._id)) {
+        userId = decoded.id || decoded.userId || decoded._id;
+        localStorage.setItem(STORAGE_KEYS.USER_ID, userId);
+      }
+    } catch(_) {}
     
     try {
-      await chrome.storage.local.set({ 
-        tm_auth_token: token,
-        userEmail: email
-      });
+      const payload = { tm_auth_token: token, userEmail: email };
+      if (userId) payload.userId = userId;
+      await chrome.storage.local.set(payload);
     } catch (chromeErr) {
       console.warn('Could not store token in chrome.storage:', chromeErr);
     }
@@ -29,33 +54,45 @@ const TokenStorage = {
   async getToken() {
     let token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     let email = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+    let userId = localStorage.getItem(STORAGE_KEYS.USER_ID);
     
-    if (!token || !email) {
+    if (!token || !email || !userId) {
       try {
-        const storage = await chrome.storage.local.get(['tm_auth_token', 'userEmail']);
+        const storage = await chrome.storage.local.get(['tm_auth_token', 'userEmail', 'userId']);
         token = token || storage.tm_auth_token;
         email = email || storage.userEmail;
+        userId = userId || storage.userId;
         
         // Sync to localStorage if found in chrome.storage
         if (token && email) {
           localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
           localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+          if (storage.userId) localStorage.setItem(STORAGE_KEYS.USER_ID, storage.userId);
         }
       } catch (chromeErr) {
         console.warn('Could not access chrome.storage:', chromeErr);
       }
     }
-    
-    return { token, email };
+    // Fallback: try to decode user id if missing
+    if (token && !userId) {
+      const decoded = this._decodeJwt(token);
+      if (decoded && (decoded.id || decoded.userId || decoded._id)) {
+        userId = decoded.id || decoded.userId || decoded._id;
+        localStorage.setItem(STORAGE_KEYS.USER_ID, userId);
+        try { await chrome.storage.local.set({ userId }); } catch(_) {}
+      }
+    }
+    return { token, email, userId };
   },
 
   // Clear token from both storages
   async clearToken() {
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+    localStorage.removeItem(STORAGE_KEYS.USER_ID);
     
     try {
-      await chrome.storage.local.remove(['tm_auth_token', 'userEmail']);
+      await chrome.storage.local.remove(['tm_auth_token', 'userEmail', 'userId']);
     } catch (chromeErr) {
       console.warn('Could not remove token from chrome.storage:', chromeErr);
     }
@@ -359,11 +396,21 @@ async function signup(email, password, isMigration = false) {
 
 // Check if user is authenticated
 async function isAuthenticated() {
+  // Simple cache to avoid spamming verify endpoint
+  if (!window.__TM_AUTH_CACHE__) {
+    window.__TM_AUTH_CACHE__ = { last: 0, ok: false };
+  }
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   // Get token from unified storage
   const { token, email } = await TokenStorage.getToken();
   
   if (!token || !email) {
     return false;
+  }
+  // Return cached result within TTL
+  const now = Date.now();
+  if (now - window.__TM_AUTH_CACHE__.last < CACHE_TTL) {
+    return !!window.__TM_AUTH_CACHE__.ok;
   }
   
   // Verify token with backend
@@ -378,20 +425,41 @@ async function isAuthenticated() {
     });
     
     if (response.ok) {
+      window.__TM_AUTH_CACHE__.last = now;
+      window.__TM_AUTH_CACHE__.ok = true;
       return true;
+    }
+
+    // Handle rate limiting or non-JSON responses gracefully
+    if (response.status === 429) {
+      // Assume authenticated for now; don't clear token on rate limit
+      const txt = await response.text().catch(() => '');
+  console.warn('Token verification rate-limited:', txt || '429 Too Many Requests');
+  window.__TM_AUTH_CACHE__.last = now;
+  window.__TM_AUTH_CACHE__.ok = true; // assume valid temporarily
+  return true;
+    }
+
+    // Try to parse JSON error, fallback to text
+    let errorData = null;
+    const ct = response.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      errorData = await response.json().catch(() => null);
     } else {
-      const errorData = await response.json();
-      console.warn('Token verification failed:', errorData);
-      
-      // If token is expired or invalid, clear it
-      if (errorData.code === 'TOKEN_EXPIRED' || errorData.code === 'INVALID_TOKEN') {
-        await TokenStorage.clearToken();
-      }
+      const txt = await response.text().catch(() => '');
+      errorData = txt ? { message: txt } : null;
+    }
+    console.warn('Token verification failed:', errorData || { status: response.status });
+    // If token is explicitly invalid/expired, clear it
+    if (errorData && (errorData.code === 'TOKEN_EXPIRED' || errorData.code === 'INVALID_TOKEN')) {
+      await TokenStorage.clearToken();
     }
   } catch (error) {
     console.error('Token verification error:', error);
   }
-  
+  // Cache negative result briefly to avoid loops
+  window.__TM_AUTH_CACHE__.last = Date.now();
+  window.__TM_AUTH_CACHE__.ok = false;
   return false;
 }
 
@@ -433,8 +501,49 @@ async function resolveBackendUrl() {
   } catch (e) {
     console.warn("resolveBackendUrl fallback due to error:", e);
   }
-  // Fallback chain
-  return "https://timemachine-1.onrender.com";
+  // Check shared override stored by background/popup
+  try {
+    const { tmBackendUrl } = await chrome.storage.local.get(['tmBackendUrl']);
+    if (tmBackendUrl && /^https?:\/\//.test(tmBackendUrl)) {
+      const url = tmBackendUrl.replace(/\/$/, '');
+      // Validate override health; ignore if bad
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch(url + '/health', { method: 'GET', cache: 'no-store', signal: controller.signal });
+        clearTimeout(t);
+        if (res.ok) return url;
+      } catch(_) {}
+    }
+  } catch(_) {}
+  // Prefer production (Render) first
+  const renderBase = 'https://timemachine-1.onrender.com';
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(renderBase + '/health', { method: 'GET', cache: 'no-store', signal: controller.signal });
+    clearTimeout(t);
+    if (res.ok) {
+      try { await chrome.storage.local.set({ tmBackendUrl: renderBase }); } catch(_){ }
+      return renderBase;
+    }
+  } catch(_) { /* fall through */ }
+  // Try local dev hosts (127.0.0.1 first)
+  const probes = ['http://127.0.0.1:3000', 'http://localhost:3000'];
+  for (const base of probes) {
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 1500);
+      const res = await fetch(base + '/health', { method: 'GET', cache: 'no-store', signal: controller.signal });
+      clearTimeout(t);
+      if (res.ok) {
+        try { await chrome.storage.local.set({ tmBackendUrl: base }); } catch(_){ }
+        return base;
+      }
+    } catch(_) { /* try next */ }
+  }
+  // Fallback to production
+  return renderBase;
 }
 
 // Expose the main functions
@@ -447,3 +556,6 @@ window.Auth = {
   getDeviceId,
   isAuthenticated
 };
+
+// Also expose TokenStorage for modules and other scripts that reference it
+try { window.TokenStorage = TokenStorage; } catch (_) {}

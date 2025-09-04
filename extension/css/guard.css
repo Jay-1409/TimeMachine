@@ -85,7 +85,7 @@
   white-space: nowrap; /* Prevent button text wrapping */
 
   &:hover {
-    translate: 0 -2px;
+    /* Avoid layout shift on hover/click */
     box-shadow: var(--shadow-md);
     background: linear-gradient(135deg, var(--accent-2), var(--accent));
   }

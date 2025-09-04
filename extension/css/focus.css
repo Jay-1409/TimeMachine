@@ -2,14 +2,14 @@
 .focus-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .stopwatch-container {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px;
+  padding: 16px 16px 18px;
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -29,13 +29,54 @@
   font-weight: 700;
 }
 
+.stopwatch-display { display: grid; place-items: center; padding-block: 6px 10px; }
+
 .timer-circle {
+  --progress: 0%; /* updated from JS */
+  position: relative;
   display: grid;
+  gap: 0;
   place-items: center;
-  border-radius: 16px;
-  background: linear-gradient(145deg, var(--bg-2), var(--bg));
+  inline-size: clamp(160px, 60%, 200px);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--bg-2) 80%, transparent), var(--bg));
   border: 1px solid var(--border);
-  padding: 18px;
+  box-shadow: inset 0 2px 18px rgba(0,0,0,0.05), 0 6px 24px rgba(0,0,0,0.06);
+}
+
+/* Base ring (track) + subtle ticks */
+.timer-circle::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background:
+    /* minute ticks */
+    repeating-conic-gradient(from -90deg,
+      color-mix(in srgb, var(--border) 70%, transparent) 0 1deg,
+      transparent 1deg 6deg
+    ),
+    /* track */
+    conic-gradient(color-mix(in srgb, var(--bg-2) 70%, transparent) 0 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+}
+
+/* Progress sweep ring */
+.timer-circle::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      color-mix(in srgb, var(--accent) 75%, var(--accent-2)) 0 var(--progress),
+      transparent 0 100%
+    );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+  transition: background .25s ease;
 }
 
 .digital-time {
@@ -47,6 +88,9 @@
   text-shadow: 0 1px 0 rgba(0,0,0,0.15);
 }
 
+/* Hide the secondary label to keep the time centered-only */
+.timer-label { display: none !important; }
+
 .stopwatch-container, .progress-overview, .recent-sessions {
   inline-size: 100%;
   overflow: hidden;
@@ -54,9 +98,11 @@
 
 .quick-presets {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  margin-block-start: 6px;
 }
 
 .quick-presets > * { min-inline-size: 0; }
@@ -78,7 +124,8 @@
 
 .control-panel {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  margin-block: 8px 10px;
 }
 
 .control-button {
@@ -139,7 +186,11 @@
   inset-block-end: 0;
   inline-size: 0%;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  transition: inline-size .25s ease;
 }
+
+.progress-track { display: grid; gap: 6px; margin-block-start: 8px; }
+.progress-info { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; }
 
 .stats-horizontal {
   display: grid;
@@ -165,7 +216,7 @@
 /* Recent Sessions list */
 .sessions-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .session-item {

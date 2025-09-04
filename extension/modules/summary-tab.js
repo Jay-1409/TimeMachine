@@ -1,0 +1,322 @@
+// Summary Tab Controller (ES Module)
+// Encapsulates Summary tab UI, date navigation, data fetch, and rendering
+
+import { resolveBackendUrl } from './api.js';
+import { formatDuration } from './utils.js';
+
+export const SummaryTab = (() => {
+  let initialized = false;
+
+  const el = {
+    get container() { return document.getElementById('summaryTabContent'); },
+    get dateInput() { return document.getElementById('summaryDate'); },
+    get prevBtn() { return document.getElementById('prevDayBtn'); },
+    get nextBtn() { return document.getElementById('nextDayBtn'); },
+    get todayBtn() { return document.getElementById('todayBtn'); },
+    get title() { return document.getElementById('summaryTitle'); },
+    get loading() { return document.getElementById('summaryLoading'); },
+    // Daily activity content block (older layout)
+    get dailyContent() { return document.getElementById('dailySummaryContent'); },
+    // Insight metric elements used by newer layout
+    get key() {
+      return {
+        totalFocusSessions: document.getElementById('totalFocusSessions'),
+        totalSitesVisited: document.getElementById('totalSitesVisited'),
+        totalActiveTime: document.getElementById('totalActiveTime'),
+        problemsSolved: document.getElementById('problemsSolved'),
+        topSite1Name: document.getElementById('topSite1Name'),
+        topSite2Name: document.getElementById('topSite2Name'),
+        topSite3Name: document.getElementById('topSite3Name'),
+        topSite1Time: document.getElementById('topSite1Time'),
+        topSite2Time: document.getElementById('topSite2Time'),
+        topSite3Time: document.getElementById('topSite3Time'),
+  productivityScore: document.getElementById('summaryProductivityScore'),
+  scoreDescription: document.getElementById('summaryScoreDescription'),
+  focusQuality: document.getElementById('summaryFocusQuality'),
+  qualityDescription: document.getElementById('summaryQualityDescription')
+      };
+    }
+  };
+
+  async function init() {
+    if (initialized) return;
+    initialized = true;
+    // Default date to today
+    const today = new Date().toISOString().split('T')[0];
+    if (el.dateInput) {
+      el.dateInput.value = today;
+      el.dateInput.addEventListener('change', handleDateChange);
+    }
+    // Navigation buttons
+    el.prevBtn?.addEventListener('click', navigateToPreviousDay);
+    el.nextBtn?.addEventListener('click', navigateToNextDay);
+    el.todayBtn?.addEventListener('click', navigateToToday);
+    // Keyboard navigation (when summary tab active)
+    document.addEventListener('keydown', handleKeyNav);
+  }
+
+  async function show() {
+    el.container?.classList.add('active');
+    await init();
+    await loadForDate();
+    updateNavigationButtons();
+  }
+
+  function getSelectedDate() {
+    return (el.dateInput?.value || new Date().toISOString().split('T')[0]);
+  }
+
+  async function handleDateChange() {
+    await loadForDate();
+    updateNavigationButtons();
+  }
+
+  function navigateToPreviousDay() {
+    if (!el.dateInput) return;
+    const d = new Date(el.dateInput.value);
+    d.setDate(d.getDate() - 1);
+    el.dateInput.value = d.toISOString().split('T')[0];
+    handleDateChange();
+  }
+
+  function navigateToNextDay() {
+    if (!el.dateInput) return;
+    const d = new Date(el.dateInput.value);
+    d.setDate(d.getDate() + 1);
+    el.dateInput.value = d.toISOString().split('T')[0];
+    handleDateChange();
+  }
+
+  function navigateToToday() {
+    if (!el.dateInput) return;
+    el.dateInput.value = new Date().toISOString().split('T')[0];
+    handleDateChange();
+  }
+
+  function handleKeyNav(event) {
+    // Only when Summary tab button is active
+    const tabBtn = document.querySelector('[data-maintab="summary"]');
+    if (!tabBtn || !tabBtn.classList.contains('active')) return;
+    if (event.key === 'ArrowLeft') { event.preventDefault(); navigateToPreviousDay(); }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      if (!el.nextBtn?.disabled) navigateToNextDay();
+    }
+  }
+
+  function updateNavigationButtons() {
+    const dateStr = getSelectedDate();
+    const selected = new Date(dateStr);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (el.nextBtn) el.nextBtn.disabled = selected >= today;
+    if (el.todayBtn) el.todayBtn.disabled = selected.toDateString() === today.toDateString();
+    if (el.title) {
+      const isToday = selected.toDateString() === today.toDateString();
+      const isYesterday = selected.toDateString() === new Date(today.getTime() - 86400000).toDateString();
+      if (isToday) el.title.textContent = "Today's Activity Summary";
+      else if (isYesterday) el.title.textContent = "Yesterday's Activity Summary";
+      else el.title.textContent = `${selected.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })} Summary`;
+    }
+  }
+
+  async function loadForDate() {
+    showLoading();
+    try {
+      const selectedDate = getSelectedDate();
+      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      if (!userEmail) { hideLoading(); return; }
+      const backend = await resolveBackendUrl();
+      const { token } = await TokenStorage.getToken();
+
+      const tz = new Date().getTimezoneOffset();
+      const [browsingData, problemSessions] = await Promise.all([
+        // Use backend report endpoint with timezone-aware date
+        fetch(`${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${selectedDate}&endDate=${selectedDate}&timezone=${tz}&useUserTimezone=true`, {
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }
+        }).then(r => r.ok ? r.json() : { data: [] }).then(d => d.data || []),
+        fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${selectedDate}`, {
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }
+        }).then(r => r.ok ? r.json() : { sessions: [] }).then(d => d.sessions || [])
+      ]);
+
+      const targetDate = new Date(selectedDate);
+      const filteredBrowsing = (browsingData || []).filter(item => {
+        const itemDate = item?.date ? new Date(item.date) : null;
+        return itemDate && itemDate.toDateString() === targetDate.toDateString();
+      });
+
+      const allActivities = [
+        ...filteredBrowsing.map(item => ({ title: item.site || item.domain, time: item.totalTime, type: 'browsing', category: item.category || 'Other' })),
+        ...problemSessions.map(session => ({ title: session.title, time: session.duration || 0, type: 'problem', category: session.category || 'Coding' }))
+      ].sort((a,b) => b.time - a.time);
+
+      updateSummaryInsights(filteredBrowsing, problemSessions, allActivities, selectedDate);
+      if (allActivities.length === 0) showEmptyState(); else hideEmptyState();
+
+      // Render optional older daily summary block if present
+      if (el.dailyContent) {
+        renderDailyContent(selectedDate, filteredBrowsing, problemSessions);
+      }
+    } catch (e) {
+      console.error('SummaryTab.loadForDate error:', e);
+    } finally { hideLoading(); }
+  }
+
+  function showLoading() { el.loading?.classList.remove('hidden'); }
+  function hideLoading() { el.loading?.classList.add('hidden'); }
+
+  function updateSummaryInsights(browsingData, problemSessions, allActivities, selectedDate) {
+    updateKeyMetrics(browsingData, problemSessions);
+    updateTopSites(browsingData);
+    updateProductivityInsights(browsingData, problemSessions);
+    updateActivityList(allActivities);
+  }
+
+  function updateKeyMetrics(browsingData, problemSessions) {
+    const key = el.key;
+    if (key.totalFocusSessions) key.totalFocusSessions.textContent = String(problemSessions.length);
+    if (key.totalSitesVisited) key.totalSitesVisited.textContent = String(browsingData.length);
+    const totalBrowsing = browsingData.reduce((t, i) => t + (i.totalTime||0), 0);
+    const totalSolving = problemSessions.reduce((t, s) => t + (s.duration||0), 0);
+    if (key.totalActiveTime) key.totalActiveTime.textContent = formatDuration(totalBrowsing + totalSolving);
+    const solved = problemSessions.filter(s => s.status === 'completed').length;
+    if (key.problemsSolved) key.problemsSolved.textContent = String(solved);
+  }
+
+  function updateTopSites(browsingData) {
+    const key = el.key; const sorted = [...browsingData].sort((a,b)=> (b.totalTime||0)-(a.totalTime||0));
+    const set = (i, item) => {
+      const nameEl = key[`topSite${i}Name`]; const timeEl = key[`topSite${i}Time`];
+      if (!nameEl || !timeEl) return;
+      if (item) { const label = item.site || item.domain || item.name || '—'; nameEl.textContent = label; timeEl.textContent = formatDuration(item.totalTime||0); }
+      else { nameEl.textContent = '-'; timeEl.textContent = '-'; }
+    };
+    set(1, sorted[0]); set(2, sorted[1]); set(3, sorted[2]);
+  }
+
+  function updateProductivityInsights(browsingData, problemSessions) {
+    const key = el.key; const totalBrowsing = browsingData.reduce((t,i)=>t+(i.totalTime||0),0);
+    const totalSolving = problemSessions.reduce((t,s)=>t+(s.duration||0),0);
+    const total = totalBrowsing + totalSolving;
+    let productivityScore = 0; let scoreDesc = 'No activity';
+    if (total > 0) {
+      const ratio = totalSolving / total; productivityScore = Math.round(ratio * 100);
+      if (productivityScore >= 70) scoreDesc = 'Excellent focus!';
+      else if (productivityScore >= 50) scoreDesc = 'Good balance';
+      else if (productivityScore >= 25) scoreDesc = 'Room for improvement';
+      else scoreDesc = 'Mostly browsing';
+    }
+    if (key.productivityScore) key.productivityScore.textContent = total > 0 ? `${productivityScore}%` : '-';
+    if (key.scoreDescription) key.scoreDescription.textContent = scoreDesc;
+
+    const completed = problemSessions.filter(s => s.status === 'completed').length; const totalSess = problemSessions.length;
+    let quality = '-'; let qDesc = 'No focus sessions';
+    if (totalSess > 0) {
+      const rate = (completed / totalSess) * 100; quality = `${Math.round(rate)}%`;
+      if (rate >= 80) qDesc = 'Outstanding!'; else if (rate >= 60) qDesc = 'Good completion'; else if (rate >= 40) qDesc = 'Needs focus'; else qDesc = 'Low completion';
+    }
+    if (key.focusQuality) key.focusQuality.textContent = quality;
+    if (key.qualityDescription) key.qualityDescription.textContent = qDesc;
+  }
+
+  function showEmptyState() {
+  const ids = ['totalFocusSessions','totalSitesVisited','totalActiveTime','problemsSolved','topSite1Name','topSite2Name','topSite3Name','topSite1Time','topSite2Time','topSite3Time','summaryProductivityScore','summaryFocusQuality'];
+    ids.forEach(id => {
+      const node = document.getElementById(id); if (!node) return;
+      if (id.includes('Time') || id.includes('Score') || id.includes('Quality')) node.textContent = '-';
+      else if (id.includes('Name')) node.textContent = 'No activity';
+      else node.textContent = '0';
+    });
+  const sd = document.getElementById('summaryScoreDescription'); if (sd) sd.textContent = 'No activity recorded';
+  const qd = document.getElementById('summaryQualityDescription'); if (qd) qd.textContent = 'No focus sessions';
+  }
+
+  function hideEmptyState() { /* placeholder for any overlay cleanup */ }
+
+  // Render optional daily content block (legacy/alternate layout)
+  function renderDailyContent(date, browsingData, problemSessions) {
+    const container = el.dailyContent; if (!container) return;
+    const hasActivity = (browsingData?.length||0) > 0 || (problemSessions?.length||0) > 0;
+    if (!hasActivity) {
+      container.innerHTML = `<div class="no-activity"><h4>No activity recorded</h4><p>No browsing or problem-solving activity found for ${new Date(date).toLocaleDateString()}</p></div>`;
+      return;
+    }
+    const totalBrowsingTime = browsingData.reduce((sum, e) => sum + (e.totalTime||0), 0);
+    const totalProblemTime = problemSessions.reduce((sum, s) => sum + (s.duration||0), 0);
+    const completed = problemSessions.filter(s => s.status==='completed').length;
+    const uniqueDomains = new Set(browsingData.map(e => e.domain || e.site)).size;
+    const timeline = createActivityTimeline(browsingData, problemSessions);
+    container.innerHTML = `
+      <div class="activity-summary">
+        <div class="summary-stat"><span class="summary-stat-value">${formatDuration(totalBrowsingTime)}</span><span class="summary-stat-label">Browsing Time</span></div>
+        <div class="summary-stat"><span class="summary-stat-value">${formatDuration(totalProblemTime)}</span><span class="summary-stat-label">Problem Solving</span></div>
+        <div class="summary-stat"><span class="summary-stat-value">${completed}</span><span class="summary-stat-label">Problems Solved</span></div>
+        <div class="summary-stat"><span class="summary-stat-value">${uniqueDomains}</span><span class="summary-stat-label">Websites Visited</span></div>
+      </div>
+      <h4>Activity Timeline</h4>
+      <div class="activity-timeline">
+        ${timeline.map(item => `
+          <div class="timeline-item">
+            <div class="timeline-time">${item.time}</div>
+            <div class="timeline-content">
+              <h4>${item.title}</h4>
+              <p>${item.description}</p>
+              <div class="timeline-meta">${item.tags.map(tag => `<span class="timeline-tag">${tag}</span>`).join('')}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function createActivityTimeline(browsingData, problemSessions) {
+    const timeline = [];
+    (problemSessions||[]).forEach(session => {
+      const start = new Date(session.startTime);
+      timeline.push({
+        time: start.toLocaleTimeString(),
+        timestamp: start.getTime(),
+        title: `Problem: ${session.title}`,
+        description: `${session.category} • ${session.difficulty} • Duration: ${formatDuration(session.duration)}`,
+        tags: [session.status, session.category, session.difficulty].concat(session.tags || []),
+        type: 'problem'
+      });
+    });
+    (browsingData||[]).filter(e => (e.totalTime||0) > 300000).forEach(entry => {
+      const firstSession = Array.isArray(entry.sessions) && entry.sessions[0];
+      if (firstSession) {
+        const st = new Date(firstSession.startTime);
+        timeline.push({
+          time: st.toLocaleTimeString(),
+          timestamp: st.getTime(),
+          title: `Browsing: ${entry.domain || entry.site}`,
+          description: `Total time: ${formatDuration(entry.totalTime)} • ${(entry.sessions||[]).length} session(s)`,
+          tags: [entry.category || 'Other', `${(entry.sessions||[]).length} sessions`],
+          type: 'browsing'
+        });
+      }
+    });
+    timeline.sort((a,b) => a.timestamp - b.timestamp);
+    return timeline;
+  }
+
+  function updateActivityList(activities) {
+    const container = document.getElementById('activityItems');
+    if (!container) return;
+    if (!activities || activities.length === 0) {
+      container.innerHTML = '<div class="loading-text">No activities found for this date</div>';
+      return;
+    }
+    container.innerHTML = activities.map(activity => `
+      <div class="activity-item">
+        <div class="activity-info">
+          <div class="activity-title">${activity.title}</div>
+          <div class="activity-type">${activity.type} • ${activity.category}</div>
+        </div>
+        <div class="activity-time">${formatDuration(activity.time)}</div>
+      </div>`).join('');
+  }
+
+  return { init, show, loadForDate };
+})();
+
+if (typeof window !== 'undefined') window.SummaryTab = SummaryTab;
+ 

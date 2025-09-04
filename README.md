@@ -83,7 +83,7 @@ extension/
   popup.js                # UI logic (charts, categories, focus, guard, solver, reports)
   blocked.html            # Theme-aware blocked page
   blocked.js              # Blocked page logic (actions & timer)
-  user_guide.html         # In-extension user guide
+  guide.html         # In-extension user guide
   auth.js                 # Token storage & auth helpers
   config.js               # Dynamic base URL + overrides
   report-scheduler.js     # Local schedule logic (daily/weekly/monthly)
@@ -223,7 +223,7 @@ Extension (unpacked):
 
 ## 🆘 In-Extension Help
 
-An offline user guide (`extension/user_guide.html`) is bundled with the extension (open via the ? button) covering features, tabs, themes, scheduling, Guard, Focus, Solver, and troubleshooting. This README hosts developer documentation.
+An offline user guide (`extension/guide.html`) is bundled with the extension (open via the ? button) covering features, tabs, themes, scheduling, Guard, Focus, Solver, and troubleshooting. This README hosts developer documentation.
 
 ## ⚙ Tech Stack
 

@@ -14,6 +14,8 @@
   ],
   "host_permissions": [
     "https://timemachine-1.onrender.com/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*",
     "https://api.emailjs.com/*",
     "https://quickchart.io/*"
   ],
@@ -26,7 +28,7 @@
     }
   },
   "background": {
-  "service_worker": "background.js"
+    "service_worker": "background.js"
   },
   "commands": {
     "tm_toggle_pomodoro": {
@@ -39,16 +41,17 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://timemachine-1.onrender.com https://api.emailjs.com https://quickchart.io"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000 https://timemachine-1.onrender.com https://api.emailjs.com https://quickchart.io"
   },
   "web_accessible_resources": [
     {
       "resources": [
         "chart.min.js",
         "report-scheduler.js",
-        "user_guide.html",
+        "guide.html",
         "blocked.html",
-        "blocked.js"
+        "blocked.js",
+        "modules/*.js"
       ],
       "matches": ["<all_urls>"]
     }

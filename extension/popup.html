@@ -14,6 +14,13 @@
     <script src="chart.min.js"></script>
     <script src="config.js"></script>
     <script src="auth.js"></script>
+  <script src="modules/focus-sessions.js"></script>
+  <script src="modules/site-tracker.js"></script>
+  <script type="module" src="modules/analytics-tab.js"></script>
+  <script type="module" src="modules/solver-tab.js"></script>
+  <script type="module" src="modules/summary-tab.js"></script>
+  <script type="module" src="modules/guard-tab.js"></script>
+  <script type="module" src="modules/focus-tab.js"></script>
     <script type="module" src="popup.js" defer></script>
   </head>
   <body class="theme-light">
@@ -477,15 +484,15 @@
         </div>
 
         <!-- Additional Insights -->
-        <div class="insight-card">
+          <div class="insight-card">
           <div class="insight-title">Productivity Score</div>
-          <div class="productivity-score" id="productivityScore">-</div>
-          <div class="score-description" id="scoreDescription">-</div>
+          <div class="productivity-score" id="summaryProductivityScore">-</div>
+          <div class="score-description" id="summaryScoreDescription">-</div>
         </div>
         <div class="insight-card">
           <div class="insight-title">Focus Quality</div>
-          <div class="focus-quality" id="focusQuality">-</div>
-          <div class="quality-description" id="qualityDescription">-</div>
+          <div class="focus-quality" id="summaryFocusQuality">-</div>
+          <div class="quality-description" id="summaryQualityDescription">-</div>
         </div>
       </div>
 
@@ -561,7 +568,7 @@
                 <div class="stat-name">Streak</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value" id="productivityScore">0%</div>
+                <div class="stat-value" id="focusProductivityScore">0%</div>
                 <div class="stat-name">Productivity</div>
               </div>
             </div>
@@ -600,6 +607,7 @@
             <input type="text" id="blockInput" placeholder="Enter website or keyword (e.g., facebook.com, games)" class="guard-input">
             <button id="addBlockBtn" class="guard-btn">Block</button>
           </div>
+          <div id="blockingStatus" class="blocking-status inactive">No sites currently blocked</div>
           
           <div class="blocked-list-section">
             <h3>Blocked Items (
@@ -741,55 +749,7 @@
 
       <div id="feedbackToast" class="feedback-toast"></div>
 
-      <!-- Modal Dialogs -->
-      <!-- Add Blocked Site Modal -->
-      <div id="addSiteModal" class="modal-overlay hidden">
-        <div class="modal-dialog">
-          <div class="modal-header">
-            <h3>Add Blocked Website or Keyword</h3>
-            <button class="modal-close" id="closeAddSiteModal">&times;</button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label>Block Type</label>
-              <div class="radio-group">
-                <label class="radio-label">
-                  <input type="radio" name="blockType" value="url" id="blockTypeUrl" checked>
-                  Website URL
-                </label>
-                <label class="radio-label">
-                  <input type="radio" name="blockType" value="keyword" id="blockTypeKeyword">
-                  Keyword
-                </label>
-              </div>
-            </div>
-            <div class="form-group" id="urlGroup">
-              <label for="addSiteUrl">Website URL</label>
-              <input type="text" id="addSiteUrl" placeholder="e.g., youtube.com, facebook.com" class="form-input">
-              <small class="form-help">Enter the domain without 'www.' or 'https://'</small>
-            </div>
-            <div class="form-group hidden" id="keywordGroup">
-              <label for="addSiteKeyword">Keyword</label>
-              <input type="text" id="addSiteKeyword" placeholder="e.g., chess, games, social" class="form-input">
-              <small class="form-help">Blocks any site containing this keyword in URL</small>
-            </div>
-            <div class="form-group">
-              <label for="addSiteName">Display Name (optional)</label>
-              <input type="text" id="addSiteName" placeholder="e.g., YouTube, Chess Sites" class="form-input">
-            </div>
-            <div class="form-group">
-              <label>
-                <input type="checkbox" id="addSiteSchedule">
-                Block on schedule only
-              </label>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn secondary" id="cancelAddSiteModal">Cancel</button>
-            <button id="addSiteBtn" class="btn primary">Add Block Rule</button>
-          </div>
-        </div>
-      </div>
+  <!-- Modal Dialogs -->
 
       <!-- Focus Session Modal -->
       <!-- Start Focus Session Modal -->

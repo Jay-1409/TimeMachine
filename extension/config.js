@@ -5,14 +5,15 @@
 const TMConfig = (function() {
   const PRODUCTION_API = 'https://timemachine-1.onrender.com';
   const DEVELOPMENT_API = 'http://localhost:3000';
-
-  // Default inferred environment
-  const inferredEnv = location.origin.startsWith('chrome-extension://') ? 'production' : 'development';
+  
+  // Default to production for extension
+  const inferredEnv = 'production';
 
   let current = {
     env: inferredEnv,
     backendBaseUrl: inferredEnv === 'production' ? PRODUCTION_API : DEVELOPMENT_API,
-  pdfEndpoint: '/api/report/generate', // protected (requires auth)
+    // Core endpoints
+    pdfEndpoint: '/api/report/generate', // protected (requires auth)
     syncEndpoint: '/api/time-data/sync',
     reportEndpoint: '/api/time-data/report',
     categoryEndpoint: '/api/time-data/category',
@@ -21,7 +22,20 @@ const TMConfig = (function() {
     authSignupEndpoint: '/api/auth/signup',
     authLoginEndpoint: '/api/auth/login',
     authVerifyEndpoint: '/api/auth/verify',
-  authProfileEndpoint: '/api/auth/profile'
+    authProfileEndpoint: '/api/auth/profile',
+    // Focus Session endpoints
+    focusSessionsEndpoint: '/api/focus-sessions',
+    focusSessionsGetEndpoint: '/api/focus-sessions/{userId}',
+    focusSessionsDeleteEndpoint: '/api/focus-sessions/{sessionId}',
+  focusDailyStatsEndpoint: '/api/focus-sessions/{userId}/stats/daily',
+  focusWeeklyStatsEndpoint: '/api/focus-sessions/{userId}/stats/weekly',
+    // Guard endpoints
+    blockedSitesEndpoint: '/api/blocked-sites',
+    blockedSitesGetEndpoint: '/api/blocked-sites/{userId}',
+    blockedSitesDeleteEndpoint: '/api/blocked-sites/{siteId}',
+    // Stats endpoints
+    statsEndpoint: '/api/stats/daily',
+    weeklyStatsEndpoint: '/api/stats/weekly'
   };
 
   async function loadOverrides() {
