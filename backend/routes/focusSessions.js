@@ -3,23 +3,10 @@ const router = express.Router();
 const FocusSession = require('../models/FocusSession');
 const { authenticateToken } = require('./auth');
 const mongoose = require('mongoose');
-const rateLimit = require('express-rate-limit');
-
-const postLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50,
-  message: 'Too many focus session creations, please try again later'
-});
-
-const patchLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50,
-  message: 'Too many focus session updates, please try again later'
-});
 
 router.use(authenticateToken);
 
-router.post('/', postLimiter, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { duration, startTime, endTime, status, sessionType, productivity, notes } = req.body;
     const userId = req.user.id;
@@ -297,7 +284,7 @@ router.delete('/:sessionId', async (req, res) => {
   }
 });
 
-router.patch('/:sessionId', patchLimiter, async (req, res) => {
+router.patch('/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
     const userId = req.user.id;

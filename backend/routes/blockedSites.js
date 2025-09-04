@@ -3,19 +3,6 @@ const router = express.Router();
 const BlockedSite = require('../models/BlockedSite');
 const { authenticateToken } = require('./auth');
 const mongoose = require('mongoose');
-const rateLimit = require('express-rate-limit');
-
-const postLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: 'Too many requests to add blocked sites, please try again later'
-});
-
-const syncLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
-  message: 'Too many sync requests, please try again later'
-});
 
 router.use(authenticateToken);
 
@@ -29,7 +16,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', postLimiter, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { domain, blockType = 'focus-only', enabled = true, blockDuring, schedule, redirectUrl } = req.body;
 
@@ -136,7 +123,7 @@ router.post('/:id/toggle', async (req, res) => {
   }
 });
 
-router.post('/sync', syncLimiter, async (req, res) => {
+router.post('/sync', async (req, res) => {
   try {
     const { blockedSites } = req.body;
 

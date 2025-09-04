@@ -4,23 +4,10 @@ const ProblemSession = require('../models/ProblemSession');
 const { authenticateToken } = require('./auth');
 const mongoose = require('mongoose');
 const { getUserTimezoneDate, getTimezoneNameFromOffset } = require('../utils/timezone');
-const rateLimit = require('express-rate-limit');
-
-const startLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
-  message: 'Too many session starts, please try again later'
-});
-
-const updateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50,
-  message: 'Too many session updates, please try again later'
-});
 
 router.use(authenticateToken);
 
-router.post('/start', startLimiter, async (req, res) => {
+router.post('/start', async (req, res) => {
   try {
     const { title, description, category, difficulty, tags, timezone, url, site } = req.body;
     
@@ -101,7 +88,7 @@ router.post('/start', startLimiter, async (req, res) => {
   }
 });
 
-router.patch('/:sessionId/pause', updateLimiter, async (req, res) => {
+router.patch('/:sessionId/pause', async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { reason } = req.body;
@@ -158,7 +145,7 @@ router.patch('/:sessionId/pause', updateLimiter, async (req, res) => {
   }
 });
 
-router.patch('/:sessionId/complete', updateLimiter, async (req, res) => {
+router.patch('/:sessionId/complete', async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { completionNotes, wasSuccessful } = req.body;
@@ -216,7 +203,7 @@ router.patch('/:sessionId/complete', updateLimiter, async (req, res) => {
   }
 });
 
-router.patch('/:sessionId/abandon', updateLimiter, async (req, res) => {
+router.patch('/:sessionId/abandon', async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { reason } = req.body;
@@ -365,7 +352,7 @@ router.get('/history/:userEmail', async (req, res) => {
   }
 });
 
-router.patch('/:sessionId/update', updateLimiter, async (req, res) => {
+router.patch('/:sessionId/update', async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { title, description, category, difficulty, tags, notes } = req.body;

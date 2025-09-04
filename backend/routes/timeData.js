@@ -4,25 +4,12 @@ const TimeData = require('../models/TimeData');
 const User = require('../models/User');
 const { authenticateToken } = require('./auth');
 const { getUserTimezoneDate, getTimezoneNameFromOffset } = require('../utils/timezone');
-const rateLimit = require('express-rate-limit');
-
-const syncLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50,
-  message: 'Too many sync requests, please try again later'
-});
-
-const updateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50,
-  message: 'Too many update requests, please try again later'
-});
 
 const ALLOWED_CATEGORIES = ['Work', 'Social', 'Entertainment', 'Professional', 'Other'];
 
 router.use(authenticateToken);
 
-router.post('/sync', syncLimiter, async (req, res) => {
+router.post('/sync', async (req, res) => {
   try {
     const { date, domain, sessions, category = 'Other', timezone = 0, timezoneName = 'UTC' } = req.body;
 
@@ -71,16 +58,31 @@ router.post('/sync', syncLimiter, async (req, res) => {
       return res.status(400).json({ error: 'No valid sessions provided' });
     }
 
-    const newTotalTime = validatedSessions.reduce((sum, s) => sum + s.duration, 0);
-    const userLocalDate = getUserTimezoneDate(Date.now(), timezone);
+    // Use the provided 'date' (derived from the session start time in the extension)
+    // to ensure sessions aggregate into the correct local day, not the server's current day.
+    const userLocalDate = date; // already validated as YYYY-MM-DD
 
+    // Deduplicate by (startTime, endTime) pair to avoid double counting
     const existingRecord = await TimeData.findOne({ userEmail: req.user.email, userLocalDate, domain }).lean();
-    let totalTime = newTotalTime;
+    const existingPairs = new Set(
+      (existingRecord?.sessions || [])
+        .filter(s => s && typeof s.startTime === 'number' && typeof s.endTime === 'number')
+        .map(s => `${s.startTime}-${s.endTime}`)
+    );
 
+    const newSessions = validatedSessions.filter(s => !existingPairs.has(`${s.startTime}-${s.endTime}`));
+    if (newSessions.length === 0) {
+      // No-op; return current record
+      return res.status(200).json({ success: true, timeData: existingRecord || null, userLocalDate, deduped: true });
+    }
+
+    const addedTime = newSessions.reduce((sum, s) => sum + s.duration, 0);
+
+    let totalTime = addedTime;
     if (existingRecord) {
       const MAX_DAILY_TIME = 24 * 60 * 60 * 1000;
-      totalTime = Math.min(existingRecord.totalTime + newTotalTime, MAX_DAILY_TIME);
-      if (existingRecord.totalTime >= MAX_DAILY_TIME) {
+      totalTime = Math.min((existingRecord.totalTime || 0) + addedTime, MAX_DAILY_TIME);
+      if ((existingRecord.totalTime || 0) >= MAX_DAILY_TIME) {
         console.warn(`Domain ${domain} reached maximum daily time (${MAX_DAILY_TIME}ms) for user ${req.user.email} on ${userLocalDate}`);
         totalTime = MAX_DAILY_TIME;
       }
@@ -99,7 +101,7 @@ router.post('/sync', syncLimiter, async (req, res) => {
           date,
           utcDate: new Date()
         },
-        $push: { sessions: { $each: validatedSessions } },
+        $push: { sessions: { $each: newSessions } },
         $setOnInsert: { userLocalDate }
       },
       { upsert: true, new: true, runValidators: true }
@@ -251,7 +253,7 @@ router.get('/debug/recent/:userEmail', async (req, res) => {
   }
 });
 
-router.patch('/category', updateLimiter, async (req, res) => {
+router.patch('/category', async (req, res) => {
   try {
     const { date, domain, category } = req.body;
 
@@ -285,7 +287,7 @@ router.patch('/category', updateLimiter, async (req, res) => {
   }
 });
 
-router.post('/check-activity', updateLimiter, async (req, res) => {
+router.post('/check-activity', async (req, res) => {
   try {
     const { date, timezone = 0, timezoneName = 'UTC', useUserTimezone = false } = req.body;
 
@@ -326,7 +328,7 @@ router.post('/check-activity', updateLimiter, async (req, res) => {
   }
 });
 
-router.post('/update-timezone', updateLimiter, async (req, res) => {
+router.post('/update-timezone', async (req, res) => {
   try {
     const { timezoneName = 'UTC', timezoneOffset } = req.body;
 
@@ -361,7 +363,7 @@ router.post('/update-timezone', updateLimiter, async (req, res) => {
   }
 });
 
-router.post('/check-new-day', updateLimiter, async (req, res) => {
+router.post('/check-new-day', async (req, res) => {
   try {
     const { lastActiveDate, timezone = 0, timezoneName = 'UTC' } = req.body;
 

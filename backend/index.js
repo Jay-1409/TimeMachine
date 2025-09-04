@@ -5,7 +5,6 @@ const cron = require('node-cron');
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
-const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const timezone = require('./utils/timezone');
@@ -17,13 +16,7 @@ const app = express();
 // Middleware
 app.use(express.json({ limit: '2mb' }));
 
-const corsLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: 'Too many requests from this IP, please try again later'
-});
-
-app.use(corsLimiter);
+// Rate limiter removed per configuration
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -92,13 +85,7 @@ app.use('/api/blocked-sites', authenticateToken, blockedSitesRoutes);
 app.use('/api/blocked-keywords', authenticateToken, blockedKeywordsRoutes);
 app.use('/api/problem-sessions', authenticateToken, problemSessionRoutes);
 
-const healthLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: 'Too many health check requests, please try again later'
-});
-
-app.get('/health', healthLimiter, (req, res) => {
+app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString()

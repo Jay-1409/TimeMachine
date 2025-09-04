@@ -5,13 +5,6 @@ const PDFDocument = require('pdfkit');
 const QuickChart = require('quickchart-js');
 const { authenticateToken } = require('./auth');
 const { getUserTimezoneDate } = require('../utils/timezone');
-const rateLimit = require('express-rate-limit');
-
-const generateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
-  message: 'Too many report generation requests, please try again later'
-});
 
 function formatDuration(seconds) {
   if (isNaN(seconds) || seconds <= 0) return '0m';
@@ -23,7 +16,7 @@ function formatDuration(seconds) {
   return `${s}s`;
 }
 
-router.post('/generate', authenticateToken, generateLimiter, async (req, res) => {
+router.post('/generate', authenticateToken, async (req, res) => {
   try {
     const { date, timezone = 0 } = req.body;
 

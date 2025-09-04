@@ -3,15 +3,8 @@ const router = express.Router();
 const Feedback = require('../models/Feedback');
 const { authenticateToken } = require('./auth');
 const mongoose = require('mongoose');
-const rateLimit = require('express-rate-limit');
 
-const submitLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
-  message: 'Too many feedback submissions, please try again later'
-});
-
-router.post('/submit', authenticateToken, submitLimiter, async (req, res) => {
+router.post('/submit', authenticateToken, async (req, res) => {
   try {
     const { message } = req.body;
     
