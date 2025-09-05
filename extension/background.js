@@ -236,6 +236,50 @@ class TimeTracker {
     this.initialize();
   }
 
+  // Merge overlapping/contiguous session intervals and sum their durations
+  sumMergedSessions(sessions) {
+    try {
+      const items = (Array.isArray(sessions) ? sessions : [])
+        .filter(s => s && Number.isFinite(s.startTime) && Number.isFinite(s.endTime) && s.endTime > s.startTime)
+        .map(s => ({ start: Number(s.startTime), end: Number(s.endTime) }))
+        .sort((a, b) => a.start - b.start);
+      if (!items.length) return 0;
+      let total = 0;
+      let curStart = items[0].start;
+      let curEnd = items[0].end;
+      for (let i = 1; i < items.length; i++) {
+        const it = items[i];
+        if (it.start <= curEnd) {
+          if (it.end > curEnd) curEnd = it.end;
+        } else {
+          total += (curEnd - curStart);
+          curStart = it.start;
+          curEnd = it.end;
+        }
+      }
+      total += (curEnd - curStart);
+      return Math.max(0, total);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // Compute safe duration with 30-minute gap detection and per-session cap
+  calculateDurationWithGapCheck(startTime, lastSavedAt, nowTs) {
+    const GAP_MS = 30 * 60 * 1000;
+    const MAX_SESSION = 12 * 60 * 60 * 1000;
+    const safeStart = Number(startTime) || Date.now();
+    const safeLast = Number.isFinite(lastSavedAt) ? Number(lastSavedAt) : safeStart;
+    const now = Number.isFinite(nowTs) ? Number(nowTs) : Date.now();
+    if (now - safeLast > GAP_MS) {
+      // Inactive gap: close at lastSavedAt
+      const dur = Math.max(0, Math.min(MAX_SESSION, safeLast - safeStart));
+      return { duration: dur, endAt: safeLast, gap: true };
+    }
+    const dur = Math.max(0, Math.min(MAX_SESSION, now - safeStart));
+    return { duration: dur, endAt: now, gap: false };
+  }
+
   async initialize() {
     const data = await chrome.storage.local.get(["siteCategories", "activeSessions", "tm_auth_token", "lastActiveTs"]);
     this.siteCategories = { ...this.defaultSiteCategories, ...(data.siteCategories || {}) };
@@ -260,16 +304,23 @@ class TimeTracker {
     await chrome.storage.local.set({ lastActiveTs: now });
     const others = Object.entries(this.activeSessions).filter(([id]) => id !== tabId);
     if (others.length) {
-      for (const [otherId, { domain: d, startTime: st }] of others) {
-        if (d && Number.isFinite(st)) await this.saveSession(d, st, now, now - st);
+      for (const [otherId, sess] of others) {
+        const { domain: d, startTime: st, lastSavedAt: lsa } = sess || {};
+        if (d && Number.isFinite(st)) {
+          const { duration, endAt } = this.calculateDurationWithGapCheck(st, lsa, now);
+          if (duration > 0) await this.saveSession(d, st, endAt, duration);
+        }
         delete this.activeSessions[otherId];
       }
       await chrome.storage.local.set({ activeSessions: this.activeSessions });
     }
     if (!domain) {
       if (this.activeSessions[tabId]) {
-        const { domain: prevDomain, startTime: prevStart } = this.activeSessions[tabId];
-        if (prevDomain) await this.saveSession(prevDomain, prevStart, now, now - prevStart);
+        const { domain: prevDomain, startTime: prevStart, lastSavedAt: lsa } = this.activeSessions[tabId];
+        if (prevDomain) {
+          const { duration, endAt } = this.calculateDurationWithGapCheck(prevStart, lsa, now);
+          if (duration > 0) await this.saveSession(prevDomain, prevStart, endAt, duration);
+        }
         delete this.activeSessions[tabId];
         await chrome.storage.local.set({ activeSessions: this.activeSessions });
       }
@@ -277,19 +328,38 @@ class TimeTracker {
     }
     if (this.activeSessions[tabId]?.domain === domain) return;
     if (this.activeSessions[tabId]) {
-      const { domain: prevDomain, startTime: prevStart } = this.activeSessions[tabId];
-      if (prevDomain) await this.saveSession(prevDomain, prevStart, now, now - prevStart);
+      const { domain: prevDomain, startTime: prevStart, lastSavedAt: lsa } = this.activeSessions[tabId];
+      if (prevDomain) {
+        const { duration, endAt } = this.calculateDurationWithGapCheck(prevStart, lsa, now);
+        if (duration > 0) await this.saveSession(prevDomain, prevStart, endAt, duration);
+      }
     }
-    this.activeSessions[tabId] = { domain, startTime: now };
+    this.activeSessions[tabId] = { domain, startTime: now, lastSavedAt: now };
     await chrome.storage.local.set({ activeSessions: this.activeSessions });
   }
 
   async saveSession(domain, startTime, endTime, duration, category = null) {
     if (!domain || typeof duration !== 'number' || duration <= 0) return;
-    const MAX = 12 * 60 * 60 * 1000;
-    if (duration > MAX) duration = MAX;
+    const MAX_SESSION = 12 * 60 * 60 * 1000;
+    if (duration > MAX_SESSION) duration = MAX_SESSION;
     const timezoneOffsetMinutes = new Date().getTimezoneOffset();
     const localDate = new Date(startTime - timezoneOffsetMinutes * 60000).toISOString().split("T")[0];
+
+    // Abrupt duration guard: cap added duration to remaining time in the user's local day
+    try {
+      const { timeData = {} } = await chrome.storage.local.get(["timeData"]);
+      const existing = timeData?.[localDate]?.[domain]?.sessions || [];
+      const existingTotal = this.sumMergedSessions(existing);
+      const dayStartLocalMs = new Date(`${localDate}T00:00:00.000Z`).getTime();
+      const endLocalCoord = (Math.min(endTime, Date.now()) - (timezoneOffsetMinutes * 60000));
+      const elapsedInDay = Math.max(0, endLocalCoord - dayStartLocalMs);
+      const MAX_DAILY = 24 * 60 * 60 * 1000;
+      const dayCap = Math.min(MAX_DAILY, elapsedInDay + 60 * 1000); // +60s grace
+      const remaining = Math.max(0, dayCap - existingTotal);
+      if (duration > remaining) duration = remaining;
+      if (duration <= 0) return; // nothing reasonable to add
+      if ((endTime - startTime) > duration) endTime = startTime + duration;
+    } catch (_) { /* best-effort */ }
     const { userEmail, tm_auth_token } = await chrome.storage.local.get(["userEmail", "tm_auth_token"]);
     if (!userEmail || !tm_auth_token) {
       await this.storeSessionLocally(domain, startTime, endTime, duration, category, timezoneOffsetMinutes);
@@ -303,6 +373,14 @@ class TimeTracker {
     };
     const res = await backendFetch("/api/time-data/sync", { method: 'POST', body: JSON.stringify(payload) });
     if (!res.ok) await this.storeSessionLocally(domain, startTime, endTime, duration, category, timezoneOffsetMinutes);
+    // Update lastSavedAt for any active session of this domain/tab if present
+    try {
+      for (const [id, sess] of Object.entries(this.activeSessions)) {
+        if (sess?.domain === domain && sess?.startTime === startTime) {
+          this.activeSessions[id].lastSavedAt = endTime;
+        }
+      }
+    } catch (_) {}
   }
 
   async storeSessionLocally(domain, start, end, duration, category = null, timezone = new Date().getTimezoneOffset()) {
@@ -318,8 +396,11 @@ class TimeTracker {
   }
 
   async endAllSessions(endTs = Date.now()) {
-    for (const [tabId, { domain, startTime }] of Object.entries(this.activeSessions)) {
-      if (domain && Number.isFinite(startTime)) await this.saveSession(domain, startTime, endTs, endTs - startTime);
+    for (const [tabId, { domain, startTime, lastSavedAt }] of Object.entries(this.activeSessions)) {
+      if (domain && Number.isFinite(startTime)) {
+        const { duration, endAt } = this.calculateDurationWithGapCheck(startTime, lastSavedAt, endTs);
+        if (duration > 0) await this.saveSession(domain, startTime, endAt, duration);
+      }
       delete this.activeSessions[tabId];
     }
     await chrome.storage.local.set({ activeSessions: this.activeSessions });
@@ -369,12 +450,15 @@ class TimeTracker {
     const now = Date.now();
     this.lastActiveTs = now;
     await chrome.storage.local.set({ lastActiveTs: now });
-    for (const [tabId, { domain, startTime }] of Object.entries(this.activeSessions)) {
-      if (!domain) continue;
+    for (const [tabId, sess] of Object.entries(this.activeSessions)) {
+      const { domain, startTime, lastSavedAt } = sess || {};
+      if (!domain || !Number.isFinite(startTime)) continue;
       const elapsed = now - startTime;
-      if (elapsed >= FLUSH_MS) {
-        await this.saveSession(domain, startTime, now, elapsed);
+      const { duration, endAt, gap } = this.calculateDurationWithGapCheck(startTime, lastSavedAt, now);
+      if (gap || elapsed >= FLUSH_MS) {
+        if (duration > 0) await this.saveSession(domain, startTime, endAt, duration);
         this.activeSessions[tabId].startTime = now;
+        this.activeSessions[tabId].lastSavedAt = now;
       }
     }
     await chrome.storage.local.set({ activeSessions: this.activeSessions });
@@ -481,13 +565,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-chrome.windows.onRemoved.addListener(async () => {
-  const now = Date.now();
-  tracker.lastActiveTs = now;
-  await chrome.storage.local.set({ lastActiveTs: now });
-  await tracker.endAllSessions(now);
-  await tracker.syncPendingData();
-});
 
 chrome.tabs.onCreated.addListener((tab) => {
   if (tab.active) tracker.handleTabChange(tab);
@@ -496,8 +573,12 @@ chrome.tabs.onCreated.addListener((tab) => {
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   const tabIdStr = tabId.toString();
   if (tracker.activeSessions[tabIdStr]) {
-    const { domain, startTime } = tracker.activeSessions[tabIdStr];
-    if (domain && Number.isFinite(startTime)) await tracker.saveSession(domain, startTime, Date.now(), Date.now() - startTime);
+    const { domain, startTime, lastSavedAt } = tracker.activeSessions[tabIdStr];
+    if (domain && Number.isFinite(startTime)) {
+      const now = Date.now();
+      const { duration, endAt } = tracker.calculateDurationWithGapCheck(startTime, lastSavedAt, now);
+      if (duration > 0) await tracker.saveSession(domain, startTime, endAt, duration);
+    }
     delete tracker.activeSessions[tabIdStr];
     await chrome.storage.local.set({ activeSessions: tracker.activeSessions });
   }

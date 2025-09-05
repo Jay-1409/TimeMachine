@@ -16,6 +16,16 @@ export const AnalyticsTab = (() => {
     timeChart: 'timeChart'
   };
 
+  const CHART_COLORS = {
+    light: { work: '#3b82f6', social: '#ef4444', entertainment: '#8b5cf6', professional: '#10b981', other: '#6b7280' },
+    dark: { work: '#60a5fa', social: '#f87171', entertainment: '#a78bfa', professional: '#34d399', other: '#9ca3af' },
+    cyberpunk: { work: '#00ff9f', social: '#ff0080', entertainment: '#00d4ff', professional: '#ffff00', other: '#8000ff' },
+    minimal: { work: '#1f2937', social: '#7c3aed', entertainment: '#059669', professional: '#dc2626', other: '#64748b' },
+    ocean: { work: '#0ea5e9', social: '#06b6d4', entertainment: '#3b82f6', professional: '#0891b2', other: '#64748b' },
+    sunset: { work: '#f59e0b', social: '#ef4444', entertainment: '#f97316', professional: '#eab308', other: '#6b7280' },
+    forest: { work: '#059669', social: '#dc2626', entertainment: '#16a34a', professional: '#15803d', other: '#6b7280' }
+  };
+
   const CHART_CONFIG = {
     type: 'doughnut',
     options: {
@@ -55,7 +65,8 @@ export const AnalyticsTab = (() => {
       const start = new Date(today); start.setDate(today.getDate() - 29);
       startDate = start.toISOString().split('T')[0];
     }
-    return { startDate, endDate, timezone: -330 }; // IST offset
+  // Use the user's local timezone offset (in minutes)
+  return { startDate, endDate, timezone: new Date().getTimezoneOffset() };
   }
 
   function getDateRangeDisplayText(tab) {
@@ -81,29 +92,34 @@ export const AnalyticsTab = (() => {
     const totalTimeEl = getElement(ELEMENTS.totalTimeToday);
     const scoreEl = getElement(ELEMENTS.productivityScore);
     const sitesVisitedEl = getElement(ELEMENTS.sitesVisited);
-    if (totalTimeEl) totalTimeEl.textContent = formatDuration(totalTime);
+    if (totalTimeEl) totalTimeEl.textContent = totalTime ? formatDuration(totalTime) : '0m';
     if (scoreEl) {
-      scoreEl.textContent = `${productivityScore}%`;
+      scoreEl.textContent = typeof productivityScore !== 'undefined' ? `${productivityScore}%` : '0%';
       scoreEl.className = `score-badge ${productivityScore >= 70 ? 'bg-green-500' : productivityScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`;
     }
-    if (sitesVisitedEl) sitesVisitedEl.textContent = String(Object.keys(domainTimes).length);
+    if (sitesVisitedEl) sitesVisitedEl.textContent = domainTimes ? String(Object.keys(domainTimes).length) : '0';
   }
 
-  async function updateSiteCategory(domain, category) {
+  async function updateSiteCategory(domain, category, subTab) {
     const validCategories = ['Work', 'Social', 'Entertainment', 'Professional', 'Other'];
     if (!validCategories.includes(category)) throw new Error('Invalid category');
     const categorySelect = document.querySelector(`.category-select[data-domain="${domain}"]`);
     try {
       if (categorySelect) categorySelect.disabled = true;
-      const response = await window.SiteTracker.updateSiteCategory(domain, category);
+      const tracker = window.SiteTracker || (window.SiteTracker = {}); // Fallback to empty object
+      if (typeof tracker.updateSiteCategory !== 'function') throw new Error('SiteTracker not available');
+      const response = await tracker.updateSiteCategory(domain, category);
       if (response?.status !== 'success') throw new Error(response?.error || 'Failed to update category');
       const stored = await chrome.storage.local.get(['siteCategories']);
       const siteCategories = stored.siteCategories || {};
       siteCategories[domain] = category;
       await chrome.storage.local.set({ siteCategories });
+      window.showToast?.(`Category for ${domain} updated to ${category}`);
+      await load(subTab); // Reload with current subTab
       return true;
     } catch (e) {
       console.error('updateSiteCategory failed:', e);
+      window.showToast?.(`Error updating category for ${domain}: ${e.message}`, 'error');
       throw e;
     } finally {
       if (categorySelect) categorySelect.disabled = false;
@@ -116,6 +132,7 @@ export const AnalyticsTab = (() => {
     if (!totalTime) {
       const emptyMsg = timeframe === 'weekly' ? 'No activity this week' : timeframe === 'monthly' ? 'No activity this month' : 'No activity today';
       container.innerHTML = `<div class="qi-empty">${emptyMsg}</div>`;
+      updateInsightsOverview({ totalTime: 0, domainTimes: {}, productivityScore: 0 });
       return;
     }
     const topEntry = sortedDomainTimes[0];
@@ -160,15 +177,22 @@ export const AnalyticsTab = (() => {
       </div>`;
   }
 
-  function renderSiteList(timeData, timeframe, siteCategories) {
+  function renderSiteList(timeData, timeframe, siteCategories, subTab) {
     if (timeChart) { timeChart.destroy(); timeChart = null; }
     const siteListEl = getElement(ELEMENTS.siteList);
+    const scoreEl = getElement(ELEMENTS.productivityScore);
+    const quickInsightsEl = getElement(ELEMENTS.quickInsights);
     if (!Array.isArray(timeData) || !timeData.length) {
       const message = timeframe === 'weekly' ? 'No data available for the past 7 days. Start browsing to track your activity.' :
                       timeframe === 'monthly' ? 'No data available for the past 30 days. Continue using TimeMachine to build your productivity insights.' :
                       'No activity tracked today. Start browsing to collect data.';
       siteListEl.innerHTML = `<div class="empty-state">${message}</div>`;
-      getElement(ELEMENTS.productivityScore).textContent = '0%';
+      if (scoreEl) {
+        scoreEl.textContent = '0%';
+        scoreEl.className = 'score-badge bg-red-500';
+      }
+      if (quickInsightsEl) quickInsightsEl.innerHTML = `<div class="qi-empty">${timeframe === 'weekly' ? 'No activity this week' : timeframe === 'monthly' ? 'No activity this month' : 'No activity today'}</div>`;
+      updateInsightsOverview({ totalTime: 0, domainTimes: {}, productivityScore: 0 });
       return;
     }
 
@@ -201,35 +225,42 @@ export const AnalyticsTab = (() => {
       </div>`).join('');
 
     const ctx = getElement(ELEMENTS.timeChart)?.getContext('2d');
-    if (ctx) {
-      const theme = getCurrentTheme();
-      timeChart = new Chart(ctx, {
-        ...CHART_CONFIG,
-        data: {
-          labels: Object.keys(categoryData),
-          datasets: [{
-            data: Object.values(categoryData),
-            backgroundColor: Object.values(window.CONFIG.CHART_COLORS[theme] || window.CONFIG.CHART_COLORS.light),
-            borderWidth: 0
-          }]
-        },
-        options: {
-          ...CHART_CONFIG.options,
-          plugins: { ...CHART_CONFIG.options.plugins, legend: { ...CHART_CONFIG.options.plugins.legend, labels: { ...CHART_CONFIG.options.plugins.legend.labels, color: getLegendColor() } } }
-        }
-      });
+    if (!ctx || !window.Chart) {
+      console.error('Chart.js not available or canvas not found');
+      window.showToast?.('Chart rendering failed: Chart.js not loaded', 'error');
+      return;
     }
 
-    document.querySelectorAll('.category-select').forEach(select => {
-      select.addEventListener('change', async e => {
+    const theme = getCurrentTheme();
+    const colors = CHART_COLORS[theme] || CHART_COLORS.light;
+    timeChart = new window.Chart(ctx, {
+      ...CHART_CONFIG,
+      data: {
+        labels: Object.keys(categoryData),
+        datasets: [{
+          data: Object.values(categoryData),
+          backgroundColor: [colors.work, colors.social, colors.entertainment, colors.professional, colors.other],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        ...CHART_CONFIG.options,
+        plugins: { ...CHART_CONFIG.options.plugins, legend: { ...CHART_CONFIG.options.plugins.legend, labels: { ...CHART_CONFIG.options.plugins.legend.labels, color: getLegendColor() } } }
+      }
+    });
+
+    // Remove existing listeners to prevent duplicates
+    const selects = document.querySelectorAll('.category-select');
+    selects.forEach(select => {
+      const newSelect = select.cloneNode(true);
+      select.parentNode.replaceChild(newSelect, select);
+      newSelect.addEventListener('change', async e => {
         const domain = e.target.dataset.domain;
         const newCategory = e.target.value;
         try {
-          await updateSiteCategory(domain, newCategory);
-          window.showToast?.(`Category for ${domain} updated to ${newCategory}`);
-          await load(window.currentSubTab || 'daily');
+          await updateSiteCategory(domain, newCategory, subTab);
         } catch (e) {
-          window.showToast?.(`Error updating category for ${domain}: ${e.message}`, 'error');
+          // Error toast already shown in updateSiteCategory
         }
       });
     });
@@ -249,7 +280,10 @@ export const AnalyticsTab = (() => {
       siteList.innerHTML = '<div class="loading-text"><span class="loader"></span>Loading data...</div>';
       errorDisplay?.classList.add('hidden');
 
-      await window.SiteTracker?.forceSync?.();
+      const tracker = window.SiteTracker || (window.SiteTracker = {});
+      if (typeof tracker.forceSync === 'function') await tracker.forceSync();
+      else console.warn('SiteTracker.forceSync not available');
+
       const { startDate, endDate, timezone } = getDateRangeForTab(subTab);
       const backend = await resolveBackendUrl();
       const deviceId = window.Auth?.getDeviceId?.() || 'unknown';
@@ -269,7 +303,7 @@ export const AnalyticsTab = (() => {
       if (!Array.isArray(actualData)) throw new Error('Invalid data format received from server');
 
       const { siteCategories = {} } = await chrome.storage.local.get(['siteCategories']);
-      renderSiteList(actualData, subTab, siteCategories);
+      renderSiteList(actualData, subTab, siteCategories, subTab);
       updateDateRangeDisplay(subTab);
     } catch (error) {
       console.error('AnalyticsTab.load failed:', error);
@@ -281,12 +315,12 @@ export const AnalyticsTab = (() => {
   }
 
   function updateChartTheme() {
-    if (timeChart) {
-      const theme = getCurrentTheme();
-      timeChart.data.datasets[0].backgroundColor = Object.values(window.CONFIG.CHART_COLORS[theme] || window.CONFIG.CHART_COLORS.light);
-      timeChart.options.plugins.legend.labels.color = getLegendColor();
-      timeChart.update();
-    }
+    if (!timeChart) return;
+    const theme = getCurrentTheme();
+    const colors = CHART_COLORS[theme] || CHART_COLORS.light;
+    timeChart.data.datasets[0].backgroundColor = [colors.work, colors.social, colors.entertainment, colors.professional, colors.other];
+    timeChart.options.plugins.legend.labels.color = getLegendColor();
+    timeChart.update();
   }
 
   async function init() {

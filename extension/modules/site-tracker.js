@@ -22,12 +22,41 @@ const SiteTracker = (function() {
     }
   }
 
+  // Merge overlapping/contiguous session intervals and sum their durations
+  function sumMergedSessions(sessions) {
+    try {
+      const items = (Array.isArray(sessions) ? sessions : [])
+        .filter(s => s && Number.isFinite(s.startTime) && Number.isFinite(s.endTime) && s.endTime > s.startTime)
+        .map(s => ({ start: Number(s.startTime), end: Number(s.endTime) }))
+        .sort((a, b) => a.start - b.start);
+      if (!items.length) return 0;
+      let total = 0;
+      let curStart = items[0].start;
+      let curEnd = items[0].end;
+      for (let i = 1; i < items.length; i++) {
+        const it = items[i];
+        if (it.start <= curEnd) {
+          if (it.end > curEnd) curEnd = it.end;
+        } else {
+          total += (curEnd - curStart);
+          curStart = it.start;
+          curEnd = it.end;
+        }
+      }
+      total += (curEnd - curStart);
+      return Math.max(0, total);
+    } catch (_) {
+      return 0;
+    }
+  }
+
   // Track site visit
   async function trackSiteVisit(domain, startTime, endTime, url, title) {
     try {
       // Save locally first
       const { timeData = {} } = await chrome.storage.local.get(['timeData']);
-      const today = new Date().toISOString().split('T')[0];
+      const tz = new Date().getTimezoneOffset();
+      const today = new Date(Date.now() - tz * 60000).toISOString().split('T')[0];
       
       if (!timeData[today]) {
         timeData[today] = {};
@@ -43,15 +72,20 @@ const SiteTracker = (function() {
       }
 
       // Add new session
-      const session = {
-        startTime: startTime || Date.now(),
-        endTime: endTime || Date.now(),
-        url,
-        title
-      };
+  let sStart = Number(startTime || Date.now());
+  let sEnd = Number(endTime || Date.now());
+  if (!Number.isFinite(sStart) || !Number.isFinite(sEnd)) return;
+  if (sEnd <= sStart) return;
+  const MAX = 12 * 60 * 60 * 1000;
+  if ((sEnd - sStart) > MAX) sEnd = sStart + MAX;
+  const session = { startTime: sStart, endTime: sEnd, url, title };
 
-      timeData[today][domain].sessions.push(session);
-      timeData[today][domain].totalTime += (session.endTime - session.startTime);
+  // De-dup exact duplicates
+  const existing = timeData[today][domain].sessions;
+  const dup = existing.find(s => s.startTime === session.startTime && s.endTime === session.endTime);
+  if (!dup) existing.push(session);
+  // Recompute total from merged intervals to avoid inflation
+  timeData[today][domain].totalTime = sumMergedSessions(existing);
 
       await chrome.storage.local.set({ timeData });
 

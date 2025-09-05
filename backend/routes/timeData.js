@@ -9,6 +9,35 @@ const ALLOWED_CATEGORIES = ['Work', 'Social', 'Entertainment', 'Professional', '
 
 router.use(authenticateToken);
 
+// Merge overlapping/contiguous session intervals and sum their durations
+function sumMergedSessions(sessions) {
+  try {
+    const items = (Array.isArray(sessions) ? sessions : [])
+      .filter(s => s && Number.isFinite(s.startTime) && Number.isFinite(s.endTime) && s.endTime > s.startTime)
+      .map(s => ({ start: Number(s.startTime), end: Number(s.endTime) }))
+      .sort((a, b) => a.start - b.start);
+    if (!items.length) return 0;
+    let total = 0;
+    let curStart = items[0].start;
+    let curEnd = items[0].end;
+    for (let i = 1; i < items.length; i++) {
+      const it = items[i];
+      if (it.start <= curEnd) {
+        // Overlap or touch
+        if (it.end > curEnd) curEnd = it.end;
+      } else {
+        total += (curEnd - curStart);
+        curStart = it.start;
+        curEnd = it.end;
+      }
+    }
+    total += (curEnd - curStart);
+    return Math.max(0, total);
+  } catch (_) {
+    return 0;
+  }
+}
+
 router.post('/sync', async (req, res) => {
   try {
     const { date, domain, sessions, category = 'Other', timezone = 0, timezoneName = 'UTC' } = req.body;
@@ -62,7 +91,7 @@ router.post('/sync', async (req, res) => {
     // to ensure sessions aggregate into the correct local day, not the server's current day.
     const userLocalDate = date; // already validated as YYYY-MM-DD
 
-    // Deduplicate by (startTime, endTime) pair to avoid double counting
+    // Deduplicate by (startTime, endTime) pair to avoid exact replays
     const existingRecord = await TimeData.findOne({ userEmail: req.user.email, userLocalDate, domain }).lean();
     const existingPairs = new Set(
       (existingRecord?.sessions || [])
@@ -76,17 +105,14 @@ router.post('/sync', async (req, res) => {
       return res.status(200).json({ success: true, timeData: existingRecord || null, userLocalDate, deduped: true });
     }
 
-    const addedTime = newSessions.reduce((sum, s) => sum + s.duration, 0);
-
-    let totalTime = addedTime;
-    if (existingRecord) {
-      const MAX_DAILY_TIME = 24 * 60 * 60 * 1000;
-      totalTime = Math.min((existingRecord.totalTime || 0) + addedTime, MAX_DAILY_TIME);
-      if ((existingRecord.totalTime || 0) >= MAX_DAILY_TIME) {
-        console.warn(`Domain ${domain} reached maximum daily time (${MAX_DAILY_TIME}ms) for user ${req.user.email} on ${userLocalDate}`);
-        totalTime = MAX_DAILY_TIME;
-      }
-    }
+    // Recompute totalTime from merged intervals to avoid inflation from overlaps
+    const allSessions = [
+      ...((existingRecord?.sessions || []).filter(s => s && Number.isFinite(s.startTime) && Number.isFinite(s.endTime))),
+      ...newSessions
+    ];
+    const mergedTotal = sumMergedSessions(allSessions);
+    const MAX_DAILY_TIME = 24 * 60 * 60 * 1000;
+    const totalTime = Math.min(mergedTotal, MAX_DAILY_TIME);
 
     const timeData = await TimeData.findOneAndUpdate(
       { userEmail: req.user.email, userLocalDate, domain },
@@ -154,15 +180,18 @@ router.get('/report/:userEmail', async (req, res) => {
       userLocalDate: { $gte: startUserDate, $lte: endUserDate }
     }).lean();
 
-    const formattedData = timeData.map(entry => ({
-      domain: entry.domain,
-      date: entry.userLocalDate,
-      sessions: entry.sessions || [],
-      totalTime: entry.totalTime || 0,
-      category: ALLOWED_CATEGORIES.includes(entry.category) ? entry.category : 'Other',
-      timezone: entry.timezone || { name: timezoneName, offset: timezoneOffset },
-      userLocalDate: entry.userLocalDate
-    }));
+    const formattedData = timeData.map(entry => {
+      const computedTotal = sumMergedSessions(entry.sessions || []);
+      return {
+        domain: entry.domain,
+        date: entry.userLocalDate,
+        sessions: entry.sessions || [],
+        totalTime: Math.min(computedTotal || entry.totalTime || 0, 24 * 60 * 60 * 1000),
+        category: ALLOWED_CATEGORIES.includes(entry.category) ? entry.category : 'Other',
+        timezone: entry.timezone || { name: timezoneName, offset: timezoneOffset },
+        userLocalDate: entry.userLocalDate
+      };
+    });
 
     res.status(200).json({
       data: formattedData,
@@ -207,7 +236,7 @@ router.get('/refresh/:userEmail', async (req, res) => {
     const data = rows.map(entry => ({
       domain: entry.domain,
       date: entry.userLocalDate,
-      totalTime: entry.totalTime || 0,
+      totalTime: Math.min(sumMergedSessions(entry.sessions || []) || entry.totalTime || 0, 24 * 60 * 60 * 1000),
       category: ALLOWED_CATEGORIES.includes(entry.category) ? entry.category : 'Other',
       sessions: entry.sessions || [],
       timezone: entry.timezone || { name: timezoneName, offset: timezoneOffset }
