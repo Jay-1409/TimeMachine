@@ -7,11 +7,10 @@ const focusSessionSchema = new mongoose.Schema({
     required: true,
     index: true,
     validate: {
-      validator: async function(value) {
-        const user = await mongoose.model('User').findById(value);
-        return !!user;
+      validator: function(value) {
+        return mongoose.Types.ObjectId.isValid(value);
       },
-      message: 'Invalid user ID'
+      message: 'Invalid user ID format'
     }
   },
   duration: {

@@ -65,14 +65,14 @@ const handleError = (res, error, message) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { userId } = req.user;
+  const userId = req.user && (req.user.id || req.user._id);
     const validation = validateSessionData(req.body);
     if (!validation.valid) {
       return res.status(400).json({ success: false, message: validation.message });
     }
 
     const { duration, startTime, endTime, status, sessionType = 'focus', productivity = 0, notes = '' } = req.body;
-    const focusSession = new FocusSession({
+  const focusSession = new FocusSession({
       userId,
       duration,
       startTime: new Date(startTime),
@@ -97,6 +97,9 @@ router.post('/', async (req, res) => {
       }
     });
   } catch (error) {
+    if (error && (error.name === 'ValidationError' || String(error.message || '').includes('validation'))) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     handleError(res, error, 'Failed to create focus session');
   }
 });

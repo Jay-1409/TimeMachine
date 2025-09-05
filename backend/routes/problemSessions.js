@@ -46,6 +46,17 @@ const handleError = (res, error, message) => {
   });
 };
 
+// Helper: If session is currently paused, close the open pause and add to pausedDuration
+function finalizeOpenPause(session, now = new Date()) {
+  if (session.status === 'paused' && Array.isArray(session.pauseHistory)) {
+    const lastPause = session.pauseHistory[session.pauseHistory.length - 1];
+    if (lastPause && lastPause.pausedAt && !lastPause.resumedAt) {
+      session.pausedDuration += now.getTime() - lastPause.pausedAt.getTime();
+      lastPause.resumedAt = now;
+    }
+  }
+}
+
 router.post('/start', async (req, res) => {
   try {
     const validation = validateSessionData(req.body);
@@ -72,7 +83,7 @@ router.post('/start', async (req, res) => {
       site: site.trim().slice(0, 120),
       startTime: now,
       userLocalDate: getUserTimezoneDate(now.getTime(), timezone),
-      timezone: { offset: timezone }
+      timezone: { offset: timezone, name: req.body.timezoneName || 'UTC' }
     });
 
     await session.save();
@@ -100,7 +111,7 @@ router.patch('/:sessionId/pause', async (req, res) => {
     const { sessionId } = req.params;
     if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
 
-    const validation = validateSessionData(req.body);
+  const validation = validateSessionData(req.body, true);
     if (!validation.valid) return res.status(400).json({ error: validation.message });
 
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
@@ -136,8 +147,11 @@ router.patch('/:sessionId/complete', async (req, res) => {
     const { sessionId } = req.params;
     if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
 
-    const validation = validateSessionData(req.body);
-    if (!validation.valid) return res.status(400).json({ error: validation.message });
+    // Only validate specific fields for completion
+    const { completionNotes } = req.body;
+    if (completionNotes && completionNotes.length > 1000) {
+      return res.status(400).json({ error: 'Completion notes must not exceed 1000 characters' });
+    }
 
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
     if (!session) return res.status(404).json({ error: 'Session not found' });
@@ -147,13 +161,7 @@ router.patch('/:sessionId/complete', async (req, res) => {
     }
 
     const now = new Date();
-    if (session.status === 'paused') {
-      const lastPause = session.pauseHistory[session.pauseHistory.length - 1];
-      if (lastPause && !lastPause.resumedAt) {
-        session.pausedDuration += now.getTime() - lastPause.pausedAt.getTime();
-        lastPause.resumedAt = now;
-      }
-    }
+    finalizeOpenPause(session, now);
 
     session.endTime = now;
     session.status = 'completed';
@@ -175,20 +183,17 @@ router.patch('/:sessionId/abandon', async (req, res) => {
     const { sessionId } = req.params;
     if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
 
-    const validation = validateSessionData(req.body);
-    if (!validation.valid) return res.status(400).json({ error: validation.message });
+    // Only validate specific fields for abandonment
+    const { reason } = req.body;
+    if (reason && reason.length > 200) {
+      return res.status(400).json({ error: 'Abandon reason must not exceed 200 characters' });
+    }
 
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     const now = new Date();
-    if (session.status === 'paused') {
-      const lastPause = session.pauseHistory[session.pauseHistory.length - 1];
-      if (lastPause && !lastPause.resumedAt) {
-        session.pausedDuration += now.getTime() - lastPause.pausedAt.getTime();
-        lastPause.resumedAt = now;
-      }
-    }
+    finalizeOpenPause(session, now);
 
     session.endTime = now;
     session.status = 'abandoned';
@@ -220,6 +225,7 @@ router.get('/current/:userEmail', async (req, res) => {
         id: session._id,
         title: session.title,
         description: session.description,
+  notes: session.notes,
         category: session.category,
         difficulty: session.difficulty,
         site: session.site,
