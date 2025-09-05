@@ -1,141 +1,98 @@
-// Blocked page functionality
-document.addEventListener('DOMContentLoaded', function() {
-    // Get parameters from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const domain = urlParams.get('domain') || 'unknown site';
-    const blockType = urlParams.get('type') || 'site';
-    const blockItem = urlParams.get('item') || domain;
-    
-    // Update domain display
-    const domainElement = document.getElementById('blockedDomain');
-    if (domainElement) {
-        domainElement.textContent = domain;
-    }
-    
-    // Update block reason
-    const reasonElement = document.getElementById('blockReason');
-    if (reasonElement) {
-        if (blockType === 'keyword') {
-            reasonElement.textContent = `This page was blocked because it contains the keyword: "${blockItem}"`;
+document.addEventListener('DOMContentLoaded', () => {
+  const ELEMENTS = {
+    blockedDomain: 'blockedDomain',
+    blockReason: 'blockReason',
+    infoReason: 'infoReason',
+    infoRule: 'infoRule',
+    infoFocus: 'infoFocus',
+    infoLocalTime: 'infoLocalTime'
+  };
+
+  const THEME_CLASSES = {
+    light: 'theme-light',
+    dark: 'theme-dark',
+    cyberpunk: 'theme-cyberpunk',
+    minimal: 'theme-minimal',
+    ocean: 'theme-ocean',
+    sunset: 'theme-sunset',
+    forest: 'theme-forest'
+  };
+
+  const getElement = id => document.getElementById(id);
+
+  // Parse URL parameters
+  const params = new URLSearchParams(window.location.search);
+  const domain = params.get('domain') || 'this site';
+  const blockType = params.get('type') || 'site';
+  const blockItem = params.get('item') || domain;
+
+  // Update title and content
+  document.title = `Blocked: ${domain}`;
+  const domainEl = getElement(ELEMENTS.blockedDomain);
+  if (domainEl) domainEl.textContent = domain;
+  const reasonEl = getElement(ELEMENTS.blockReason);
+  const reasonText = blockType === 'keyword' ? `Blocked because it matches keyword: "${blockItem}"` : 'This website is on your blocked list.';
+  if (reasonEl) reasonEl.textContent = reasonText;
+  const infoReason = getElement(ELEMENTS.infoReason);
+  if (infoReason) infoReason.textContent = reasonText;
+  const infoRule = getElement(ELEMENTS.infoRule);
+  if (infoRule) infoRule.textContent = blockType === 'keyword' ? `Keyword: ${blockItem}` : `Site: ${domain}`;
+
+  // Apply theme
+  const theme = localStorage.getItem('theme') || 'light';
+  const body = document.body;
+  Object.values(THEME_CLASSES).forEach(cls => body.classList.remove(cls));
+  body.classList.add(THEME_CLASSES[theme] || THEME_CLASSES.light);
+
+  // Close tab behavior
+  const closeThisTab = () => {
+    if (chrome?.tabs?.getCurrent) {
+      chrome.tabs.getCurrent(tab => {
+        if (tab?.id && chrome?.tabs?.remove) {
+          chrome.tabs.create({ url: 'chrome://newtab/' });
+          chrome.tabs.remove(tab.id);
         } else {
-            reasonElement.textContent = `This website is in your blocked sites list.`;
+          chrome.tabs.create({ url: 'chrome://newtab/' });
+          window.close();
         }
-    }
-    
-    // Update page title
-    document.title = `Blocked: ${domain}`;
-
-    function goBack() {
-        if (window.history.length > 1) {
-            window.history.back();
-        } else {
-            window.location.href = 'chrome://newtab/';
-        }
-    }
-
-    function startFocus() {
-        // Send message to background script to start focus timer
-        if (chrome.runtime && chrome.runtime.sendMessage) {
-            chrome.runtime.sendMessage({ action: 'togglePomodoro' });
-            
-            // Show timer
-            const focusTimer = document.getElementById('focusTimer');
-            if (focusTimer) {
-                focusTimer.style.display = 'block';
-            }
-            
-            // Update button
-            const button = event.target;
-            button.textContent = 'Focus Started!';
-            button.disabled = true;
-        }
-    }
-
-    // Add event listeners
-    const goBackBtn = document.querySelector('.btn-primary');
-    if (goBackBtn) {
-        goBackBtn.addEventListener('click', goBack);
-    }
-
-    const startFocusBtn = document.querySelector('.btn-secondary');
-    if (startFocusBtn) {
-        startFocusBtn.addEventListener('click', startFocus);
-    }
-
-    // Check if focus timer is already running
-    if (chrome.runtime && chrome.runtime.sendMessage) {
-        chrome.runtime.sendMessage({ action: 'getPomodoroState' }, (response) => {
-            if (response && response.state && response.state.running) {
-                const focusTimer = document.getElementById('focusTimer');
-                if (focusTimer) {
-                    focusTimer.style.display = 'block';
-                    updateTimer(response.state);
-                }
-            }
-        });
-    }
-
-    function updateTimer(state) {
-        if (!state.running) return;
-        
-        const remaining = state.endsAt - Date.now();
-        if (remaining > 0) {
-            const minutes = Math.floor(remaining / 60000);
-            const seconds = Math.floor((remaining % 60000) / 1000);
-            const timerDisplay = document.getElementById('timerDisplay');
-            if (timerDisplay) {
-                timerDisplay.textContent = 
-                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }
-            
-            setTimeout(() => updateTimer(state), 1000);
-        }
-    }
-
-    // Theme sync from popup/localStorage
-    (function syncTheme() {
-      try {
-        const stored = localStorage.getItem('theme') || 'light';
-        const body = document.body;
-        body.classList.remove('theme-light','theme-dark','theme-cyberpunk','minimal','theme-ocean','theme-sunset','theme-forest');
-        // normalize class names
-        const classMap = {
-          light: 'theme-light',
-          dark: 'theme-dark',
-          cyberpunk: 'theme-cyberpunk',
-          minimal: 'theme-minimal',
-          ocean: 'theme-ocean',
-          sunset: 'theme-sunset',
-          forest: 'theme-forest',
-        };
-        body.classList.add(classMap[stored] || 'theme-light');
-      } catch {}
-    })();
-
-    // Enhance actions
-    (function wireActions(){
-      const backBtn = document.getElementById('goBackBtn');
-      const startBtn = document.getElementById('startFocusBtn');
-      const openBtn = document.getElementById('openAppBtn');
-
-      if (backBtn) backBtn.addEventListener('click', () => {
-        if (history.length > 1) history.back(); else location.href = 'chrome://newtab/';
       });
+    } else {
+      window.close();
+    }
+  };
 
-      if (startBtn) startBtn.addEventListener('click', (event) => {
-        if (chrome?.runtime?.sendMessage) chrome.runtime.sendMessage({ action: 'togglePomodoro' });
-        const ft = document.getElementById('focusTimer');
-        if (ft) ft.classList.remove('hidden');
-        const btn = event.currentTarget;
-        if (btn) { btn.textContent = 'Focus Started'; btn.disabled = true; }
-      });
+  // Keydown handler for ESC/Backspace
+  window.addEventListener('keydown', e => {
+    const tag = document.activeElement?.tagName.toLowerCase();
+    if ((e.key === 'Escape' || e.key === 'Backspace') && tag !== 'input' && tag !== 'textarea') {
+      e.preventDefault();
+      closeThisTab();
+    }
+  });
 
-      if (openBtn) openBtn.addEventListener('click', () => {
-        // Try open popup.html in a new tab (accessible as resource)
-        const url = chrome.runtime.getURL('popup.html');
-        if (chrome?.tabs?.create) chrome.tabs.create({ url }); else location.href = url;
-      });
-    })();
+  // Update local time
+  const infoLocalTime = getElement(ELEMENTS.infoLocalTime);
+  const tickLocalTime = () => {
+    if (infoLocalTime) infoLocalTime.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+  };
+  tickLocalTime();
+  setInterval(tickLocalTime, 30000);
 
-    // Existing initialization
+  // Update focus status
+  const infoFocus = getElement(ELEMENTS.infoFocus);
+  if (infoFocus && chrome?.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ action: 'getPomodoroState' }, response => {
+      if (!response?.state) {
+        infoFocus.textContent = 'No active focus session';
+        return;
+      }
+      const { running, endsAt } = response.state;
+      if (running && endsAt) {
+        const mins = Math.max(0, Math.ceil((endsAt - Date.now()) / 60000));
+        infoFocus.textContent = `Focus running (${mins}m left)`;
+      } else {
+        infoFocus.textContent = 'No active focus session';
+      }
+    });
+  }
 });

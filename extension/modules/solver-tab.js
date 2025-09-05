@@ -8,8 +8,6 @@ export const SolverTab = (() => {
   let initialized = false;
   let activeSession = null;
   let stopwatchInterval = null;
-  let sessionStartTime = null;
-  let pausedDuration = 0;
 
   const el = {
     get container() { return document.getElementById('stopwatchTabContent'); },
@@ -138,11 +136,17 @@ export const SolverTab = (() => {
       if (!userEmail) return window.showError?.('Please set your email first');
       const pageInfo = window.detectedPageInfo || {};
       const category = el.quickCategory?.value || 'Coding';
+      // Sanitize inputs: trim and limit lengths
+      const safeTitle = String(pageInfo.title || 'Problem Session').trim().slice(0, 120);
+      const safeUrl = (() => {
+        try { return pageInfo.url && /^https?:\/\//i.test(pageInfo.url) ? pageInfo.url.slice(0, 2048) : ''; } catch { return ''; }
+      })();
+      const safeSite = String(pageInfo.site || '').trim().slice(0, 120);
       const payload = {
         userEmail,
-        title: pageInfo.title || 'Problem Session',
-        url: pageInfo.url,
-        site: pageInfo.site,
+        title: safeTitle,
+        url: safeUrl,
+        site: safeSite,
         category,
         difficulty: 'Medium',
         timezone: new Date().getTimezoneOffset(),
@@ -152,8 +156,8 @@ export const SolverTab = (() => {
       const { token } = await TokenStorage.getToken();
       const resp = await fetch(`${backend}/api/problem-sessions/start`, { method:'POST', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!resp.ok) { const err = await resp.json().catch(()=>({})); return window.showError?.(err.error||'Failed to start session'); }
-      const data = await resp.json();
-      activeSession = data.session;
+  const data = await resp.json();
+  activeSession = { ...data.session, pausedDuration: 0, pausedAt: null };
       showActiveSession();
       startStopwatchTimer();
       window.showToast?.('Session started!');
@@ -170,9 +174,15 @@ export const SolverTab = (() => {
       if (!resp.ok) return;
       const data = await resp.json();
       activeSession.status = data.session.status;
+      if (typeof data.session.pausedDuration === 'number') activeSession.pausedDuration = data.session.pausedDuration;
+      if (activeSession.status === 'paused') {
+        activeSession.pausedAt = new Date();
+      } else {
+        activeSession.pausedAt = null;
+      }
       updateStopwatchStatus();
-      if (activeSession.status === 'paused') { stopStopwatchTimer(); window.showToast?.('Session paused'); }
-      else { startStopwatchTimer(); window.showToast?.('Session resumed'); }
+      if (activeSession.status === 'paused') { window.showToast?.('Session paused'); }
+      else { window.showToast?.('Session resumed'); }
     } catch (e) { console.error('pauseResumeSession', e); window.showError?.('Failed to update session'); }
   }
 
@@ -232,8 +242,8 @@ export const SolverTab = (() => {
       const { token } = await TokenStorage.getToken();
       const resp = await fetch(`${backend}/api/problem-sessions/current/${encodeURIComponent(userEmail)}`, { headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } });
       if (!resp.ok) { showNewSessionForm(); return; }
-      const data = await resp.json();
-      if (data.activeSession) { activeSession = data.activeSession; showActiveSession(); startStopwatchTimer(); }
+  const data = await resp.json();
+  if (data.activeSession) { activeSession = data.activeSession; showActiveSession(); startStopwatchTimer(); }
       else { showNewSessionForm(); }
     } catch (e) { console.error('loadActiveSession', e); showNewSessionForm(); }
   }
@@ -250,6 +260,8 @@ export const SolverTab = (() => {
       if (filter === 'week') start.setDate(end.getDate() - 7);
       else if (filter === 'month') start.setMonth(end.getMonth() - 1);
       else start.setHours(0,0,0,0);
+  // show in-list loader
+  if (el.historyList) el.historyList.innerHTML = '<div class="loading-text">Loading sessions…</div>';
   const tz = new Date().getTimezoneOffset();
   const qs = new URLSearchParams({ date: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0], timezone: String(tz), useUserTimezone: 'true' });
   const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } });
@@ -314,8 +326,15 @@ export const SolverTab = (() => {
 
   function updateStopwatchDisplay() {
     if (!activeSession || !el.stopwatchTime) return;
-    const elapsedSec = Math.floor((Date.now() - sessionStartTime) / 1000);
-    const totalSec = Math.floor(((activeSession.duration || 0) / 1000) + elapsedSec);
+    const now = Date.now();
+    const start = new Date(activeSession.startTime).getTime();
+    let pausedSoFar = activeSession.pausedDuration || 0;
+    if (activeSession.status === 'paused' && activeSession.pausedAt) {
+      const pAt = new Date(activeSession.pausedAt).getTime();
+      pausedSoFar += Math.max(0, now - pAt);
+    }
+    const elapsed = Math.max(0, now - start - pausedSoFar);
+    const totalSec = Math.floor(elapsed / 1000);
     el.stopwatchTime.textContent = formatTimeDisplay(totalSec);
   }
 
@@ -325,9 +344,9 @@ export const SolverTab = (() => {
   }
 
   function startStopwatchTimer() {
-    if (stopwatchInterval) clearInterval(stopwatchInterval);
-    sessionStartTime = Date.now() - (pausedDuration || 0);
-    stopwatchInterval = setInterval(() => { if (activeSession && activeSession.status === 'active') updateStopwatchDisplay(); }, 1000);
+  if (stopwatchInterval) clearInterval(stopwatchInterval);
+  stopwatchInterval = setInterval(() => { if (activeSession) updateStopwatchDisplay(); }, 1000);
+  updateStopwatchDisplay();
   }
 
   function stopStopwatchTimer() { if (stopwatchInterval) { clearInterval(stopwatchInterval); stopwatchInterval = null; } }
@@ -351,8 +370,14 @@ export const SolverTab = (() => {
       const title = extractProblemTitle(tab.title || '', tab.url || '');
       const site = extractSiteName(tab.url || '');
       if (el.detectedTitle) el.detectedTitle.textContent = title || 'Click "Start" to track current problem';
-      if (el.detectedUrl) el.detectedUrl.textContent = site || 'Auto-detect from current tab';
-      window.detectedPageInfo = { title: title || tab.title || 'Problem Session', url: tab.url, site, favicon: tab.favIconUrl };
+      if (el.detectedUrl) {
+        const url = tab.url || '';
+        try { const u = new URL(url); el.detectedUrl.textContent = u.hostname.replace(/^www\./,''); el.detectedUrl.title = url; }
+        catch { el.detectedUrl.textContent = (url.length > 60 ? url.slice(0,57)+'…' : url) || (site || 'Auto-detect from current tab'); }
+      }
+      const status = document.getElementById('detectionStatus')?.querySelector('.status-text');
+      if (status) status.textContent = 'Detected';
+  window.detectedPageInfo = { title: title || tab.title || 'Problem Session', url: tab.url, site, favicon: tab.favIconUrl };
     } catch (e) { console.error('detectCurrentPage', e); }
   }
 

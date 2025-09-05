@@ -12,7 +12,7 @@ const VALID_DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Expert'];
 const VALID_STATUSES = ['active', 'paused', 'completed', 'abandoned'];
 
 const validateSessionData = (data, isUpdate = false) => {
-  const { title, category, difficulty, tags, url, timezone, reason, completionNotes, notes } = data;
+  const { title, category, difficulty, tags, url, timezone, reason, completionNotes, notes, site } = data;
   const errors = [];
 
   if (!isUpdate && !title) errors.push('Title is required');
@@ -22,6 +22,9 @@ const validateSessionData = (data, isUpdate = false) => {
   if (category && !VALID_CATEGORIES.includes(category)) errors.push('Invalid category');
   if (difficulty && !VALID_DIFFICULTIES.includes(difficulty)) errors.push('Invalid difficulty');
   if (url && !/^https?:\/\/.+$/.test(url)) errors.push('Invalid URL format');
+  if (url && url.length > 2048) errors.push('URL too long');
+  if (title && title.length > 120) errors.push('Title too long');
+  if (site && site.length > 120) errors.push('Site too long');
   if (timezone !== undefined && (!Number.isInteger(timezone) || timezone < -720 || timezone > 840)) {
     errors.push('Invalid timezone offset; must be an integer between -720 and 840');
   }
@@ -48,7 +51,7 @@ router.post('/start', async (req, res) => {
     const validation = validateSessionData(req.body);
     if (!validation.valid) return res.status(400).json({ error: validation.message });
 
-    const { title, description = '', category = 'Other', difficulty = 'Medium', tags = [], url = '', site = '', timezone = 0 } = req.body;
+  const { title, description = '', category = 'Other', difficulty = 'Medium', tags = [], url = '', site = '', timezone = 0 } = req.body;
     const activeSession = await ProblemSession.getCurrentSession(req.user.email);
     if (activeSession) {
       return res.status(400).json({
@@ -60,13 +63,13 @@ router.post('/start', async (req, res) => {
     const now = new Date();
     const session = new ProblemSession({
       userEmail: req.user.email,
-      title: title.trim(),
+      title: title.trim().slice(0, 120),
       description: description.trim(),
       category,
       difficulty,
       tags: tags.slice(0, 10),
-      url,
-      site: site.trim(),
+      url: (url || '').slice(0, 2048),
+      site: site.trim().slice(0, 120),
       startTime: now,
       userLocalDate: getUserTimezoneDate(now.getTime(), timezone),
       timezone: { offset: timezone }
@@ -207,6 +210,11 @@ router.get('/current/:userEmail', async (req, res) => {
     }
 
     const session = await ProblemSession.getCurrentSession(userEmail);
+    let pausedAt = null;
+    if (session && session.status === 'paused' && Array.isArray(session.pauseHistory) && session.pauseHistory.length) {
+      const last = session.pauseHistory[session.pauseHistory.length - 1];
+      if (last && last.pausedAt && !last.resumedAt) pausedAt = last.pausedAt;
+    }
     res.json({
       activeSession: session ? {
         id: session._id,
@@ -219,6 +227,7 @@ router.get('/current/:userEmail', async (req, res) => {
         startTime: session.startTime,
         status: session.status,
         pausedDuration: session.pausedDuration,
+        pausedAt,
         tags: session.tags
       } : null
     });
@@ -300,13 +309,13 @@ router.patch('/:sessionId/update', async (req, res) => {
     const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
-    const { title, description, category, difficulty, tags, notes } = req.body;
-    if (title) session.title = title.trim();
-    if (description !== undefined) session.description = description.trim();
+  const { title, description, category, difficulty, tags, notes } = req.body;
+  if (title) session.title = title.trim().slice(0, 120);
+  if (description !== undefined) session.description = (description || '').trim();
     if (category) session.category = category;
     if (difficulty) session.difficulty = difficulty;
-    if (Array.isArray(tags)) session.tags = tags.slice(0, 10);
-    if (notes !== undefined) session.notes = notes.trim();
+  if (Array.isArray(tags)) session.tags = tags.slice(0, 10);
+  if (notes !== undefined) session.notes = (notes || '').trim();
 
     await session.save();
     res.json({

@@ -8,6 +8,8 @@
   border-radius: 12px;
   padding: 12px;
   margin-block-end: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .header-subtitle {
@@ -15,10 +17,7 @@
   font-size: 12px;
 }
 
-.daily-stats {
-  display: flex;
-  gap: 12px;
-}
+.daily-stats { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 
 .stat-item {
   background: var(--bg-2);
@@ -51,6 +50,10 @@
   justify-content: space-between;
   margin-block-end: 10px;
 }
+
+.session-title { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-details { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 12px; }
+.session-site, .session-category { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-2); }
 
 .status-indicator {
   inline-size: 10px;
@@ -146,16 +149,7 @@
   background: var(--card);
 }
 
-.progress-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  inline-size: 100%;
-
-  @container (min-inline-size: 380px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
+.progress-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; inline-size: 100%; }
 
 .progress-card {
   background: var(--bg-2);
@@ -202,10 +196,17 @@
   background: var(--card);
 }
 .sessions-list .session-info { display: grid; gap: 4px; }
-.session-name { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.session-name { display: flex; align-items: center; gap: 6px; font-weight: 700; min-inline-size: 0; }
+.session-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-status-icon { opacity: .8; }
 .session-meta { display: flex; gap: 6px; align-items: center; }
 .session-site-badge, .session-category-badge { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 11px; color: var(--muted); background: var(--bg-2); }
 .sessions-list .session-stats { text-align: right; }
 .sessions-list .session-duration { font-weight: 800; }
 .sessions-list .session-time { color: var(--muted); font-size: 12px; }
+
+/* Responsive tweaks */
+@media (max-width: 420px) {
+  .start-options { grid-template-columns: 1fr; }
+  .timer-time { font-size: 24px; }
+}

@@ -1,51 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Site Blocked • TimeMachine</title>
-        <link rel="stylesheet" href="css/style.css" />
-        <link rel="stylesheet" href="css/blocked.css" />
-    </head>
-    <body class="theme-light blocked-body">
-        <main class="blocked-wrap">
-            <section class="blocked-card card">
-                <div class="blocked-icon" aria-hidden="true">
-                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 1l3 5 5 3-5 3-3 5-3-5-5-3 5-3z"/>
-                        <path d="M15 9l-6 6"/>
-                    </svg>
-                </div>
-                <header class="blocked-header">
-                    <h1 class="blocked-title">Stay Focused</h1>
-                    <div class="blocked-domain" id="blockedDomain">example.com</div>
-                    <p class="blocked-reason" id="blockReason">This site is blocked to help you focus.</p>
-                </header>
-
-                <div class="blocked-actions">
-                    <button id="goBackBtn" class="btn primary">Go Back</button>
-                    <button id="startFocusBtn" class="btn secondary">Start 25m Focus</button>
-                    <button id="openAppBtn" class="btn secondary small">Open TimeMachine</button>
-                </div>
-
-                <div id="focusTimer" class="focus-timer hidden">
-                    <div class="timer-row">
-                        <div class="timer-time" id="timerDisplay">25:00</div>
-                        <div class="timer-label">Focus Session Active</div>
-                    </div>
-                </div>
-
-                <div class="blocked-tips">
-                    <h2 class="tips-title">Quick tips</h2>
-                    <ul class="tips-list">
-                        <li>Use Focus sessions to block distractions temporarily.</li>
-                        <li>Manage your block list from the Guard tab in the app.</li>
-                        <li>Customize themes in the popup to match your preference.</li>
-                    </ul>
-                </div>
-            </section>
-        </main>
-
-        <script src="blocked.js"></script>
-    </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Blocked • TimeMachine</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/blocked.css">
+</head>
+<body class="theme-light blocked-body">
+  <main class="blocked-wrap">
+    <section class="blocked-card card">
+      <div class="blocked-icon" aria-hidden="true">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1l3 5 5 3-5 3-3 5-3-5-5-3 5-3z"/>
+          <path d="M15 9l-6 6"/>
+        </svg>
+      </div>
+      <header class="blocked-header">
+        <h1 class="blocked-title">Stay Focused</h1>
+        <div class="blocked-domain" id="blockedDomain">example.com</div>
+        <p class="blocked-reason" id="blockReason">This site is blocked to help you focus.</p>
+      </header>
+      <div class="blocked-tips">
+        <h2 class="tips-title">Quick tips</h2>
+        <ul class="tips-list">
+          <li>Use Focus sessions to block distractions temporarily.</li>
+          <li>Manage your block list from the Guard tab in the app.</li>
+          <li>Customize themes in the popup to match your preference.</li>
+        </ul>
+      </div>
+      <div class="blocked-info card">
+        <div class="info-row">
+          <span class="info-label">Reason</span>
+          <span id="infoReason" class="info-value">Blocked to reduce distractions.</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Rule</span>
+          <span id="infoRule" class="info-value">Site: example.com</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Focus</span>
+          <span id="infoFocus" class="info-value">No active focus session</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Local time</span>
+          <span id="infoLocalTime" class="info-value">--:--</span>
+        </div>
+      </div>
+      <p class="nav-hint">Press <kbd class="kbd">Esc</kbd> or <kbd class="kbd">Backspace</kbd> to close this tab.</p>
+    </section>
+  </main>
+  <script src="blocked.js"></script>
+</body>
 </html>
