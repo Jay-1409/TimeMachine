@@ -1,11 +1,6 @@
 ﻿import reportScheduler from './report-scheduler.js';
 import { resolveBackendUrl as sharedResolveBackendUrl, apiCall as sharedApiCall } from './modules/api.js';
 import { formatDuration as sharedFormatDuration } from './modules/utils.js';
-import { AnalyticsTab } from './modules/analytics-tab.js';
-import { FocusTab } from './modules/focus-tab.js';
-import { GuardTab } from './modules/guard-tab.js';
-import { SummaryTab } from './modules/summary-tab.js';
-import { SolverTab } from './modules/solver-tab.js';
 
 const CONFIG = {
   EMAIL_CONFIG: { enabled: false, service: null, settings: {} },
@@ -61,8 +56,17 @@ let currentTheme = localStorage.getItem("theme") || "light";
 let currentSubTab = "daily";
 let currentMainTab = "analytics";
 
-const getElement = id => document.getElementById(id) || document.querySelector(id);
-const getElements = selector => document.querySelectorAll(selector);
+function getElement(id) {
+  if (!id || typeof id !== 'string') return null;
+  const el = document.getElementById(id);
+  if (el) return el;
+  try { return document.querySelector(id); } catch { return null; }
+}
+
+function getElements(selector) {
+  if (!selector || typeof selector !== 'string') return [];
+  try { return document.querySelectorAll(selector); } catch { return []; }
+}
 
 async function resolveBackendUrl() {
   const now = Date.now();
@@ -84,14 +88,14 @@ document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   initEmailPrompt();
   initializeModalEvents();
-  GuardTab.init?.();
+  window.GuardTab?.init?.();
   initializeEnhancedFeatures();
   initializeApp();
 });
 
 function initTheme() {
   document.body.className = `theme-${currentTheme}`;
-  AnalyticsTab.updateChartTheme?.();
+  window.AnalyticsTab?.updateChartTheme?.();
   FocusSessionsManager?.forceSync().catch(console.error);
   updateThemeDropdown();
 }
@@ -126,10 +130,10 @@ function setupEventListeners() {
         if (tab?.url) {
           const url = new URL(tab.url);
           const domain = url.hostname.replace(/^www\./, '');
-          await GuardTab.addSite(domain);
+          await window.GuardTab?.addSite?.(domain);
           showToast(`Blocked ${domain}`);
-          await GuardTab.loadItems();
-          await GuardTab.updateStats();
+          await window.GuardTab?.loadItems?.();
+          await window.GuardTab?.updateStats?.();
         }
       } catch (error) {
         console.error('Error quick blocking site:', error);
@@ -141,7 +145,7 @@ function setupEventListeners() {
     { el: ELEMENTS.cancelConfirmModal, event: 'click', handler: () => hideModal('confirmModal') },
     { el: ELEMENTS.blockedItemsList, event: 'click', handler: e => {
       const btn = e.target.closest('.action-btn.delete');
-      if (btn) GuardTab[btn.dataset.type === 'site' ? 'removeSite' : 'removeKeyword'](btn.dataset[btn.dataset.type]);
+      if (btn) window.GuardTab?.[btn.dataset.type === 'site' ? 'removeSite' : 'removeKeyword']?.(btn.dataset[btn.dataset.type]);
     }}
   ];
 
@@ -163,7 +167,7 @@ function selectTheme(themeName) {
   currentTheme = themeName;
   localStorage.setItem("theme", currentTheme);
   initTheme();
-  if (currentMainTab === "analytics") AnalyticsTab.load(currentSubTab).catch(console.error);
+  if (currentMainTab === "analytics") window.AnalyticsTab?.load(currentSubTab).catch(console.error);
 }
 
 function updateThemeDropdown() {
@@ -296,7 +300,7 @@ async function sendEmailViaEmailJS(params, settings) {
 
 function generateEmailReport(timeData, date, timeframe = 'daily') {
   const reportTitle = timeframe.charAt(0).toUpperCase() + timeframe.slice(1) + ' Report';
-  const dateText = timeframe === 'daily' ? new Date(date).toLocaleDateString() : AnalyticsTab.getDateRangeDisplayText?.(timeframe) || date;
+  const dateText = timeframe === 'daily' ? new Date(date).toLocaleDateString() : window.AnalyticsTab?.getDateRangeDisplayText?.(timeframe) || date;
 
   if (!Array.isArray(timeData) || !timeData.length) {
     return `TimeMachine ${reportTitle} - ${dateText}\n\nNo activity tracked.\n\nStay productive!\nTimeMachine Extension`;
@@ -330,7 +334,7 @@ function generateEmailReport(timeData, date, timeframe = 'daily') {
 
 function generateEmailHtmlReport(timeData, date, timeframe = 'daily') {
   const reportTitle = timeframe.charAt(0).toUpperCase() + timeframe.slice(1) + ' Report';
-  const displayDate = timeframe === 'daily' ? new Date(date).toLocaleDateString() : AnalyticsTab.getDateRangeDisplayText?.(timeframe) || date;
+  const displayDate = timeframe === 'daily' ? new Date(date).toLocaleDateString() : window.AnalyticsTab?.getDateRangeDisplayText?.(timeframe) || date;
 
   if (!Array.isArray(timeData) || !timeData.length) {
     return `<div style="font-family:Segoe UI,Roboto,Arial,sans-serif;color:#111;line-height:1.5"><h2>TimeMachine ${reportTitle}</h2><div style="color:#666;font-size:12px;margin:0 0 12px">${displayDate}</div><p>No activity tracked.</p><p style="margin-top:16px;color:#666;font-size:12px">Sent via TimeMachine</p></div>`;
@@ -455,7 +459,7 @@ function switchSubTab(tab) {
   currentSubTab = tab;
   getElements(ELEMENTS.tabButtons).forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
   getElement(ELEMENTS.siteList).innerHTML = '<div class="loading-text"><span class="loader"></span>Loading data...</div>';
-  AnalyticsTab.load(currentSubTab).catch(console.error);
+  window.AnalyticsTab?.load(currentSubTab).catch(console.error);
 }
 
 function switchMainTab(mainTab) {
@@ -463,11 +467,11 @@ function switchMainTab(mainTab) {
   getElements('.main-tab-content').forEach(content => content.classList.remove('active'));
   getElement(ELEMENTS.settingsTabContent).classList.add("hidden");
   const tabActions = {
-    analytics: () => { getElement(ELEMENTS.insightsTabContent).classList.add('active'); AnalyticsTab.load(currentSubTab).catch(console.error); },
-    stopwatch: () => SolverTab.show().catch(console.error),
-    summary: () => SummaryTab.show().catch(console.error),
-    focus: () => FocusTab.show().catch(console.error),
-    guard: () => GuardTab.show().catch(console.error),
+    analytics: () => { getElement(ELEMENTS.insightsTabContent).classList.add('active'); window.AnalyticsTab?.load(currentSubTab).catch(console.error); },
+    stopwatch: () => window.SolverTab?.show?.().catch?.(console.error),
+    summary: () => window.SummaryTab?.show?.().catch?.(console.error),
+    focus: () => window.FocusTab?.show?.().catch?.(console.error),
+    guard: () => window.GuardTab?.show?.().catch?.(console.error),
     settings: () => getElement(ELEMENTS.settingsTabContent).classList.remove("hidden")
   };
   tabActions[mainTab]?.();
@@ -565,6 +569,14 @@ function showToast(message, type = 'success') {
   document.body.appendChild(toast);
   setTimeout(() => toast.classList.add('show'), 100);
   setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+function showError(message, elId) {
+  if (elId) {
+    const el = getElement(elId);
+    if (el) { el.textContent = message; el.classList.remove('hidden'); }
+  }
+  showToast(message, 'error');
 }
 
 function showModal(modalId) {
@@ -674,7 +686,7 @@ function initializeModalEvents() {
   getElements('.modal-overlay').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) hideAllModals(); }));
   getElements('.modal-close, .btn-cancel').forEach(btn => btn.addEventListener('click', hideAllModals));
   const addSiteBtn = getElement('addSiteBtn');
-  if (addSiteBtn) addSiteBtn.addEventListener('click', () => GuardTab.handleAddSite());
+  if (addSiteBtn) addSiteBtn.addEventListener('click', () => window.GuardTab?.handleAddSite?.());
   document.addEventListener('keydown', e => { if (e.key === 'Escape') hideAllModals(); });
   getElements('.form-input').forEach(input => input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
@@ -699,6 +711,7 @@ function validateEmail(email) {
 }
 
 window.showToast = showToast;
+window.showError = showError;
 window.showModal = showModal;
 window.hideModal = hideModal;
 window.showConfirmModal = showConfirmModal;

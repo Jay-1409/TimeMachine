@@ -1,9 +1,11 @@
 import { resolveBackendUrl } from './api.js';
-import { formatDuration } from './utils.js';
+import { formatDuration, getDateRangeForPeriod, addDayChangeListener, removeDayChangeListener } from './utils.js';
 
 export const AnalyticsTab = (() => {
   let initialized = false;
   let timeChart = null;
+  let currentSubTab = 'daily';
+  let dayChangeCallback = null;
 
   const ELEMENTS = {
     siteList: '.site-list',
@@ -55,18 +57,14 @@ export const AnalyticsTab = (() => {
   }
 
   function getDateRangeForTab(tab) {
-    const today = new Date();
-    const endDate = today.toISOString().split('T')[0];
-    let startDate = endDate;
-    if (tab === 'weekly') {
-      const start = new Date(today); start.setDate(today.getDate() - 6);
-      startDate = start.toISOString().split('T')[0];
-    } else if (tab === 'monthly') {
-      const start = new Date(today); start.setDate(today.getDate() - 29);
-      startDate = start.toISOString().split('T')[0];
-    }
-  // Use the user's local timezone offset (in minutes)
-  return { startDate, endDate, timezone: new Date().getTimezoneOffset() };
+    // Use the new timezone-aware utility function
+    const periodMap = {
+      'daily': 'today',
+      'weekly': 'week', 
+      'monthly': 'month'
+    };
+    
+    return getDateRangeForPeriod(periodMap[tab] || 'today');
   }
 
   function getDateRangeDisplayText(tab) {
@@ -267,6 +265,7 @@ export const AnalyticsTab = (() => {
   }
 
   async function load(subTab = 'daily') {
+    currentSubTab = subTab; // Track current tab for auto-refresh
     const errorDisplay = getElement(ELEMENTS.errorDisplay);
     const siteList = getElement(ELEMENTS.siteList);
     try {
@@ -326,7 +325,24 @@ export const AnalyticsTab = (() => {
   async function init() {
     if (initialized) return;
     initialized = true;
+    
+    // Add day change listener for auto-refresh
+    dayChangeCallback = () => {
+      console.log('Day changed - refreshing analytics data');
+      load(currentSubTab);
+    };
+    addDayChangeListener(dayChangeCallback);
   }
 
-  return { init, load, updateChartTheme, updateDateRangeDisplay, getDateRangeDisplayText };
+  function cleanup() {
+    if (dayChangeCallback) {
+      removeDayChangeListener(dayChangeCallback);
+      dayChangeCallback = null;
+    }
+  }
+
+  return { init, load, updateChartTheme, updateDateRangeDisplay, getDateRangeDisplayText, cleanup };
 })();
+
+// Expose to popup orchestrator
+if (typeof window !== 'undefined') window.AnalyticsTab = AnalyticsTab;

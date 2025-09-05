@@ -2,12 +2,13 @@
 // Encapsulates problem-solving session tracking, stopwatch UI, and history
 
 import { resolveBackendUrl } from './api.js';
-import { formatDuration } from './utils.js';
+import { formatDuration, getTodayDateRange, getDateRangeForPeriod, addDayChangeListener, removeDayChangeListener } from './utils.js';
 
 export const SolverTab = (() => {
   let initialized = false;
   let activeSession = null;
   let stopwatchInterval = null;
+  let dayChangeCallback = null;
 
   const el = {
     get container() { return document.getElementById('stopwatchTabContent'); },
@@ -19,6 +20,7 @@ export const SolverTab = (() => {
     get stopwatchTime() { return document.getElementById('stopwatchTime'); },
     get pauseResumeBtn() { return document.getElementById('pauseResumeBtn'); },
     get completeBtn() { return document.getElementById('completeBtn'); },
+    get cancelBtn() { return document.getElementById('cancelBtn'); },
     get abandonBtn() { return document.getElementById('abandonBtn'); },
     get startBtn() { return document.getElementById('startSessionBtn'); },
     get historyList() { return document.getElementById('sessionsList'); },
@@ -43,11 +45,21 @@ export const SolverTab = (() => {
     el.startBtn?.addEventListener('click', startNewSession);
     el.pauseResumeBtn?.addEventListener('click', pauseResumeSession);
     el.completeBtn?.addEventListener('click', completeSession);
+    el.cancelBtn?.addEventListener('click', cancelSession);
     el.abandonBtn?.addEventListener('click', abandonSession);
     el.historyFilter?.addEventListener('change', async () => {
       await loadSessionHistory();
       await loadProgressStats();
     });
+
+    // Add day change listener for auto-refresh
+    dayChangeCallback = () => {
+      console.log('Day changed - refreshing solver data');
+      loadDailyStats();
+      loadSessionHistory();
+      loadProgressStats();
+    };
+    addDayChangeListener(dayChangeCallback);
 
     // Optional: save notes on blur with small debounce
     el.sessionNotes?.addEventListener('input', debounce(saveSessionNotes, 600));
@@ -68,19 +80,33 @@ export const SolverTab = (() => {
   async function loadDailyStats() {
     try {
       if (typeof Auth !== 'undefined' && !await Auth.isAuthenticated()) return;
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      const userEmail = await getUserEmail();
       if (!userEmail) return;
       const backend = await resolveBackendUrl();
       const { token } = await TokenStorage.getToken();
       if (!token) return;
-      const today = new Date().toISOString().split('T')[0];
-  const tz = new Date().getTimezoneOffset();
-  const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${today}&endDate=${today}&timezone=${tz}&useUserTimezone=true`, { headers: { 'Authorization': `Bearer ${token}` } });
+      
+      // Use timezone-aware date range
+      const { startDate, endDate, timezone } = getTodayDateRange();
+      const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?date=${startDate}&endDate=${endDate}&timezone=${timezone}&useUserTimezone=true`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!resp.ok) return;
       const data = await resp.json();
       const sessions = data.sessions || [];
       const completedToday = sessions.filter(s => s.status === 'completed').length;
-      const totalMs = sessions.reduce((t,s)=> t + (s.duration||0), 0);
+      let totalMs = sessions.reduce((t,s)=> t + (s.duration||0), 0);
+      // Include live elapsed from current active session if it's today
+      if (activeSession && ['active','paused'].includes(activeSession.status)) {
+        const st = new Date(activeSession.startTime);
+        const now = Date.now();
+        const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+        if (st >= todayStart) {
+          let pausedSoFar = activeSession.pausedDuration || 0;
+          if (activeSession.status === 'paused' && activeSession.pausedAt) {
+            pausedSoFar += Math.max(0, now - new Date(activeSession.pausedAt).getTime());
+          }
+          totalMs += Math.max(0, now - st.getTime() - pausedSoFar);
+        }
+      }
       if (el.dailyProblems) el.dailyProblems.textContent = String(completedToday);
       if (el.dailyTime) el.dailyTime.textContent = formatDuration(totalMs);
     } catch (e) { console.error('loadDailyStats error', e); }
@@ -88,19 +114,17 @@ export const SolverTab = (() => {
 
   async function loadProgressStats() {
     try {
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+  const userEmail = await getUserEmail();
       if (!userEmail) return;
       const filter = el.historyFilter?.value || 'week';
       const backend = await resolveBackendUrl();
       const { token } = await TokenStorage.getToken();
-      const end = new Date();
-      const start = new Date(end);
-      if (filter === 'week') start.setDate(end.getDate() - 7);
-      else if (filter === 'month') start.setMonth(end.getMonth() - 1);
-      else start.setHours(0,0,0,0);
-  const tz = new Date().getTimezoneOffset();
-  const qs = new URLSearchParams({ date: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0], timezone: String(tz), useUserTimezone: 'true' });
-  const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      
+      // Use timezone-aware date range
+      const periodMap = { 'today': 'today', 'week': 'week', 'month': 'month' };
+      const { startDate, endDate, timezone } = getDateRangeForPeriod(periodMap[filter] || 'week');
+      const qs = new URLSearchParams({ date: startDate, endDate: endDate, timezone: String(timezone), useUserTimezone: 'true' });
+      const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!resp.ok) return;
       const data = await resp.json();
       const sessions = data.sessions || [];
@@ -132,8 +156,10 @@ export const SolverTab = (() => {
   // Session lifecycle
   async function startNewSession() {
     try {
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
-      if (!userEmail) return window.showError?.('Please set your email first');
+  const authed = await ensureAuthenticated();
+  if (!authed) return;
+  const userEmail = await getUserEmail();
+  if (!userEmail) return window.showError?.('Please set your email first');
       const pageInfo = window.detectedPageInfo || {};
       const category = el.quickCategory?.value || 'Coding';
       // Sanitize inputs: trim and limit lengths
@@ -153,11 +179,12 @@ export const SolverTab = (() => {
         timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       const backend = await resolveBackendUrl();
-      const { token } = await TokenStorage.getToken();
+  const { token } = await TokenStorage.getToken();
+  if (!token) { window.showError?.('Please sign in'); return; }
       const resp = await fetch(`${backend}/api/problem-sessions/start`, { method:'POST', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!resp.ok) { const err = await resp.json().catch(()=>({})); return window.showError?.(err.error||'Failed to start session'); }
-  const data = await resp.json();
-  activeSession = { ...data.session, pausedDuration: 0, pausedAt: null };
+      const data = await resp.json();
+      activeSession = { ...data.session, pausedDuration: 0, pausedAt: null };
       showActiveSession();
       startStopwatchTimer();
       window.showToast?.('Session started!');
@@ -167,55 +194,178 @@ export const SolverTab = (() => {
   async function pauseResumeSession() {
     if (!activeSession) return;
     try {
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      // Prevent double clicks while processing
+      el.pauseResumeBtn?.setAttribute('disabled', 'true');
+      
+      const authed = await ensureAuthenticated();
+      if (!authed) return;
+      
+      const userEmail = await getUserEmail();
       const backend = await resolveBackendUrl();
+      const { TokenStorage } = await import('../auth.js');
       const { token } = await TokenStorage.getToken();
+      if (!token) { window.showError?.('Please sign in'); return; }
       const resp = await fetch(`${backend}/api/problem-sessions/${activeSession.id}/pause`, { method:'PATCH', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userEmail, reason: activeSession.status==='active'?'Manual pause':'Manual resume' }) });
-      if (!resp.ok) return;
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        window.showToast?.(err.error || 'Failed to update session', 'error');
+        return;
+      }
       const data = await resp.json();
+      // Update local state from response
       activeSession.status = data.session.status;
       if (typeof data.session.pausedDuration === 'number') activeSession.pausedDuration = data.session.pausedDuration;
-      if (activeSession.status === 'paused') {
+      // Defensively refresh the current session to sync pausedAt/pausedDuration exactly
+      try {
+        const ref = await fetch(`${backend}/api/problem-sessions/current/${encodeURIComponent(userEmail)}`, { headers:{ 'Authorization': `Bearer ${token}` } });
+        if (ref.ok) { const cur = await ref.json(); if (cur.activeSession) activeSession = cur.activeSession; }
+      } catch {}
+      // If backend doesn't provide pausedAt, fall back to local timestamp
+      if (activeSession.status === 'paused' && !activeSession.pausedAt) {
         activeSession.pausedAt = new Date();
-      } else {
-        activeSession.pausedAt = null;
       }
       updateStopwatchStatus();
       if (activeSession.status === 'paused') { window.showToast?.('Session paused'); }
       else { window.showToast?.('Session resumed'); }
     } catch (e) { console.error('pauseResumeSession', e); window.showError?.('Failed to update session'); }
+    finally { el.pauseResumeBtn?.removeAttribute('disabled'); }
+  }
+
+  async function cancelSession() {
+    if (!activeSession) return;
+    
+    // For sessions just started (less than 2 minutes), delete immediately
+    const sessionAge = Date.now() - new Date(activeSession.startTime).getTime();
+    if (sessionAge < 120000) { // Less than 2 minutes
+      try {
+        const authed = await ensureAuthenticated();
+        if (!authed) return;
+        
+        const userEmail = await getUserEmail();
+        const backend = await resolveBackendUrl();
+        const { TokenStorage } = await import('../auth.js');
+        const { token } = await TokenStorage.getToken();
+        if (!token) { window.showError?.('Please sign in'); return; }
+
+        // Delete the session entirely (with time check for cancel)
+        const sessionAge = Date.now() - new Date(activeSession.startTime).getTime();
+        const endpoint = sessionAge < 120000 ? 
+          `${backend}/api/problem-sessions/${activeSession.id}` : 
+          `${backend}/api/problem-sessions/${activeSession.id}/abandon`;
+          
+        const method = sessionAge < 120000 ? 'DELETE' : 'PATCH';
+        const body = sessionAge < 120000 ? undefined : JSON.stringify({ 
+          userEmail, 
+          reason: 'User cancelled session' 
+        });
+        
+        const resp = await fetch(endpoint, { 
+          method, 
+          headers: { 
+            'Authorization': `Bearer ${token}`, 
+            'Content-Type': 'application/json' 
+          },
+          ...(body && { body })
+        });
+        
+        if (resp.ok) {
+          // Reset UI immediately
+          activeSession = null;
+          stopStopwatchTimer();
+          showNewSessionForm();
+          await loadSessionHistory();
+          await loadDailyStats();
+          await loadProgressStats();
+          window.showToast?.('Session cancelled');
+        } else {
+          window.showError?.('Failed to cancel session');
+        }
+      } catch (e) {
+        console.error('cancelSession', e);
+        window.showError?.('Failed to cancel session');
+      }
+    } else {
+      // For longer sessions, treat as abandon
+      abandonSession();
+    }
   }
 
   async function completeSession() {
     if (!activeSession) return;
     const notes = el.sessionNotes?.value?.trim();
-    window.showConfirmModal?.('Complete Session', 'Mark this session as completed successfully?', async () => {
-      try {
-        const { userEmail } = await chrome.storage.local.get(['userEmail']);
-        const backend = await resolveBackendUrl();
-        const { token } = await TokenStorage.getToken();
-        const resp = await fetch(`${backend}/api/problem-sessions/${activeSession.id}/complete`, { method:'PATCH', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userEmail, completionNotes: notes, wasSuccessful: true }) });
-        if (!resp.ok) return;
-        const data = await resp.json();
-        stopStopwatchTimer(); activeSession = null; showNewSessionForm(); await loadSessionHistory();
-        window.showToast?.(`Session completed! Duration: ${formatDuration(data.session.duration)}`);
-      } catch (e) { console.error('completeSession', e); window.showError?.('Failed to complete session'); }
-    });
+    try {
+      const authed = await ensureAuthenticated();
+      if (!authed) return;
+      // Optimistic UI: reset instantly, revert on failure
+      const prev = activeSession;
+      const sessionId = prev?.id;
+      stopStopwatchTimer();
+      el.pauseResumeBtn?.setAttribute('disabled','true');
+      el.completeBtn?.setAttribute('disabled','true');
+      el.abandonBtn?.setAttribute('disabled','true');
+      activeSession = null;
+      showNewSessionForm();
+      const userEmail = await getUserEmail();
+      const backend = await resolveBackendUrl();
+      const { token } = await TokenStorage.getToken();
+      if (!token) { window.showError?.('Please sign in'); return; }
+      const resp = await fetch(`${backend}/api/problem-sessions/${sessionId}/complete`, { method:'PATCH', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userEmail, completionNotes: notes || '', wasSuccessful: true }) });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        console.error('Complete session failed:', err);
+        window.showToast?.(err.error || 'Failed to complete session', 'error');
+        // Revert UI state if completion failed
+        activeSession = prev;
+        if (activeSession) { showActiveSession(); startStopwatchTimer(); }
+        return;
+      }
+      const data = await resp.json();
+      await loadSessionHistory(); await loadDailyStats(); await loadProgressStats(); await loadActiveSession();
+      window.showToast?.(`Session completed! Duration: ${formatDuration(data.session?.duration || 0)}`);
+    } catch (e) { console.error('completeSession', e); window.showError?.('Failed to complete session'); }
+    finally {
+      el.pauseResumeBtn?.removeAttribute('disabled');
+      el.completeBtn?.removeAttribute('disabled');
+      el.abandonBtn?.removeAttribute('disabled');
+    }
   }
 
   async function abandonSession() {
     if (!activeSession) return;
-    window.showConfirmModal?.('Abandon Session', 'Are you sure you want to abandon this session? This action cannot be undone.', async () => {
-      try {
-        const { userEmail } = await chrome.storage.local.get(['userEmail']);
-        const backend = await resolveBackendUrl();
-        const { token } = await TokenStorage.getToken();
-        const resp = await fetch(`${backend}/api/problem-sessions/${activeSession.id}/abandon`, { method:'PATCH', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userEmail, reason: 'User abandoned session' }) });
-        if (!resp.ok) return;
-        stopStopwatchTimer(); activeSession = null; showNewSessionForm(); await loadSessionHistory();
-        window.showToast?.('Session abandoned');
-      } catch (e) { console.error('abandonSession', e); window.showError?.('Failed to abandon session'); }
-    });
+    try {
+      const authed = await ensureAuthenticated();
+      if (!authed) return;
+      // Optimistic UI: reset instantly, revert on failure
+      const prev = activeSession;
+      const sessionId = prev?.id;
+      stopStopwatchTimer();
+      el.pauseResumeBtn?.setAttribute('disabled','true');
+      el.completeBtn?.setAttribute('disabled','true');
+      el.abandonBtn?.setAttribute('disabled','true');
+      activeSession = null;
+      showNewSessionForm();
+      const userEmail = await getUserEmail();
+      const backend = await resolveBackendUrl();
+      const { token } = await TokenStorage.getToken();
+      if (!token) { window.showError?.('Please sign in'); return; }
+      const resp = await fetch(`${backend}/api/problem-sessions/${sessionId}/abandon`, { method:'PATCH', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userEmail, reason: 'User abandoned session' }) });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        console.error('Abandon session failed:', err);
+        window.showToast?.(err.error || 'Failed to stop session', 'error');
+        // Revert if server failed
+        activeSession = prev;
+        if (activeSession) { showActiveSession(); startStopwatchTimer(); }
+        return;
+      }
+      await loadSessionHistory(); await loadDailyStats(); await loadProgressStats(); await loadActiveSession();
+      window.showToast?.('Session stopped');
+    } catch (e) { console.error('abandonSession', e); window.showError?.('Failed to stop session'); }
+    finally {
+      el.pauseResumeBtn?.removeAttribute('disabled');
+      el.completeBtn?.removeAttribute('disabled');
+      el.abandonBtn?.removeAttribute('disabled');
+    }
   }
 
   function showActiveSession() {
@@ -225,6 +375,9 @@ export const SolverTab = (() => {
     if (el.sessionTitle) el.sessionTitle.textContent = activeSession.title;
     if (el.sessionCategory) el.sessionCategory.textContent = activeSession.category;
     if (el.sessionSite) el.sessionSite.textContent = activeSession.site || 'Website';
+    if (el.sessionNotes) {
+      el.sessionNotes.value = activeSession.notes || '';
+    }
     updateStopwatchStatus();
   }
 
@@ -232,39 +385,42 @@ export const SolverTab = (() => {
     if (!el.activeCard || !el.newCard) return;
     el.activeCard.classList.add('hidden');
     el.newCard.classList.remove('hidden');
+    if (el.sessionNotes) el.sessionNotes.value = '';
+    // Reset timer display for next session
+    if (el.stopwatchTime) el.stopwatchTime.textContent = '00:00:00';
   }
 
   async function loadActiveSession() {
     try {
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+  const userEmail = await getUserEmail();
       if (!userEmail) { showNewSessionForm(); return; }
       const backend = await resolveBackendUrl();
-      const { token } = await TokenStorage.getToken();
+  const { token } = await TokenStorage.getToken();
+  if (!token) { showNewSessionForm(); return; }
       const resp = await fetch(`${backend}/api/problem-sessions/current/${encodeURIComponent(userEmail)}`, { headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } });
       if (!resp.ok) { showNewSessionForm(); return; }
-  const data = await resp.json();
-  if (data.activeSession) { activeSession = data.activeSession; showActiveSession(); startStopwatchTimer(); }
+      const data = await resp.json();
+      if (data.activeSession) { activeSession = data.activeSession; showActiveSession(); startStopwatchTimer(); }
       else { showNewSessionForm(); }
     } catch (e) { console.error('loadActiveSession', e); showNewSessionForm(); }
   }
 
   async function loadSessionHistory() {
     try {
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      const userEmail = await getUserEmail();
       if (!userEmail) return;
       const filter = el.historyFilter?.value || 'today';
       const backend = await resolveBackendUrl();
       const { token } = await TokenStorage.getToken();
-      const end = new Date();
-      const start = new Date(end);
-      if (filter === 'week') start.setDate(end.getDate() - 7);
-      else if (filter === 'month') start.setMonth(end.getMonth() - 1);
-      else start.setHours(0,0,0,0);
-  // show in-list loader
-  if (el.historyList) el.historyList.innerHTML = '<div class="loading-text">Loading sessions…</div>';
-  const tz = new Date().getTimezoneOffset();
-  const qs = new URLSearchParams({ date: start.toISOString().split('T')[0], endDate: end.toISOString().split('T')[0], timezone: String(tz), useUserTimezone: 'true' });
-  const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } });
+      
+      // Use timezone-aware date range
+      const periodMap = { 'today': 'today', 'week': 'week', 'month': 'month' };
+      const { startDate, endDate, timezone } = getDateRangeForPeriod(periodMap[filter] || 'today');
+      
+      // show in-list loader
+      if (el.historyList) el.historyList.innerHTML = '<div class="loading-text">Loading sessions…</div>';
+      const qs = new URLSearchParams({ date: startDate, endDate: endDate, timezone: String(timezone), useUserTimezone: 'true' });
+      const resp = await fetch(`${backend}/api/problem-sessions/history/${encodeURIComponent(userEmail)}?${qs}`, { headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' } });
       if (!resp.ok) return;
       const data = await resp.json();
       displayCompactHistory(data.sessions || []);
@@ -284,7 +440,7 @@ export const SolverTab = (() => {
       const duration = formatDuration(session.duration || 0);
       const timeAgo = getTimeAgo(new Date(session.startTime));
       return `
-        <div class="session-item ${cls}">
+        <div class="session-item ${cls}" data-session-id="${session._id || session.id}">
           <div class="session-info">
             <div class="session-name">
               <span class="session-status-icon">${icon}</span>
@@ -299,8 +455,60 @@ export const SolverTab = (() => {
             <div class="session-duration">${duration}</div>
             <div class="session-time">${timeAgo}</div>
           </div>
+          <button class="session-delete-btn" title="Delete session" onclick="window.SolverTab.deleteHistorySession('${session._id || session.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3,6 5,6 21,6"></polyline>
+              <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </button>
         </div>`;
     }).join('');
+  }
+
+  async function deleteHistorySession(sessionId) {
+    if (!sessionId) return;
+    
+    try {
+      const authed = await ensureAuthenticated();
+      if (!authed) return;
+      
+      const userEmail = await getUserEmail();
+      const backend = await resolveBackendUrl();
+      const { TokenStorage } = await import('../auth.js');
+      const { token } = await TokenStorage.getToken();
+      if (!token) { window.showError?.('Please sign in'); return; }
+
+      // Show confirmation
+      const confirmed = window.showConfirmModal ? 
+        await window.showConfirmModal('Delete Session', 'Are you sure you want to delete this session? This action cannot be undone.') :
+        confirm('Are you sure you want to delete this session? This action cannot be undone.');
+      
+      if (!confirmed) return;
+
+      const resp = await fetch(`${backend}/api/problem-sessions/${sessionId}`, { 
+        method: 'DELETE', 
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
+        }
+      });
+      
+      if (resp.ok) {
+        // Refresh the session list and stats
+        await loadSessionHistory();
+        await loadDailyStats();
+        await loadProgressStats();
+        window.showToast?.('Session deleted successfully');
+      } else {
+        const error = await resp.json().catch(() => ({}));
+        window.showError?.(error.error || 'Failed to delete session');
+      }
+    } catch (e) {
+      console.error('deleteHistorySession', e);
+      window.showError?.('Failed to delete session');
+    }
   }
 
   function getTimeAgo(date) {
@@ -311,14 +519,15 @@ export const SolverTab = (() => {
   // Stopwatch visuals
   function updateStopwatchStatus() {
     if (!activeSession || !el.pauseResumeBtn) return;
-    const icon = el.pauseResumeBtn.querySelector('.btn-icon');
     const text = el.pauseResumeBtn.querySelector('.btn-text');
     if (activeSession.status === 'paused') {
-      if (icon) icon.textContent = '▶';
+      el.pauseResumeBtn.classList.remove('pause');
+      el.pauseResumeBtn.classList.add('resume');
       if (text) text.textContent = 'Resume';
       el.pauseResumeBtn.title = 'Resume session';
     } else {
-      if (icon) icon.textContent = '⏸';
+      el.pauseResumeBtn.classList.remove('resume');
+      el.pauseResumeBtn.classList.add('pause');
       if (text) text.textContent = 'Pause';
       el.pauseResumeBtn.title = 'Pause session';
     }
@@ -344,9 +553,9 @@ export const SolverTab = (() => {
   }
 
   function startStopwatchTimer() {
-  if (stopwatchInterval) clearInterval(stopwatchInterval);
-  stopwatchInterval = setInterval(() => { if (activeSession) updateStopwatchDisplay(); }, 1000);
-  updateStopwatchDisplay();
+    if (stopwatchInterval) clearInterval(stopwatchInterval);
+    stopwatchInterval = setInterval(() => { if (activeSession) updateStopwatchDisplay(); }, 1000);
+    updateStopwatchDisplay();
   }
 
   function stopStopwatchTimer() { if (stopwatchInterval) { clearInterval(stopwatchInterval); stopwatchInterval = null; } }
@@ -355,9 +564,10 @@ export const SolverTab = (() => {
   async function saveSessionNotes() {
     if (!activeSession || !el.sessionNotes) return;
     try {
-      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+  const userEmail = await getUserEmail();
       const backend = await resolveBackendUrl();
-      const { token } = await TokenStorage.getToken();
+  const { token } = await TokenStorage.getToken();
+  if (!token) return;
       await fetch(`${backend}/api/problem-sessions/${activeSession.id}/update`, { method:'PATCH', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userEmail, notes: el.sessionNotes.value.trim() }) });
     } catch (e) { console.error('saveSessionNotes', e); }
   }
@@ -377,7 +587,7 @@ export const SolverTab = (() => {
       }
       const status = document.getElementById('detectionStatus')?.querySelector('.status-text');
       if (status) status.textContent = 'Detected';
-  window.detectedPageInfo = { title: title || tab.title || 'Problem Session', url: tab.url, site, favicon: tab.favIconUrl };
+      window.detectedPageInfo = { title: title || tab.title || 'Problem Session', url: tab.url, site, favicon: tab.favIconUrl };
     } catch (e) { console.error('detectCurrentPage', e); }
   }
 
@@ -403,7 +613,33 @@ export const SolverTab = (() => {
   // Small debounce helper
   function debounce(fn, wait) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); }; }
 
-  return { init, show };
+  // Auth helpers
+  async function ensureAuthenticated() {
+    try {
+      if (await Auth?.isAuthenticated?.()) return true;
+      return await Auth?.authenticateUser?.();
+    } catch { return false; }
+  }
+
+  async function getUserEmail() {
+    try {
+      const store = await chrome.storage.local.get(['userEmail']);
+      if (store?.userEmail) return store.userEmail;
+    } catch {}
+    try {
+      const { email } = await TokenStorage.getToken();
+      return email || null;
+    } catch { return null; }
+  }
+
+  function cleanup() {
+    if (dayChangeCallback) {
+      removeDayChangeListener(dayChangeCallback);
+      dayChangeCallback = null;
+    }
+  }
+
+  return { init, show, deleteHistorySession, cleanup };
 })();
 
 if (typeof window !== 'undefined') window.SolverTab = SolverTab;

@@ -333,4 +333,25 @@ router.patch('/:sessionId/update', async (req, res) => {
   }
 });
 
+// DELETE /:sessionId - Delete a session
+router.delete('/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    if (!mongoose.isValidObjectId(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
+
+    const session = await ProblemSession.findOne({ _id: sessionId, userEmail: req.user.email });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    // Don't allow deletion of currently active sessions
+    if (session.status === 'active' || session.status === 'paused') {
+      return res.status(400).json({ error: 'Cannot delete active or paused sessions. Please complete or abandon the session first.' });
+    }
+
+    await ProblemSession.deleteOne({ _id: sessionId });
+    res.json({ success: true, message: 'Session deleted successfully' });
+  } catch (error) {
+    handleError(res, error, 'Failed to delete session');
+  }
+});
+
 module.exports = router;

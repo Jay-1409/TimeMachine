@@ -2,12 +2,13 @@
 // Encapsulates Summary tab UI, date navigation, data fetch, and rendering
 
 import { resolveBackendUrl } from './api.js';
-import { formatDuration } from './utils.js';
+import { formatDuration, getLocalDateString, addDayChangeListener, removeDayChangeListener } from './utils.js';
 
 export const SummaryTab = (() => {
   let initialized = false;
   let loading = false;
   let queued = false;
+  let dayChangeCallback = null;
 
   // Local date helpers to avoid UTC parsing issues
   function toLocalDateString(d = new Date()) {
@@ -60,8 +61,9 @@ export const SummaryTab = (() => {
   async function init() {
     if (initialized) return;
     initialized = true;
-    // Default date to today
-  const today = toLocalDateString(new Date());
+    
+    // Default date to today using timezone-aware function
+    const today = getLocalDateString(new Date());
     if (el.dateInput) {
       el.dateInput.value = today;
       el.dateInput.addEventListener('change', handleDateChange);
@@ -72,6 +74,20 @@ export const SummaryTab = (() => {
     el.todayBtn?.addEventListener('click', navigateToToday);
     // Keyboard navigation (when summary tab active)
     document.addEventListener('keydown', handleKeyNav);
+    
+    // Add day change listener for auto-refresh
+    dayChangeCallback = () => {
+      console.log('Day changed - refreshing summary if viewing today');
+      const currentDate = getSelectedDate();
+      const todayStr = getLocalDateString(new Date());
+      if (currentDate === todayStr) {
+        // Only refresh if currently viewing today
+        loadSummaryData();
+      }
+      // Update navigation buttons for new day
+      updateNavigationButtons();
+    };
+    addDayChangeListener(dayChangeCallback);
   }
 
   async function show() {
@@ -83,7 +99,7 @@ export const SummaryTab = (() => {
   }
 
   function getSelectedDate() {
-  return (el.dateInput?.value || toLocalDateString(new Date()));
+  return (el.dateInput?.value || getLocalDateString(new Date()));
   }
 
   async function handleDateChange() {
@@ -93,23 +109,23 @@ export const SummaryTab = (() => {
 
   function navigateToPreviousDay() {
     if (!el.dateInput) return;
-  const d = parseLocalDate(el.dateInput.value);
-  d.setDate(d.getDate() - 1);
-  el.dateInput.value = toLocalDateString(d);
+    const d = parseLocalDate(el.dateInput.value);
+    d.setDate(d.getDate() - 1);
+    el.dateInput.value = getLocalDateString(d);
     handleDateChange();
   }
 
   function navigateToNextDay() {
     if (!el.dateInput) return;
-  const d = parseLocalDate(el.dateInput.value);
-  d.setDate(d.getDate() + 1);
-  el.dateInput.value = toLocalDateString(d);
+    const d = parseLocalDate(el.dateInput.value);
+    d.setDate(d.getDate() + 1);
+    el.dateInput.value = getLocalDateString(d);
     handleDateChange();
   }
 
   function navigateToToday() {
     if (!el.dateInput) return;
-  el.dateInput.value = toLocalDateString(new Date());
+    el.dateInput.value = getLocalDateString(new Date());
     handleDateChange();
   }
 
@@ -127,7 +143,8 @@ export const SummaryTab = (() => {
   function updateNavigationButtons() {
     const dateStr = getSelectedDate();
     const selected = parseLocalDate(dateStr);
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); 
+    today.setHours(0,0,0,0);
     if (el.nextBtn) el.nextBtn.disabled = selected.getTime() >= today.getTime();
     if (el.todayBtn) el.todayBtn.disabled = isSameDay(selected, today);
     if (el.title) {
@@ -420,7 +437,14 @@ export const SummaryTab = (() => {
       </div>`).join('');
   }
 
-  return { init, show, loadForDate };
+  function cleanup() {
+    if (dayChangeCallback) {
+      removeDayChangeListener(dayChangeCallback);
+      dayChangeCallback = null;
+    }
+  }
+
+  return { init, show, loadForDate, cleanup };
 })();
 
 if (typeof window !== 'undefined') window.SummaryTab = SummaryTab;
