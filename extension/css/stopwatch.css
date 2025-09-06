@@ -602,7 +602,7 @@
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  opacity: 0;
+  opacity: 1; /* Always visible now */
   transition: all 0.2s ease;
 }
 
@@ -640,11 +640,11 @@
   }
   
   .timer-time {
-    font-size: 28px;
-  }
-  
-  .timer-controls {
-    gap: 4px;
+    font-size: 28px; /* Reduced from 32px */
+    font-weight: 600; /* Slightly lighter for balance */
+    color: var(--text);
+    font-family: 'Segoe UI', monospace;
+    letter-spacing: 0.5px;
   }
   
   .control-btn {

@@ -1,25 +1,16 @@
-// Shared API utilities for the extension (ES Module)
-// Centralizes backend URL resolution and authenticated fetch calls.
-
-// Resolve the backend URL with caching and sensible fallbacks.
 export async function resolveBackendUrl() {
-  // Prefer TMConfig overrides if present
   try {
     if (typeof window !== 'undefined' && window.TMConfig) {
       await window.TMConfig.loadOverrides();
       const url = window.TMConfig.current.backendBaseUrl;
       if (url && /^https?:\/\//.test(url)) return url.replace(/\/$/, '');
     }
-  } catch (e) {
-    console.warn('resolveBackendUrl(TMConfig) failed, falling back:', e);
-  }
+  } catch (e) {}
 
-  // Try persisted override in storage
   try {
-    const { tmBackendUrl } = await chrome.storage?.local.get(['tmBackendUrl']) ?? {};
+    const { tmBackendUrl } = (await chrome.storage?.local.get(['tmBackendUrl'])) ?? {};
     if (tmBackendUrl && /^https?:\/\//.test(tmBackendUrl)) {
       const url = tmBackendUrl.replace(/\/$/, '');
-      // quick health check (best-effort)
       try {
         const controller = new AbortController();
         const t = setTimeout(() => controller.abort(), 1200);
@@ -28,11 +19,8 @@ export async function resolveBackendUrl() {
         if (res.ok) return url;
       } catch (_) {}
     }
-  } catch (e) {
-    console.warn('resolveBackendUrl(storage) failed:', e);
-  }
+  } catch (e) {}
 
-  // Prefer production (Render)
   const renderBase = 'https://timemachine-1.onrender.com';
   try {
     const controller = new AbortController();
@@ -45,7 +33,6 @@ export async function resolveBackendUrl() {
     }
   } catch (_) {}
 
-  // Fall back to local dev
   const probes = ['http://127.0.0.1:3000', 'http://localhost:3000'];
   for (const base of probes) {
     try {
@@ -60,18 +47,15 @@ export async function resolveBackendUrl() {
     } catch (_) {}
   }
 
-  // Default to production
   return renderBase;
 }
 
-// Authenticated JSON call helper. Automatically attaches Authorization if present.
 export async function apiCall(endpoint, options = {}) {
   const base = await resolveBackendUrl();
   const url = `${base}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
   let token;
   try {
-    // Prefer TokenStorage from auth.js if available
     if (typeof TokenStorage !== 'undefined' && TokenStorage?.getToken) {
       token = (await TokenStorage.getToken())?.token;
     } else {
@@ -84,15 +68,14 @@ export async function apiCall(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
   const resp = await fetch(url, { ...options, headers });
   let data = null;
-  try { data = await resp.json(); } catch (_) { /* non-JSON */ }
+  try { data = await resp.json(); } catch (_) {}
 
   if (resp.status === 401) {
-    // Attempt to handle token expiry uniformly
     try { await window?.Auth?.logout?.(); } catch (_) {}
     throw new Error((data && (data.message || data.error)) || 'Unauthorized');
   }

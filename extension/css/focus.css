@@ -2,14 +2,14 @@
 .focus-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px; /* Increased from 16px for better section spacing */
 }
 
 .stopwatch-container {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 16px 16px 18px;
+  padding: 18px 16px 20px; /* Increased top padding from 16px to 18px */
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -29,7 +29,7 @@
   font-weight: 700;
 }
 
-.stopwatch-display { display: grid; place-items: center; padding-block: 6px 10px; }
+.stopwatch-display { display: grid; place-items: center; padding-block: 8px 12px; } /* Increased padding for better spacing */
 
 .timer-circle {
   --progress: 0%; /* updated from JS */
@@ -37,12 +37,13 @@
   display: grid;
   gap: 0;
   place-items: center;
-  inline-size: clamp(160px, 60%, 200px);
+  /* Reduced overall size */
+  inline-size: clamp(130px, 55%, 170px);
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--bg-2) 80%, transparent), var(--bg));
   border: 1px solid var(--border);
-  box-shadow: inset 0 2px 18px rgba(0,0,0,0.05), 0 6px 24px rgba(0,0,0,0.06);
+  box-shadow: inset 0 2px 14px rgba(0,0,0,0.05), 0 4px 18px rgba(0,0,0,0.05);
 }
 
 /* Base ring (track) + subtle ticks */
@@ -80,12 +81,12 @@
 }
 
 .digital-time {
-  font-size: 36px;
-  font-weight: 800;
+  font-size: 30px; /* Reduced from 36px */
+  font-weight: 700; /* Slightly lighter for compact look */
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.035em;
   color: var(--text);
-  text-shadow: 0 1px 0 rgba(0,0,0,0.15);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.12);
 }
 
 /* Hide the secondary label to keep the time centered-only */
@@ -98,11 +99,11 @@
 
 .quick-presets {
   display: flex;
-  gap: 10px;
+  gap: 12px; /* Increased from 10px */
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  margin-block-start: 6px;
+  margin-block-start: 8px; /* Increased from 6px */
 }
 
 .quick-presets > * { min-inline-size: 0; }
@@ -124,8 +125,8 @@
 
 .control-panel {
   display: flex;
-  gap: 10px;
-  margin-block: 8px 10px;
+  gap: 12px; /* Increased from 10px */
+  margin-block: 10px 12px; /* Increased margins for better spacing */
 }
 
 .control-button {
@@ -133,8 +134,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px;
+  gap: 8px; /* Increased from 6px */
+  padding: 12px; /* Increased from 10px */
   border: none;
   border-radius: 10px;
   cursor: pointer;
@@ -189,13 +190,13 @@
   transition: inline-size .25s ease;
 }
 
-.progress-track { display: grid; gap: 6px; margin-block-start: 8px; }
+.progress-track { display: grid; gap: 8px; margin-block-start: 10px; } /* Increased gap and margin */
 .progress-info { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; }
 
 .stats-horizontal {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 12px; /* Increased from 10px */
   inline-size: 100%;
 
   @container (min-inline-size: 360px) {
@@ -216,7 +217,7 @@
 /* Recent Sessions list */
 .sessions-list {
   display: grid;
-  gap: 12px;
+  gap: 14px; /* Increased from 12px for better session spacing */
 }
 
 .session-item {
@@ -224,7 +225,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 12px 14px; /* Increased from 10px 12px */
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--card);
@@ -256,8 +257,8 @@
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 
-.session-left { display: flex; flex-direction: column; gap: 4px; }
-.session-top { display: flex; align-items: center; gap: 8px; }
+.session-left { display: flex; flex-direction: column; gap: 6px; } /* Increased from 4px */
+.session-top { display: flex; align-items: center; gap: 10px; } /* Increased from 8px */
 .session-duration { font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 
 .status-badge {
@@ -276,11 +277,11 @@
 body.theme-dark .status-completed { color: #d1fae5; background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); }
 body.theme-dark .status-interrupted { color: #fde68a; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
 
-.session-meta { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.session-meta { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 8px; } /* Increased from 6px */
 .session-ago { white-space: nowrap; }
 .session-sep { opacity: .6; }
 
-.session-actions { display: flex; align-items: center; gap: 8px; }
+.session-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; } /* Increased from 8px */
 .chip-btn {
   padding: 4px 10px;
   font-size: 12px;

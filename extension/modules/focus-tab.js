@@ -1,4 +1,4 @@
-import { formatDuration } from './utils.js';
+import { formatDuration, addDayChangeListener, removeDayChangeListener } from './utils.js';
 
 export const FocusTab = (() => {
   let initialized = false;
@@ -15,12 +15,16 @@ export const FocusTab = (() => {
     get pomodoroStatus() { return document.getElementById('pomodoroStatus'); },
     get timerLabel() { return document.getElementById('timerLabel'); },
     get focusSessionsList() { return document.getElementById('focusSessionsList'); },
-    get dailyFocusTime() { return document.getElementById('dailyFocusTime'); },
+    get dailyFocusTime() { return document.getElementById('totalFocusTime'); }, // Fixed: dailyFocusTime doesn't exist, use totalFocusTime
     get timeRemaining() { return document.getElementById('timeRemaining'); },
     get progressPercent() { return document.getElementById('progressPercent'); },
     get progressFill() { return document.querySelector('.progress-indicator'); },
     get timerCircle() { return document.querySelector('.timer-circle'); },
     get presetButtons() { return document.querySelectorAll('.preset-btn'); },
+    get focusStreak() { return document.getElementById('focusStreak'); },
+    get completedSessions() { return document.getElementById('completedSessions'); },
+    get totalFocusTime() { return document.getElementById('totalFocusTime'); },
+    get focusProductivityScore() { return document.getElementById('focusProductivityScore'); },
   };
 
   async function init() {
@@ -55,9 +59,32 @@ export const FocusTab = (() => {
     el.focusTab?.classList.add('active');
     await init();
     await window.FocusSessionsManager?.forceSync?.().catch(() => {});
+    
+    // Force refresh of session data when tab becomes active
+    console.log('Focus tab activated - refreshing data');
     await loadSessions();
     await updateStats();
+    
     if (!refreshInterval) refreshInterval = setInterval(refreshActive, 1000);
+    
+    // Add day change listener for auto-refresh
+    addDayChangeListener(handleDayChange);
+  }
+
+  function hide() {
+    el.focusTab?.classList.remove('active');
+    removeDayChangeListener(handleDayChange);
+  }
+
+  async function handleDayChange() {
+    console.log('Day changed - refreshing focus tab data');
+    try {
+      await loadSessions();
+      await updateStats();
+      window.showToast?.('New day started! 🌅', false);
+    } catch (e) {
+      console.error('Error handling day change in focus tab:', e);
+    }
   }
 
   function updateTimerDisplay(minutes) {
@@ -187,37 +214,84 @@ export const FocusTab = (() => {
   async function completeFocusSession() {
     if (focusTimer) { clearInterval(focusTimer); focusTimer = null; }
     uiOwnedByTimer = false;
-    const { timerLabel, progressFill, timerCircle } = el;
+    
+    // Clear the current session immediately to prevent auto-continue
+    const sessionToSave = { ...currentSession };
+    currentSession = null;
+    await chrome.storage.local.remove('focusSession');
+    
+    const { timerLabel, progressFill, timerCircle, timeRemaining, progressPercent } = el;
     updateSessionUI('idle');
+    
+    // Show completion state
     if (timerLabel) timerLabel.textContent = 'Session Complete! 🎉';
     if (progressFill) progressFill.style.width = '100%';
     if (timerCircle) timerCircle.style.setProperty('--progress', '100%');
-    if (currentSession) await addSessionToHistory(currentSession, 'completed');
-    currentSession = null;
-    await chrome.storage.local.remove('focusSession');
+    if (timeRemaining) timeRemaining.textContent = 'Session completed!';
+    if (progressPercent) progressPercent.textContent = '100%';
+    
+    // Save the session and update stats
+    if (sessionToSave) {
+      await addSessionToHistory(sessionToSave, 'completed');
+      
+      // Force immediate refresh of UI
+      console.log('Session completed - forcing immediate refresh');
+      setTimeout(async () => {
+        await loadSessions();
+        await updateStats();
+      }, 100);
+    }
+    
+    // Send completion message to background
     chrome.runtime.sendMessage({ action: 'completeFocusSession' });
-    window.showToast?.('Focus session completed! Great work! 🎉');
+    
+    // Show completion notification and toast
+    window.showToast?.('Focus session completed! Great work! 🎉', false);
+    
     try {
       if (chrome?.notifications?.create) {
         chrome.notifications.create({
           type: 'basic',
           iconUrl: chrome.runtime.getURL('icon48.png'),
-          title: 'Focus Complete',
-          message: 'Great job! Your focus session finished.'
+          title: 'Focus Session Complete! 🎉',
+          message: `Great job! You completed a ${sessionToSave?.duration || 25}-minute focus session.`
         });
       }
     } catch (_) {}
+    
+    // Reset timer display after showing completion for 3 seconds
     setTimeout(() => {
       if (timerLabel) timerLabel.textContent = 'Ready to Focus';
       if (progressFill) progressFill.style.width = '0%';
+      if (timerCircle) timerCircle.style.setProperty('--progress', '0%');
       const activeBtn = document.querySelector('.preset-btn.active');
-      updateTimerDisplay(activeBtn ? parseInt(activeBtn.dataset.time, 10) : 25);
+      const minutes = activeBtn ? parseInt(activeBtn.dataset.time, 10) : 25;
+      updateTimerDisplay(minutes);
+      if (timeRemaining) timeRemaining.textContent = `${minutes.toString().padStart(2, '0')}:00 remaining`;
+      if (progressPercent) progressPercent.textContent = '0%';
     }, 3000);
   }
 
   async function addSessionToHistory(sessionData, status) {
     try {
-      const payload = { duration: sessionData.duration * 60000, startTime: sessionData.startTime, endTime: Date.now(), status };
+      const now = Date.now();
+      const payload = { 
+        duration: sessionData.duration * 60000, 
+        startTime: sessionData.startTime, 
+        endTime: now, 
+        status 
+      };
+      
+      console.log('Saving focus session:', {
+        duration: payload.duration,
+        startTime: new Date(payload.startTime).toLocaleString(),
+        endTime: new Date(payload.endTime).toLocaleString(),
+        status: payload.status,
+        startTimeDate: new Date(payload.startTime).toDateString(),
+        endTimeDate: new Date(payload.endTime).toDateString(),
+        todayDate: new Date().toDateString()
+      });
+      
       if (window.FocusSessionsManager) {
         await window.FocusSessionsManager.saveSession(payload);
       } else {
@@ -237,21 +311,44 @@ export const FocusTab = (() => {
 
   async function loadSessions() {
     try {
-      let sessions = await window.FocusSessionsManager?.getRecentSessions?.({ todayOnly: true, limit: 5 }) || [];
+      // Get today's date string for timezone-aware filtering
+      const today = new Date().toDateString();
+      console.log('Loading sessions for today:', today);
+      
+      // Try to get today's sessions from FocusSessionsManager first
+      let sessions = await window.FocusSessionsManager?.getRecentSessions?.({ todayOnly: true, limit: 10 }) || [];
+      
       if (!sessions.length) {
+        // Fallback to local storage with timezone-aware filtering
         const { focusHistory = [] } = await chrome.storage.local.get(['focusHistory']);
-        sessions = focusHistory;
+        sessions = focusHistory.filter(session => {
+          const sessionDate = new Date(session.startTime).toDateString();
+          return sessionDate === today;
+        });
+        console.log('Using local storage sessions:', sessions.length);
+      } else {
+        console.log('Using FocusSessionsManager sessions:', sessions.length);
       }
+      
       displayFocusSessions(sessions);
     } catch (e) {
       console.error('Error loading focus sessions:', e);
+      displayFocusSessions([]); // Show empty state on error
     }
   }
 
   function displayFocusSessions(sessions) {
     if (!el.focusSessionsList) return;
+    
+    // Use timezone-aware filtering for today's sessions
     const today = new Date().toDateString();
-    const todaySessions = sessions.filter(s => new Date(s.startTime).toDateString() === today).slice(0, 5);
+    const todaySessions = sessions.filter(session => {
+      const sessionDate = new Date(session.startTime).toDateString();
+      return sessionDate === today;
+    }).slice(0, 5);
+    
+    console.log('Displaying sessions for today:', today, 'Count:', todaySessions.length);
+    
     el.focusSessionsList.innerHTML = todaySessions.length ? todaySessions.map((session, index) => {
       const ms = Number(session.duration) < 1000 ? Number(session.duration) * 60000 : Number(session.duration);
       const start = new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -338,60 +435,163 @@ export const FocusTab = (() => {
 
   async function updateStats() {
     const { dailyFocusTime, focusStreak, completedSessions, totalFocusTime, focusProductivityScore } = el;
+    
+    console.log('=== FOCUS TAB DEBUG ===');
+    console.log('Element checks:', {
+      dailyFocusTime: !!dailyFocusTime,
+      totalFocusTime: !!totalFocusTime,
+      completedSessions: !!completedSessions,
+      focusStreak: !!focusStreak,
+      focusProductivityScore: !!focusProductivityScore
+    });
+    
     try {
-      // Prefer backend daily stats; fallback to computing from today's sessions (remote if authed), then local
-      let stats = await window.FocusSessionsManager?.getDailyStats?.(new Date());
+      // Get timezone-aware today's date range
+      const today = new Date();
+      const todayString = today.toDateString();
+      console.log('Today string:', todayString);
+      
+      // Force check local storage directly first
+      const { focusHistory = [] } = await chrome.storage.local.get(['focusHistory']);
+      console.log('Raw focus history:', focusHistory.length, 'sessions');
+      console.log('Focus history sample:', focusHistory.slice(0, 3).map(s => ({
+        startTime: new Date(s.startTime).toLocaleString(),
+        dateString: new Date(s.startTime).toDateString(),
+        duration: s.duration,
+        status: s.status
+      })));
+      
+      // Filter sessions for today manually
+      const todaySessionsLocal = focusHistory.filter(session => {
+        const sessionDate = new Date(session.startTime).toDateString();
+        const isToday = sessionDate === todayString;
+        console.log('Session check:', {
+          sessionDate,
+          todayString,
+          isToday,
+          startTime: new Date(session.startTime).toLocaleString()
+        });
+        return isToday;
+      });
+      
+      console.log('Today sessions (local):', todaySessionsLocal.length);
+      console.log('Today sessions details:', todaySessionsLocal.map(s => ({
+        startTime: new Date(s.startTime).toLocaleString(),
+        duration: s.duration,
+        status: s.status
+      })));
+      
+      // Try backend daily stats first (if authenticated)
+      let stats = await window.FocusSessionsManager?.getDailyStats?.(today);
       let totalMinutes = 0;
       let completedCount = 0;
       let productivity = 0;
-      let todayCompletedCount = 0;
-      if (stats && typeof stats === 'object') {
+      
+      if (stats && typeof stats === 'object' && (stats.totalMinutes > 0 || stats.sessionCount > 0)) {
+        // Use backend stats if they have actual data
         totalMinutes = Number(stats.totalMinutes) || 0;
         completedCount = Number(stats.sessionCount) || 0;
         productivity = Number(stats.productivity) || 0;
-        todayCompletedCount = completedCount;
+        console.log('Using backend stats:', { totalMinutes, completedCount, productivity });
       } else {
-        // Try fetching a larger slice of today's sessions from backend manager
-        let todaySessions = await window.FocusSessionsManager?.getRecentSessions?.({ todayOnly: true, limit: 50 });
-        if (!Array.isArray(todaySessions) || todaySessions.length === 0) {
-          const { focusHistory = [] } = await chrome.storage.local.get(['focusHistory']);
-          const today = new Date().toDateString();
-          todaySessions = focusHistory.filter(s => new Date(s.startTime).toDateString() === today);
-        }
-        const onlyCompleted = todaySessions.filter(s => (s.status || 'completed') === 'completed');
-        totalMinutes = onlyCompleted.reduce((t, s) => t + Math.max(1, Math.round((Number(s.duration) >= 1000 ? Number(s.duration) : Number(s.duration) * 60000) / 60000)), 0);
+        // Use local calculation
+        console.log('Using local stats calculation');
+        
+        const onlyCompleted = todaySessionsLocal.filter(s => (s.status || 'completed') === 'completed');
+        console.log('Completed sessions today:', onlyCompleted.length);
+        
+        totalMinutes = onlyCompleted.reduce((total, session) => {
+          const durationMs = Number(session.duration) >= 1000 ? Number(session.duration) : Number(session.duration) * 60000;
+          const minutes = Math.max(1, Math.round(durationMs / 60000));
+          console.log('Session duration calc:', { 
+            rawDuration: session.duration, 
+            durationMs, 
+            minutes 
+          });
+          return total + minutes;
+        }, 0);
         completedCount = onlyCompleted.length;
-        todayCompletedCount = completedCount;
+        
+        // Calculate basic productivity score
+        const dailyGoal = 4;
+        productivity = Math.min(100, (completedCount / dailyGoal) * 100);
+        
+        console.log('Final local stats:', { totalMinutes, completedCount, productivity });
       }
-      // If backend returned zeros but we do have local/remote sessions for today, compute fallback
-      if (totalMinutes === 0 && completedCount === 0) {
-        let todaySessions = await window.FocusSessionsManager?.getRecentSessions?.({ todayOnly: true, limit: 50 });
-        if (!Array.isArray(todaySessions) || todaySessions.length === 0) {
-          const { focusHistory = [] } = await chrome.storage.local.get(['focusHistory']);
-          const today = new Date().toDateString();
-          todaySessions = focusHistory.filter(s => new Date(s.startTime).toDateString() === today);
-        }
-        const onlyCompleted = todaySessions.filter(s => (s.status || 'completed') === 'completed');
-        totalMinutes = onlyCompleted.reduce((t, s) => t + Math.max(1, Math.round((Number(s.duration) >= 1000 ? Number(s.duration) : Number(s.duration) * 60000) / 60000)), 0);
-        completedCount = onlyCompleted.length;
-        todayCompletedCount = completedCount;
+      
+      // Update UI elements - use both dailyFocusTime and totalFocusTime (they point to same element)
+      const formattedDuration = formatDuration(totalMinutes * 60000);
+      console.log('Setting UI values:', {
+        formattedDuration,
+        completedCount,
+        productivity: Math.round(productivity)
+      });
+      
+      if (dailyFocusTime) {
+        dailyFocusTime.textContent = formattedDuration;
+        console.log('Set dailyFocusTime to:', formattedDuration);
       }
-      if (dailyFocusTime) dailyFocusTime.textContent = formatDuration(totalMinutes * 60000);
+      if (totalFocusTime) {
+        totalFocusTime.textContent = formattedDuration;
+        console.log('Set totalFocusTime to:', formattedDuration);
+      }
+      if (completedSessions) {
+        completedSessions.textContent = String(completedCount);
+        console.log('Set completedSessions to:', completedCount);
+      }
+      if (focusProductivityScore) {
+        const scoreText = `${Math.round(Math.min(100, Math.max(0, productivity)))}%`;
+        focusProductivityScore.textContent = scoreText;
+        console.log('Set focusProductivityScore to:', scoreText);
+      }
+      
+      // Calculate streak
       if (focusStreak) {
-        const { focusHistory = [] } = await chrome.storage.local.get(['focusHistory']);
-        const uniqueDays = new Set(focusHistory.filter(s => (s.status || 'completed') === 'completed').map(s => new Date(s.startTime).toDateString()));
-        const hasToday = todayCompletedCount > 0 || uniqueDays.has(new Date().toDateString());
-        focusStreak.textContent = String(hasToday ? 1 + [...uniqueDays].reduce((streak, d) => {
-          const current = new Date();
-          current.setDate(current.getDate() - streak - 1);
-          return d === current.toDateString() ? streak + 1 : streak;
-        }, 0) : 0);
+        try {
+          const completedSessionsAll = focusHistory.filter(s => (s.status || 'completed') === 'completed');
+          
+          // Group sessions by date
+          const sessionsByDate = new Map();
+          completedSessionsAll.forEach(session => {
+            const dateStr = new Date(session.startTime).toDateString();
+            if (!sessionsByDate.has(dateStr)) {
+              sessionsByDate.set(dateStr, 0);
+            }
+            sessionsByDate.set(dateStr, sessionsByDate.get(dateStr) + 1);
+          });
+          
+          // Calculate streak from today backwards
+          let streak = 0;
+          const currentDate = new Date();
+          
+          while (true) {
+            const dateStr = currentDate.toDateString();
+            if (sessionsByDate.has(dateStr) && sessionsByDate.get(dateStr) > 0) {
+              streak++;
+              currentDate.setDate(currentDate.getDate() - 1);
+            } else {
+              break;
+            }
+          }
+          
+          focusStreak.textContent = String(streak);
+          console.log('Set focusStreak to:', streak);
+        } catch (e) {
+          console.error('Error calculating streak:', e);
+          focusStreak.textContent = completedCount > 0 ? '1' : '0';
+        }
       }
-      if (completedSessions) completedSessions.textContent = String(completedCount);
-      if (totalFocusTime) totalFocusTime.textContent = formatDuration(totalMinutes * 60000);
-      if (focusProductivityScore) focusProductivityScore.textContent = `${Math.round(Math.min(100, Math.max(0, productivity)))}%`;
+      
+      console.log('=== END FOCUS TAB DEBUG ===');
+      
     } catch (e) {
       console.error('Error updating focus stats:', e);
+      // Fallback to showing zeros
+      if (dailyFocusTime) dailyFocusTime.textContent = '0m';
+      if (totalFocusTime) totalFocusTime.textContent = '0m';
+      if (focusStreak) focusStreak.textContent = '0';
+      if (completedSessions) completedSessions.textContent = '0';
+      if (focusProductivityScore) focusProductivityScore.textContent = '0%';
     }
   }
 
@@ -423,19 +623,12 @@ export const FocusTab = (() => {
       if (el.timerCircle) el.timerCircle.style.setProperty('--progress', `${pct}%`);
       if (el.timeRemaining) el.timeRemaining.textContent = `${mm}:${ss} remaining`;
       if (el.progressPercent) el.progressPercent.textContent = `${Math.round(pct)}%`;
-      if (remaining <= 0) {
-        await addSessionToHistory({ duration: focusSession.duration, startTime: focusSession.startTime }, 'completed');
-        await updateStats();
-        await chrome.storage.local.remove('focusSession');
-        updateSessionUI('idle');
-        if (chrome?.notifications?.create) {
-          chrome.notifications.create({
-            type: 'basic',
-            iconUrl: chrome.runtime.getURL('icon48.png'),
-            title: 'Focus Complete',
-            message: 'Great job! Your focus session finished.'
-          });
-        }
+      
+      // Only complete if actively running (not paused) and time is up
+      if (remaining <= 0 && focusSession.isActive && !focusSession.isPaused) {
+        // Set current session for completion
+        currentSession = { ...focusSession };
+        await completeFocusSession();
       }
     } catch (e) {
       console.error('Error refreshing focus session:', e);
@@ -503,7 +696,7 @@ export const FocusTab = (() => {
     });
   }
 
-  return { init, show, loadSessions, updateStats, refreshActive };
+  return { init, show, hide, loadSessions, updateStats, refreshActive };
 })();
 
 if (typeof window !== 'undefined') window.FocusTab = FocusTab;

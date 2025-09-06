@@ -1,14 +1,9 @@
-// Site Tracking Module
-// Handles tracking, categorization and syncing of browsing data
-
 const SiteTracker = (function() {
-  // Internal state
   let _isAuthenticated = false;
   let _siteCategories = {};
   let _lastSync = 0;
-  const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  const SYNC_INTERVAL = 5 * 60 * 1000;
 
-  // Initialize module
   async function init() {
     try {
       _isAuthenticated = await Auth.isAuthenticated();
@@ -22,46 +17,43 @@ const SiteTracker = (function() {
     }
   }
 
-  // Merge overlapping/contiguous session intervals and sum their durations
   function sumMergedSessions(sessions) {
     try {
       const items = (Array.isArray(sessions) ? sessions : [])
         .filter(s => s && Number.isFinite(s.startTime) && Number.isFinite(s.endTime) && s.endTime > s.startTime)
         .map(s => ({ start: Number(s.startTime), end: Number(s.endTime) }))
         .sort((a, b) => a.start - b.start);
+
       if (!items.length) return 0;
+
       let total = 0;
       let curStart = items[0].start;
       let curEnd = items[0].end;
+
       for (let i = 1; i < items.length; i++) {
         const it = items[i];
         if (it.start <= curEnd) {
           if (it.end > curEnd) curEnd = it.end;
         } else {
-          total += (curEnd - curStart);
+          total += curEnd - curStart;
           curStart = it.start;
           curEnd = it.end;
         }
       }
-      total += (curEnd - curStart);
+      total += curEnd - curStart;
       return Math.max(0, total);
     } catch (_) {
       return 0;
     }
   }
 
-  // Track site visit
   async function trackSiteVisit(domain, startTime, endTime, url, title) {
     try {
-      // Save locally first
       const { timeData = {} } = await chrome.storage.local.get(['timeData']);
       const tz = new Date().getTimezoneOffset();
       const today = new Date(Date.now() - tz * 60000).toISOString().split('T')[0];
-      
-      if (!timeData[today]) {
-        timeData[today] = {};
-      }
-      
+
+      if (!timeData[today]) timeData[today] = {};
       if (!timeData[today][domain]) {
         timeData[today][domain] = {
           domain,
@@ -71,25 +63,22 @@ const SiteTracker = (function() {
         };
       }
 
-      // Add new session
-  let sStart = Number(startTime || Date.now());
-  let sEnd = Number(endTime || Date.now());
-  if (!Number.isFinite(sStart) || !Number.isFinite(sEnd)) return;
-  if (sEnd <= sStart) return;
-  const MAX = 12 * 60 * 60 * 1000;
-  if ((sEnd - sStart) > MAX) sEnd = sStart + MAX;
-  const session = { startTime: sStart, endTime: sEnd, url, title };
+      let sStart = Number(startTime || Date.now());
+      let sEnd = Number(endTime || Date.now());
+      if (!Number.isFinite(sStart) || !Number.isFinite(sEnd)) return;
+      if (sEnd <= sStart) return;
 
-  // De-dup exact duplicates
-  const existing = timeData[today][domain].sessions;
-  const dup = existing.find(s => s.startTime === session.startTime && s.endTime === session.endTime);
-  if (!dup) existing.push(session);
-  // Recompute total from merged intervals to avoid inflation
-  timeData[today][domain].totalTime = sumMergedSessions(existing);
+      const MAX = 12 * 60 * 60 * 1000;
+      if (sEnd - sStart > MAX) sEnd = sStart + MAX;
 
+      const session = { startTime: sStart, endTime: sEnd, url, title };
+      const existing = timeData[today][domain].sessions;
+      const dup = existing.find(s => s.startTime === session.startTime && s.endTime === session.endTime);
+      if (!dup) existing.push(session);
+
+      timeData[today][domain].totalTime = sumMergedSessions(existing);
       await chrome.storage.local.set({ timeData });
 
-      // Try to sync if authenticated and it's time
       if (_isAuthenticated && Date.now() - _lastSync > SYNC_INTERVAL) {
         await syncWithBackend();
       }
@@ -101,104 +90,85 @@ const SiteTracker = (function() {
     }
   }
 
-  // Update site category
   async function updateSiteCategory(domain, category) {
     try {
-      // Update local cache
       _siteCategories[domain] = category;
       await chrome.storage.local.set({ siteCategories: _siteCategories });
-      
+
       if (_isAuthenticated) {
         try {
           const { token, email } = await TokenStorage.getToken();
-          if (!token || !email) return;
+          if (!token || !email) return { status: 'success', message: 'Updated locally (offline)' };
+
           const tz = new Date().getTimezoneOffset();
           const today = new Date(Date.now() - tz * 60000).toISOString().split('T')[0];
-          // Delegate to background to persist + PATCH backend
-          await chrome.runtime.sendMessage({
+          const response = await chrome.runtime.sendMessage({
             action: 'updateCategory',
             domain,
             category,
             userEmail: email,
             date: today
           });
+          return response || { status: 'success' };
         } catch (e) {
           console.warn('Failed to sync category update (queued locally):', e);
+          return { status: 'success', message: 'Updated locally (sync failed)' };
         }
       }
+      return { status: 'success', message: 'Updated locally' };
     } catch (error) {
       console.error('Error updating site category:', error);
-      throw error;
+      return { status: 'error', error: error.message };
     }
   }
 
-  // Sync with backend
   async function syncWithBackend() {
     try {
-  const { token, email } = await TokenStorage.getToken();
-  if (!token || !email) return;
-  // Let background handle granular sync to match server contract
-  try { await chrome.runtime.sendMessage({ action: 'triggerImmediateSync' }); } catch(_) {}
-  _lastSync = Date.now();
+      const { token, email } = await TokenStorage.getToken();
+      if (!token || !email) return;
+      try { await chrome.runtime.sendMessage({ action: 'triggerImmediateSync' }); } catch (_) {}
+      _lastSync = Date.now();
     } catch (error) {
       console.error('Site sync error:', error);
       throw error;
     }
   }
 
-  // Auth state changed handler
   async function handleAuthChanged(isAuthed) {
     _isAuthenticated = isAuthed;
-    if (isAuthed) {
-      await syncWithBackend();
-    }
+    if (isAuthed) await syncWithBackend();
   }
 
-  // Force sync
   async function forceSync() {
-    if (_isAuthenticated) {
-      await syncWithBackend();
-    }
+    if (_isAuthenticated) await syncWithBackend();
   }
 
-  // Get site categories
   function getSiteCategories() {
     return { ..._siteCategories };
   }
 
-  // Get site stats for date range
   async function getStats(startDate, endDate) {
     try {
       const { timeData = {} } = await chrome.storage.local.get(['timeData']);
-      
-      // If authenticated, try to get from backend first
+
       if (_isAuthenticated) {
         try {
           const { token, email } = await TokenStorage.getToken();
           if (token && email) {
             const backend = await TMConfig.getUrl(TMConfig.current.reportEndpoint);
             const url = `${backend}/${encodeURIComponent(email)}?date=${startDate}&endDate=${endDate}&timezone=${new Date().getTimezoneOffset()}`;
-            const response = await fetch(url, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-              return await response.json();
-            }
+            const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            if (response.ok) return await response.json();
           }
         } catch (e) {
           console.warn('Failed to fetch stats from backend:', e);
         }
       }
 
-      // Fall back to local data
       const stats = [];
-      const dates = Object.keys(timeData).filter(date => 
-        date >= startDate && date <= endDate
-      );
-
+      const dates = Object.keys(timeData).filter(date => date >= startDate && date <= endDate);
       dates.forEach(date => {
-        const domains = Object.values(timeData[date]);
-        domains.forEach(domain => {
+        Object.values(timeData[date]).forEach(domain => {
           stats.push({
             date,
             domain: domain.domain,
@@ -208,7 +178,6 @@ const SiteTracker = (function() {
           });
         });
       });
-
       return stats;
     } catch (error) {
       console.error('Error getting stats:', error);
@@ -216,7 +185,6 @@ const SiteTracker = (function() {
     }
   }
 
-  // Public API
   return {
     init,
     trackSiteVisit,
@@ -228,5 +196,4 @@ const SiteTracker = (function() {
   };
 })();
 
-// Export globally
 window.SiteTracker = SiteTracker;

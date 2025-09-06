@@ -104,14 +104,53 @@ export const AnalyticsTab = (() => {
     const categorySelect = document.querySelector(`.category-select[data-domain="${domain}"]`);
     try {
       if (categorySelect) categorySelect.disabled = true;
-      const tracker = window.SiteTracker || (window.SiteTracker = {}); // Fallback to empty object
-      if (typeof tracker.updateSiteCategory !== 'function') throw new Error('SiteTracker not available');
-      const response = await tracker.updateSiteCategory(domain, category);
-      if (response?.status !== 'success') throw new Error(response?.error || 'Failed to update category');
-      const stored = await chrome.storage.local.get(['siteCategories']);
-      const siteCategories = stored.siteCategories || {};
-      siteCategories[domain] = category;
-      await chrome.storage.local.set({ siteCategories });
+      
+      let response = null;
+      
+      // Try to use SiteTracker first
+      if (window.SiteTracker && typeof window.SiteTracker.updateSiteCategory === 'function') {
+        try {
+          response = await window.SiteTracker.updateSiteCategory(domain, category);
+        } catch (e) {
+          console.warn('SiteTracker.updateSiteCategory failed, using fallback:', e);
+        }
+      }
+      
+      // Fallback: Update local storage directly
+      if (!response || response.status !== 'success') {
+        const stored = await chrome.storage.local.get(['siteCategories']);
+        const siteCategories = stored.siteCategories || {};
+        siteCategories[domain] = category;
+        await chrome.storage.local.set({ siteCategories });
+        
+        // Try to sync with backend directly if authenticated
+        try {
+          const { userEmail } = await chrome.storage.local.get(['userEmail']);
+          if (userEmail) {
+            const response = await chrome.runtime.sendMessage({
+              action: 'updateCategory',
+              domain,
+              category,
+              userEmail,
+              date: new Date().toISOString().split('T')[0]
+            });
+            
+            if (response && response.status === 'error') {
+              console.warn('Backend sync failed:', response.error);
+            }
+          }
+        } catch (e) {
+          console.warn('Direct backend sync failed:', e);
+        }
+        
+        response = { status: 'success', message: 'Updated locally' };
+      }
+      
+      // Check final response
+      if (!response || response.status !== 'success') {
+        throw new Error(response?.error || 'Failed to update category');
+      }
+      
       window.showToast?.(`Category for ${domain} updated to ${category}`);
       await load(subTab); // Reload with current subTab
       return true;
@@ -325,6 +364,15 @@ export const AnalyticsTab = (() => {
   async function init() {
     if (initialized) return;
     initialized = true;
+    
+    // Ensure SiteTracker is initialized
+    if (window.SiteTracker && typeof window.SiteTracker.init === 'function') {
+      try {
+        await window.SiteTracker.init();
+      } catch (e) {
+        console.warn('SiteTracker init failed:', e);
+      }
+    }
     
     // Add day change listener for auto-refresh
     dayChangeCallback = () => {

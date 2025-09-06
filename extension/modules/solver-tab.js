@@ -194,15 +194,11 @@ export const SolverTab = (() => {
   async function pauseResumeSession() {
     if (!activeSession) return;
     try {
-      // Prevent double clicks while processing
       el.pauseResumeBtn?.setAttribute('disabled', 'true');
-      
       const authed = await ensureAuthenticated();
       if (!authed) return;
-      
       const userEmail = await getUserEmail();
       const backend = await resolveBackendUrl();
-      const { TokenStorage } = await import('../auth.js');
       const { token } = await TokenStorage.getToken();
       if (!token) { window.showError?.('Please sign in'); return; }
       const resp = await fetch(`${backend}/api/problem-sessions/${activeSession.id}/pause`, { method:'PATCH', headers:{ 'Authorization': `Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ userEmail, reason: activeSession.status==='active'?'Manual pause':'Manual resume' }) });
@@ -212,15 +208,12 @@ export const SolverTab = (() => {
         return;
       }
       const data = await resp.json();
-      // Update local state from response
       activeSession.status = data.session.status;
       if (typeof data.session.pausedDuration === 'number') activeSession.pausedDuration = data.session.pausedDuration;
-      // Defensively refresh the current session to sync pausedAt/pausedDuration exactly
       try {
         const ref = await fetch(`${backend}/api/problem-sessions/current/${encodeURIComponent(userEmail)}`, { headers:{ 'Authorization': `Bearer ${token}` } });
         if (ref.ok) { const cur = await ref.json(); if (cur.activeSession) activeSession = cur.activeSession; }
       } catch {}
-      // If backend doesn't provide pausedAt, fall back to local timestamp
       if (activeSession.status === 'paused' && !activeSession.pausedAt) {
         activeSession.pausedAt = new Date();
       }
@@ -233,32 +226,25 @@ export const SolverTab = (() => {
 
   async function cancelSession() {
     if (!activeSession) return;
-    
     // For sessions just started (less than 2 minutes), delete immediately
     const sessionAge = Date.now() - new Date(activeSession.startTime).getTime();
     if (sessionAge < 120000) { // Less than 2 minutes
       try {
         const authed = await ensureAuthenticated();
         if (!authed) return;
-        
         const userEmail = await getUserEmail();
         const backend = await resolveBackendUrl();
-        const { TokenStorage } = await import('../auth.js');
         const { token } = await TokenStorage.getToken();
         if (!token) { window.showError?.('Please sign in'); return; }
-
         // Delete the session entirely (with time check for cancel)
-        const sessionAge = Date.now() - new Date(activeSession.startTime).getTime();
         const endpoint = sessionAge < 120000 ? 
           `${backend}/api/problem-sessions/${activeSession.id}` : 
           `${backend}/api/problem-sessions/${activeSession.id}/abandon`;
-          
         const method = sessionAge < 120000 ? 'DELETE' : 'PATCH';
         const body = sessionAge < 120000 ? undefined : JSON.stringify({ 
           userEmail, 
           reason: 'User cancelled session' 
         });
-        
         const resp = await fetch(endpoint, { 
           method, 
           headers: { 
@@ -267,9 +253,7 @@ export const SolverTab = (() => {
           },
           ...(body && { body })
         });
-        
         if (resp.ok) {
-          // Reset UI immediately
           activeSession = null;
           stopStopwatchTimer();
           showNewSessionForm();
@@ -285,7 +269,6 @@ export const SolverTab = (() => {
         window.showError?.('Failed to cancel session');
       }
     } else {
-      // For longer sessions, treat as abandon
       abandonSession();
     }
   }
@@ -378,16 +361,28 @@ export const SolverTab = (() => {
     if (el.sessionNotes) {
       el.sessionNotes.value = activeSession.notes || '';
     }
+    // Only show Start, Pause/Resume, Complete buttons
+    if (el.pauseResumeBtn) el.pauseResumeBtn.classList.remove('hidden');
+    if (el.completeBtn) el.completeBtn.classList.remove('hidden');
+    if (el.startBtn) el.startBtn.classList.add('hidden');
+    if (el.cancelBtn) el.cancelBtn.classList.add('hidden');
+    if (el.abandonBtn) el.abandonBtn.classList.add('hidden');
     updateStopwatchStatus();
   }
 
   function showNewSessionForm() {
-    if (!el.activeCard || !el.newCard) return;
-    el.activeCard.classList.add('hidden');
-    el.newCard.classList.remove('hidden');
-    if (el.sessionNotes) el.sessionNotes.value = '';
-    // Reset timer display for next session
-    if (el.stopwatchTime) el.stopwatchTime.textContent = '00:00:00';
+  if (!el.activeCard || !el.newCard) return;
+  el.activeCard.classList.add('hidden');
+  el.newCard.classList.remove('hidden');
+  if (el.sessionNotes) el.sessionNotes.value = '';
+  // Only show Start button
+  if (el.startBtn) el.startBtn.classList.remove('hidden');
+  if (el.pauseResumeBtn) el.pauseResumeBtn.classList.add('hidden');
+  if (el.completeBtn) el.completeBtn.classList.add('hidden');
+  if (el.cancelBtn) el.cancelBtn.classList.add('hidden');
+  if (el.abandonBtn) el.abandonBtn.classList.add('hidden');
+  // Reset timer display for next session
+  if (el.stopwatchTime) el.stopwatchTime.textContent = '00:00:00';
   }
 
   async function loadActiveSession() {
@@ -433,6 +428,7 @@ export const SolverTab = (() => {
       list.innerHTML = `<div class="empty-state"><div class="empty-icon">•</div><div class="empty-text">No sessions yet</div><div class="empty-subtext">Start your first problem-solving session!</div></div>`;
       return;
     }
+    // Render session items without inline event handlers
     list.innerHTML = sessions.slice(0, 5).map(session => {
       const status = session.status;
       const icon = status === 'completed' ? '✓' : status === 'paused' ? '⏸' : status === 'active' ? '•' : '×';
@@ -455,7 +451,7 @@ export const SolverTab = (() => {
             <div class="session-duration">${duration}</div>
             <div class="session-time">${timeAgo}</div>
           </div>
-          <button class="session-delete-btn" title="Delete session" onclick="window.SolverTab.deleteHistorySession('${session._id || session.id}')">
+          <button class="session-delete-btn" title="Delete session">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3,6 5,6 21,6"></polyline>
               <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
@@ -465,42 +461,41 @@ export const SolverTab = (() => {
           </button>
         </div>`;
     }).join('');
+    // Attach event listeners to delete buttons
+    Array.from(list.querySelectorAll('.session-delete-btn')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sessionItem = btn.closest('.session-item');
+        const sessionId = sessionItem?.getAttribute('data-session-id');
+        if (!sessionId) return;
+        // Immediate delete (consistent with Focus & Guard tabs) – no confirm dialog
+        SolverTab.deleteHistorySession(sessionId);
+      });
+    });
   }
 
   async function deleteHistorySession(sessionId) {
     if (!sessionId) return;
-    
     try {
       const authed = await ensureAuthenticated();
       if (!authed) return;
-      
       const userEmail = await getUserEmail();
       const backend = await resolveBackendUrl();
-      const { TokenStorage } = await import('../auth.js');
       const { token } = await TokenStorage.getToken();
       if (!token) { window.showError?.('Please sign in'); return; }
 
-      // Show confirmation
-      const confirmed = window.showConfirmModal ? 
-        await window.showConfirmModal('Delete Session', 'Are you sure you want to delete this session? This action cannot be undone.') :
-        confirm('Are you sure you want to delete this session? This action cannot be undone.');
-      
-      if (!confirmed) return;
-
-      const resp = await fetch(`${backend}/api/problem-sessions/${sessionId}`, { 
-        method: 'DELETE', 
-        headers: { 
-          'Authorization': `Bearer ${token}`, 
-          'Content-Type': 'application/json' 
+      // Delete immediately, no confirmation or modal
+      const resp = await fetch(`${backend}/api/problem-sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
-      
       if (resp.ok) {
-        // Refresh the session list and stats
         await loadSessionHistory();
         await loadDailyStats();
         await loadProgressStats();
-        window.showToast?.('Session deleted successfully');
+        window.showToast?.('Session deleted');
       } else {
         const error = await resp.json().catch(() => ({}));
         window.showError?.(error.error || 'Failed to delete session');

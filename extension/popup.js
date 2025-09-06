@@ -122,7 +122,7 @@ function setupEventListeners() {
     { el: ELEMENTS.emailServiceSelect, event: 'change', handler: () => getElement(ELEMENTS.emailjsConfig).classList.toggle("hidden", getElement(ELEMENTS.emailServiceSelect).value !== "emailjs") },
     { el: ELEMENTS.saveEmailConfig, event: 'click', handler: saveEmailConfiguration },
     { el: ELEMENTS.settingsBtn, event: 'click', handler: () => switchMainTab(currentMainTab === "settings" ? "analytics" : "settings") },
-    { el: ELEMENTS.helpBtn, event: 'click', handler: () => chrome.tabs.create({ url: chrome.runtime.getURL('user_guide.html') }) },
+    { el: ELEMENTS.helpBtn, event: 'click', handler: () => chrome.tabs.create({ url: chrome.runtime.getURL('guide.html') }) },
     { el: ELEMENTS.backToInsightsBtn, event: 'click', handler: () => switchMainTab("analytics") },
     { el: ELEMENTS.quickBlock, event: 'click', handler: async () => {
       try {

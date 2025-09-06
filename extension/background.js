@@ -812,17 +812,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ state: pomodoroState });
           break;
         case "updateCategory":
-          const { domain, category, userEmail, date } = request;
-          if (!domain || !category || !userEmail || !date || !ALLOWED_CATEGORIES.includes(category)) {
-            sendResponse({ status: 'error', error: 'Invalid request' });
-            break;
+          try {
+            const { domain, category, userEmail, date } = request;
+            if (!domain || !category || !userEmail || !date || !ALLOWED_CATEGORIES.includes(category)) {
+              sendResponse({ status: 'error', error: 'Invalid request parameters' });
+              break;
+            }
+            
+            // Update local tracker
+            tracker.siteCategories[domain] = category;
+            await tracker.saveSiteCategories();
+            
+            // Try to sync with backend
+            const payload = { userEmail, date, domain, category };
+            const res = await backendFetch('/api/time-data/category', { method: 'PATCH', body: JSON.stringify(payload) });
+            
+            if (!res.ok) {
+              console.warn('Backend sync failed, storing locally:', res.status);
+              await tracker.storeSessionLocally(domain, Date.now(), Date.now(), 1, category);
+            }
+            
+            sendResponse({ status: 'success', message: 'Category updated successfully' });
+          } catch (error) {
+            console.error('updateCategory error:', error);
+            sendResponse({ status: 'error', error: error.message || 'Failed to update category' });
           }
-          tracker.siteCategories[domain] = category;
-          await tracker.saveSiteCategories();
-          const payload = { userEmail, date, domain, category };
-          const res = await backendFetch('/api/time-data/category', { method: 'PATCH', body: JSON.stringify(payload) });
-          if (!res.ok) await tracker.storeSessionLocally(domain, Date.now(), Date.now(), 1, category);
-          sendResponse({ status: 'success' });
           break;
         case "addBlockedSite":
           if (!request.domain) return sendResponse({ success: false, error: 'No domain provided' });

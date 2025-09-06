@@ -6,6 +6,8 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-2);
+  /* Added spacing below the Daily / Weekly / Monthly pills */
+  margin-block-end: 12px;
 }
 
 .nav-pill {
@@ -56,8 +58,9 @@
 .quick-insights-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px; /* Increased from 10px */
   inline-size: 100%;
+  margin-block: 12px; /* Added vertical margin for better spacing */
 
   @container (min-inline-size: 380px) {
     grid-template-columns: repeat(2, 1fr); /* Consolidated media query */
@@ -68,7 +71,7 @@
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px;
+  padding: 12px; /* Increased from 10px */
 }
 
 .qi-label {
@@ -86,14 +89,15 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 8px;
+  padding: 12px; /* Increased from 8px */
+  margin-block: 12px; /* Added vertical margin */
   inline-size: 100%;
   overflow: hidden;
 }
 
 .sites-header {
-  margin-block-start: 8px;
-  padding-block-end: 6px;
+  margin-block-start: 12px; /* Increased from 8px */
+  padding-block-end: 8px; /* Increased from 6px */
   border-block-end: 1px solid var(--border);
 }
 
@@ -108,7 +112,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px; /* Increased from 8px */
+  padding-block: 8px; /* Added vertical padding for better spacing */
 }
 .site-item .site-info { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
 .site-item .site-domain { max-inline-size: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
