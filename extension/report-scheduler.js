@@ -147,18 +147,12 @@ class ReportScheduler {
       const timezone = today.getTimezoneOffset();
 
       // Attempt to include auth headers similar to popup.js
-      const deviceId = typeof Auth !== 'undefined' ? Auth.getDeviceId() : null;
-      let token;
+  let token;
       try { token = (await TokenStorage.getToken())?.token; } catch (_) {}
 
       const response = await fetch(
         `${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${dateStr}&endDate=${dateStr}&timezone=${timezone}`,
-        {
-          headers: {
-            ...(deviceId ? { 'X-Device-ID': deviceId } : {}),
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          }
-        }
+  { headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) } }
       );
 
       if (!response.ok) return false;

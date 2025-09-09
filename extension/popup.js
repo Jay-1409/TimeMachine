@@ -33,7 +33,7 @@ const ELEMENTS = {
   toggleThemeBtn: 'toggleThemeBtn', themeDropdown: 'themeDropdown', themeOptions: '.theme-option', updateNotification: 'updateNotification',
   closeNotification: 'closeNotification', updateMessage: 'updateMessage', feedbackToast: 'feedbackToast', emailDisplay: 'emailDisplay',
   userEmailSettings: 'userEmail', updateEmailBtn: 'updateEmailBtn', helpBtn: 'helpBtn', editEmailBtn: 'editEmailBtn',
-  downloadReportBtn: 'downloadReport', testEmailBtn: 'testEmailBtn', feedbackMessage: 'feedbackMessage', sendFeedbackBtn: 'sendFeedbackBtn',
+  testEmailBtn: 'testEmailBtn', feedbackMessage: 'feedbackMessage', sendFeedbackBtn: 'sendFeedbackBtn',
   charCount: 'charCount', tabButtons: '.nav-pill', mainTabButtons: '.main-tab-btn, .main-tab', insightsTabContent: 'analyticsTabContent',
   settingsTabContent: 'settingsTabContent', statsDiv: 'stats', productivityScore: 'productivityScore', dateRangeDisplay: 'dateRangeDisplay',
   siteList: '.site-list', sendReportBtn: 'sendReportBtn', emailServiceSelect: 'emailServiceSelect', emailjsConfig: 'emailjsConfig',
@@ -91,6 +91,21 @@ document.addEventListener("DOMContentLoaded", () => {
   window.GuardTab?.init?.();
   initializeEnhancedFeatures();
   initializeApp();
+
+  // Ensure auth button has deterministic mode state
+  const authBtn = getElement(ELEMENTS.saveEmailBtn);
+  if (authBtn) {
+    if (!authBtn.dataset.mode) authBtn.dataset.mode = 'signin';
+    // Normalize innerHTML to avoid textContent detection issues caused by icon
+    if (/Sign In/.test(authBtn.textContent)) {
+      authBtn.innerHTML = 'Sign In <span class="btn-icon">→</span>';
+      authBtn.dataset.mode = 'signin';
+    }
+  }
+  const toggleLink = getElement(ELEMENTS.toggleAuthMode);
+  if (toggleLink && !toggleLink.textContent.trim()) {
+    toggleLink.textContent = "Don't have an account? Sign up";
+  }
 });
 
 function initTheme() {
@@ -114,7 +129,7 @@ function setupEventListeners() {
       getElement(ELEMENTS.editEmailBtn).classList.add("hidden");
       getElement(ELEMENTS.userEmailSettings).focus();
     }},
-    { el: ELEMENTS.downloadReportBtn, event: 'click', handler: downloadReport },
+  { el: 'downloadSummaryBtn', event: 'click', handler: downloadSummary },
     { el: ELEMENTS.testEmailBtn, event: 'click', handler: sendTestEmail },
     { el: ELEMENTS.sendReportBtn, event: 'click', handler: sendDailyReport },
     { el: ELEMENTS.feedbackMessage, event: 'input', handler: updateCharCount },
@@ -177,14 +192,17 @@ function updateThemeDropdown() {
 async function saveEmail() {
   const email = getElement(ELEMENTS.userEmailInput).value.trim();
   const password = getElement(ELEMENTS.userPasswordInput).value;
-  const isSignupMode = getElement(ELEMENTS.saveEmailBtn).textContent === "Create Account";
+  const btn = getElement(ELEMENTS.saveEmailBtn);
+  const toggle = getElement(ELEMENTS.toggleAuthMode);
+  const isSignupMode = btn?.dataset.mode === 'signup';
 
   if (!validateEmail(email)) return showError("Invalid email", ELEMENTS.emailError);
   if (!password) return showError("Enter password", ELEMENTS.emailError);
 
   try {
-    getElement(ELEMENTS.saveEmailBtn).disabled = true;
-    getElement(ELEMENTS.saveEmailBtn).textContent = isSignupMode ? "Creating Account..." : "Signing In...";
+    btn.disabled = true;
+    if (toggle) toggle.disabled = true;
+    btn.textContent = isSignupMode ? "Creating Account..." : "Signing In...";
     const success = isSignupMode ? await Auth.signup(email, password) : await Auth.login(email, password);
     if (!success) throw new Error(isSignupMode ? "Could not create account" : "Invalid email or password");
 
@@ -198,8 +216,9 @@ async function saveEmail() {
     console.error("Authentication error:", error);
     showError(error.message, ELEMENTS.emailError);
   } finally {
-    getElement(ELEMENTS.saveEmailBtn).disabled = false;
-    getElement(ELEMENTS.saveEmailBtn).textContent = isSignupMode ? "Create Account" : "Sign In";
+  btn.disabled = false;
+  if (toggle) toggle.disabled = false;
+  btn.innerHTML = (isSignupMode ? 'Create Account' : 'Sign In') + ' <span class="btn-icon">→</span>';
   }
 }
 
@@ -259,12 +278,11 @@ async function sendDailyReport() {
     const today = new Date().toISOString().split('T')[0];
     const timezone = -330; // IST offset
     const backend = await resolveBackendUrl();
-    const deviceId = Auth?.getDeviceId() || 'unknown';
-    const { token } = await TokenStorage.getToken();
+  const { token } = await TokenStorage.getToken();
 
     const resp = await fetch(
       `${backend}/api/time-data/report/${encodeURIComponent(userEmail)}?date=${today}&endDate=${today}&timezone=${timezone}&useUserTimezone=true`,
-      { headers: { 'X-Device-ID': deviceId, ...(token ? { 'Authorization': `Bearer ${token}` } : {}) } }
+  { headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) } }
     );
     if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'Failed to fetch data');
 
@@ -403,33 +421,31 @@ function generateEmailHtmlReport(timeData, date, timeframe = 'daily') {
     </div>`;
 }
 
-async function downloadReport() {
+async function downloadSummary() {
   try {
     const { userEmail } = await chrome.storage.local.get(['userEmail']);
     if (!userEmail) return showToast("Set email first", "error");
     const backend = await resolveBackendUrl();
-    const today = new Date().toISOString().split('T')[0];
-    const deviceId = Auth?.getDeviceId() || 'unknown';
+    const dateInput = document.getElementById('summaryDate');
+    const selectedDate = dateInput?.value || new Date().toISOString().split('T')[0];
     const { token } = await TokenStorage.getToken();
-
     const res = await fetch(`${backend}/api/report/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Device-ID': deviceId, ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ date: today, userEmail, useUserTimezone: true })
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ date: selectedDate, userEmail, useUserTimezone: true })
     });
-    if (!res.ok) throw new Error((await res.json()).error || 'Failed to generate report');
-
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed to generate summary');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `daily_report_${today}.pdf`;
+    a.download = `summary_${selectedDate}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast("Report downloaded!");
+    showToast('Summary downloaded!');
   } catch (error) {
-    console.error("Error downloading report:", error);
-    showToast("Error downloading report: " + error.message, "error");
+    console.error('Error downloading summary:', error);
+    showToast('Error downloading summary: ' + error.message, 'error');
   }
 }
 
@@ -544,11 +560,25 @@ function loadEmailConfiguration(emailConfig) {
 }
 
 function toggleAuthMode() {
-  const isSignupMode = getElement(ELEMENTS.saveEmailBtn).textContent === "Create Account";
-  getElement(ELEMENTS.saveEmailBtn).textContent = isSignupMode ? "Sign In" : "Create Account";
-  getElement(ELEMENTS.toggleAuthMode).textContent = isSignupMode ? "Already have an account? Sign in" : "Don't have an account? Sign up";
-  getElement(ELEMENTS.emailError).classList.add("hidden");
-  getElement(ELEMENTS.userPasswordInput).value = "";
+  const btn = getElement(ELEMENTS.saveEmailBtn);
+  const toggle = getElement(ELEMENTS.toggleAuthMode);
+  const tagline = document.getElementById('authTagline');
+  if (!btn || !toggle) return;
+  const currentMode = btn.dataset.mode || 'signin';
+  const nextMode = currentMode === 'signin' ? 'signup' : 'signin';
+  btn.dataset.mode = nextMode;
+  if (nextMode === 'signup') {
+    btn.innerHTML = 'Create Account <span class="btn-icon">→</span>';
+    toggle.textContent = 'Already have an account? Sign in';
+    if (tagline) tagline.textContent = 'Create an account to get started';
+  } else {
+    btn.innerHTML = 'Sign In <span class="btn-icon">→</span>';
+    toggle.textContent = "Don't have an account? Sign up";
+    if (tagline) tagline.textContent = 'Sign in to track your productivity';
+  }
+  // Clear error & password
+  getElement(ELEMENTS.emailError).classList.add('hidden');
+  getElement(ELEMENTS.userPasswordInput).value = '';
 }
 
 function updateEmailUI(email) {

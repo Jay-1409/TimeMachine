@@ -6,6 +6,7 @@
     <title>TimeMachine</title>
     <!-- Modular styles (legacy styles.css removed) -->
     <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
     <link rel="stylesheet" href="css/analytics.css" />
     <link rel="stylesheet" href="css/stopwatch.css" />
     <link rel="stylesheet" href="css/summary.css" />
@@ -30,7 +31,7 @@
           <img src="icon48.png" alt="TimeMachine Logo" class="splash-logo" />
         </div>
         <h1>Welcome to TimeMachine</h1>
-        <p>Sign in to track your productivity</p>
+  <p id="authTagline">Sign in to track your productivity</p>
         <div class="input-group">
           <input
             id="userEmailInput"
@@ -544,6 +545,7 @@
           <button id="todayBtn" class="today-btn" title="Go to Today">
             Today
           </button>
+          <button id="downloadSummaryBtn" class="btn primary small" title="Download summary for selected date">Download Summary</button>
         </div>
 
         <!-- Loading indicator -->
@@ -924,9 +926,6 @@
           </div>
 
           <div class="email-buttons mt-2">
-            <button id="downloadReport" class="btn primary small">
-              Download Report
-            </button>
             <button id="sendReportBtn" class="btn secondary small">
               Send Report Now
             </button>

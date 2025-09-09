@@ -22,7 +22,7 @@ function formatDuration(seconds) {
 
 router.post('/generate', authenticateToken, async (req, res) => {
   try {
-    const { date, timezone = 0 } = req.body;
+  const { date, timezone = 0, userEmail: requestedEmail } = req.body;
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Invalid date format (use YYYY-MM-DD)' });
@@ -31,25 +31,25 @@ router.post('/generate', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid timezone offset; must be an integer between -720 and 840' });
     }
 
-    if (req.user.role !== 'admin' && req.user.email !== req.body.userEmail) {
+    // Determine target email (admins can request another user's data)
+    const targetEmail = req.user.role === 'admin' && requestedEmail ? requestedEmail : req.user.email;
+    if (targetEmail !== req.user.email && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const userLocalDate = getUserTimezoneDate(new Date(date + 'T00:00:00.000Z').getTime(), timezone);
-    const rows = await TimeData.find({ userEmail: req.user.email, userLocalDate })
+    // Treat provided date as the user's local date directly (client already picked local day)
+    const userLocalDate = date;
+    const rows = await TimeData.find({ userEmail: targetEmail, userLocalDate })
       .select('domain totalTime category sessions timezone')
       .lean();
-
-    if (!rows.length) {
-      return res.status(404).json({ error: 'No data found for the specified date' });
-    }
+    const noBrowsingData = !rows.length;
 
     const domainTimes = {};
     const categoryTimes = { Work: 0, Social: 0, Entertainment: 0, Professional: 0, Other: 0 };
     const domainCategories = {};
     const domainSessions = {};
 
-    rows.forEach(r => {
+  rows.forEach(r => {
       const secs = Math.min(Math.floor((Number.isFinite(r.totalTime) ? r.totalTime : 0) / 1000), 86400);
       if (!secs) return;
 
@@ -80,23 +80,23 @@ router.post('/generate', authenticateToken, async (req, res) => {
       }
     });
 
-    if (!Object.keys(domainTimes).length) {
-      return res.status(404).json({ error: 'No valid time data after processing' });
-    }
+  const hasTimeData = Object.keys(domainTimes).length > 0;
 
     // Aggregate overall stats
-    const sorted = Object.entries(domainTimes).sort((a, b) => b[1] - a[1]);
-    const total = Object.values(domainTimes).reduce((a, b) => a + b, 0);
+  const sorted = hasTimeData ? Object.entries(domainTimes).sort((a, b) => b[1] - a[1]) : [];
+  const total = hasTimeData ? Object.values(domainTimes).reduce((a, b) => a + b, 0) : 0;
     let allSessionDurations = [];
     let productiveSeconds = 0;
     const productiveCats = new Set(['Work', 'Professional']);
-    Object.entries(domainSessions).forEach(([dom, sArr]) => {
-      allSessionDurations.push(...sArr.map(s => s.durS));
-    });
-    productiveSeconds = Object.entries(domainTimes).reduce((acc, [dom, secs]) =>
-      acc + (productiveCats.has(domainCategories[dom]) ? secs : 0), 0);
+    if (hasTimeData) {
+      Object.entries(domainSessions).forEach(([dom, sArr]) => {
+        allSessionDurations.push(...sArr.map(s => s.durS));
+      });
+      productiveSeconds = Object.entries(domainTimes).reduce((acc, [dom, secs]) =>
+        acc + (productiveCats.has(domainCategories[dom]) ? secs : 0), 0);
+    }
     const focusRatio = total > 0 ? (productiveSeconds / total * 100).toFixed(1) : 0;
-    const productivityScore = total > 0 ? (((categoryTimes.Work + categoryTimes.Professional + 0.5 * categoryTimes.Other) / total) * 100).toFixed(1) : '0.0';
+  const productivityScore = total > 0 ? (((categoryTimes.Work + categoryTimes.Professional + 0.5 * categoryTimes.Other) / total) * 100).toFixed(1) : '0.0';
     allSessionDurations.sort((a, b) => a - b);
     const medianSession = allSessionDurations.length ?
       allSessionDurations[Math.floor(allSessionDurations.length / 2)] : 0;
@@ -105,7 +105,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
 
     // Domain stats (sessions info per domain)
     const domainStats = {};
-    sorted.forEach(([dom]) => {
+  sorted.forEach(([dom]) => {
       const sess = domainSessions[dom] || [];
       if (!sess.length) {
         domainStats[dom] = { count: 0, avg: 0, long: 0, first: null, last: null };
@@ -205,12 +205,13 @@ router.post('/generate', authenticateToken, async (req, res) => {
   elements: { bar: { borderRadius: 4 } }
       }
     });
-    let barBuf;
-    try {
-      barBuf = Buffer.from((await barChart.toDataUrl()).split(',')[1], 'base64');
-    } catch (error) {
-      console.warn('Failed to generate bar chart:', error);
-      barBuf = null;
+    let barBuf = null;
+    if (hasTimeData && sorted.length) {
+      try {
+        barBuf = Buffer.from((await barChart.toDataUrl()).split(',')[1], 'base64');
+      } catch (error) {
+        console.warn('Failed to generate bar chart:', error.message || error);
+      }
     }
 
     // Fetch Focus Sessions & Problem Sessions for same local day (optional)
@@ -255,8 +256,8 @@ router.post('/generate', authenticateToken, async (req, res) => {
       }
 
       // Guard data
-      blockedSites = await BlockedSite.find({ userEmail: req.user.email }).select('domain').lean();
-      blockedKeywords = await BlockedKeyword.find({ userEmail: req.user.email }).select('keyword').lean();
+  blockedSites = await BlockedSite.find({ userEmail: targetEmail }).select('domain').lean();
+  blockedKeywords = await BlockedKeyword.find({ userEmail: targetEmail }).select('keyword').lean();
     } catch (e) {
       console.warn('Optional session summaries failed:', e.message);
     }
@@ -283,7 +284,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     doc.save();
     doc.rect(startXHeader, 40, pageWidth, 60).fill(headerColor);
     doc.fillColor('#ffffff').fontSize(20).text('TimeMachine Daily Report', startXHeader + 14, 52, { width: pageWidth - 28, align: 'left' });
-    doc.fontSize(10).fillColor('#d1d5db').text(`Date: ${new Date(date).toLocaleDateString('en-US', { timeZone: rows[0]?.timezone?.name || 'UTC' })}  |  User: ${req.user.email}`,
+  doc.fontSize(10).fillColor('#d1d5db').text(`Date: ${new Date(date).toLocaleDateString('en-US', { timeZone: rows[0]?.timezone?.name || 'UTC' })}  |  User: ${targetEmail}`,
       startXHeader + 14, 78, { width: pageWidth - 28, align: 'left' });
     doc.restore();
     doc.y = 110;
@@ -326,7 +327,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     const metrics = [
       { label: 'Total Time', value: formatDuration(total) },
       { label: 'Productive', value: formatDuration(productiveSeconds) },
-      { label: 'Focus Ratio', value: String(focusRatio) + '%' },
+      { label: 'Focus Ratio', value: total ? String(focusRatio) + '%' : '0%' },
       { label: 'Productivity', value: String(productivityScore) + '%' },
       { label: 'Focus Sessions', value: String(focusSummary ? focusSummary.count : 0) },
       { label: 'Problems Solved', value: String(problemSummary ? problemSummary.completed : 0) },
@@ -361,7 +362,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     doc.moveDown(0.35);
     doc.fontSize(8).fillColor('#64748b').text('Category breakdown & pie chart are in the Charts tab.');
     doc.moveDown(0.4);
-    const topDomains = sorted;
+  const topDomains = sorted;
     const colSpec = [28, 200, 60, 55, 55];
     const headers = ['#','Domain','Time','Sess','Avg'];
     let tStartX = doc.page.margins.left;
@@ -380,7 +381,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     doc.moveDown(0.15);
 
     // -------- FOCUS (Tab: Focus) --------
-    sectionTitle('Focus');
+  sectionTitle('Focus');
     if (focusSummary) {
       doc.moveDown(0.15);
       doc.fontSize(10).fillColor('#111827').text(`Completed: ${focusSummary.count}   Time: ${focusSummary.totalMinutes}m   Avg Productivity: ${focusSummary.avgProd}%`);
@@ -412,7 +413,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     doc.moveDown(0.5);
 
     // -------- SOLVER (Tab: Solver) --------
-    sectionTitle('Solver');
+  sectionTitle('Solver');
     if (problemSummary) {
       doc.moveDown(0.15);
       const activeRoundedMins = Math.round(problemSummary.totalActiveSeconds / 60);
@@ -452,7 +453,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     doc.moveDown(0.4);
 
     // -------- GUARD (Tab: Guard) --------
-    sectionTitle('Guard');
+  sectionTitle('Guard');
     if (!blockedSites.length && !blockedKeywords.length) {
       doc.moveDown(0.15);
       doc.fontSize(10).fillColor('#6b7280').text('No guard rules configured.');
@@ -513,11 +514,11 @@ router.post('/generate', authenticateToken, async (req, res) => {
     } else {
       doc.moveDown(0.3);
     }
-    sectionTitle('Charts');
+  sectionTitle('Charts');
     doc.moveDown(0.1);
     // Internal Donut Pie
     const pieColors = ['#1e40af', '#dc2626', '#9333ea', '#059669', '#4b5563'];
-    const valuesRaw = catOrder.map(k => categoryTimes[k] || 0);
+  const valuesRaw = catOrder.map(k => categoryTimes[k] || 0);
     const sumRaw = valuesRaw.reduce((a,b)=>a+b,0) || 1;
     const epsilon = sumRaw * 0.001;
     const adjustedValues = valuesRaw.map(v => v === 0 ? epsilon : v);
@@ -563,7 +564,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     doc.y = legendY + 20;
 
     // Bar chart below
-    if (barBuf) {
+  if (barBuf) {
       const bw = pageWidth * 0.85; const bh = bw * (520/900); const bx = doc.page.margins.left + (pageWidth - bw)/2;
       if (doc.y + bh > doc.page.height - 70) { doc.addPage(); sectionTitle('Charts'); doc.moveDown(0.2); }
       doc.image(barBuf, bx, doc.y, { width: bw, height: bh });
@@ -591,10 +592,19 @@ router.post('/generate', authenticateToken, async (req, res) => {
     };
     addFooter();
 
+    // If no browsing / activity data at all, append a friendly note
+    if (!hasTimeData && !focusSummary && !problemSummary) {
+      doc.addPage();
+      sectionTitle('Summary');
+      doc.fontSize(12).fillColor('#334155').text('No activity recorded for this day.', { align: 'left' });
+      doc.moveDown(0.5);
+      doc.fontSize(9).fillColor('#64748b').text('Tracking may have been disabled or there was simply no qualifying activity.', { align: 'left' });
+    }
+
     doc.end();
   } catch (error) {
     console.error('Report generation error:', error);
-    res.status(500).json({
+  res.status(500).json({
       error: 'Failed to generate report',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });

@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
-[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
+[![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)](https://github.com/HarshDev625/TimeMachine)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/HarshDev625/TimeMachine/pulls)
 
@@ -21,7 +21,7 @@ TimeMachine is a lightweight Chrome extension + Node.js backend that automatical
 
 | Area | Highlights |
 |------|------------|
-| Auth | Simple email + password (30‑day JWT) |
+| Auth | Inline email + password (30‑day JWT, no verification codes) |
 | Tracking | Automatic per‑domain active time (minute slices, local timezone) |
 | Classification | Editable categories: Work / Social / Entertainment / Professional / Other |
 | Dashboard | Daily / Weekly / Monthly views + Quick Insights panel (Top Site, Focus vs Leisure, Balance Score, Category Mix) |
@@ -39,6 +39,14 @@ TimeMachine is a lightweight Chrome extension + Node.js backend that automatical
 
 ## 🆕 What’s New
 
+### v1.5.1
+
+- Removed all remaining device references (code & docs)
+- Inline auth (no modal / verification codes) fully adopted
+- Summary tab now contains the PDF Download button (removed from Settings)
+- Report generator always returns a PDF (even with no activity – shows a note)
+- Security docs aligned to bcrypt hashing
+
 ### v1.5.0
 
 - Focus: refreshed Focus Sessions UI with presets and clear controls
@@ -55,7 +63,7 @@ TimeMachine is a lightweight Chrome extension + Node.js backend that automatical
 | Before | Now |
 |--------|-----|
 | Email verification codes | Direct email/password signup & login |
-| Device verification endpoints | Automatic device tracking only (no code flow) |
+| Device tracking / IDs | Removed entirely |
 | Separate device & utility scripts | Removed (cronJobs, dataCleanup, device-management) |
 | Plain PDF summary | Enhanced PDF with charts + session table |
 | UTC-based date (timezone drift) | Local date derivation for correct regional day boundaries |
@@ -71,7 +79,7 @@ backend/
     feedback.js           # /api/feedback (submit, list, admin ops)
     report.js             # /api/report (generate PDF)
   models/
-    User.js               # Email/password user + device list + settings
+  User.js               # Email/password user + settings & timezone
     TimeData.js           # Per user/date/domain aggregated sessions
     Feedback.js           # Feedback messages
   README.md               # Backend-only docs
@@ -96,18 +104,17 @@ Removed legacy files (device-authentication.js, utils/cronJobs.js, utils/dataCle
 
 ## 🔐 Authentication Flow
 
-1. User signs up or logs in: POST `/api/auth/signup` or `/api/auth/login` (email, password, device info).
-2. Backend returns a JWT (30d). Token stored in both `localStorage` and `chrome.storage.local`.
-3. Extension verifies token (POST `/api/auth/verify`) on popup load.
-4. All protected calls carry `Authorization: Bearer <token>`.
-5. Expired/invalid token → cleared → user prompted to login again. Unsynced local sessions will sync after re-auth.
+1. User signs up or logs in via inline form: POST `/api/auth/signup` or `/api/auth/login` (email, password).
+2. Backend returns a JWT (30d). Token stored in both `localStorage` and `chrome.storage.local` (kept in sync lazily).
+3. Popup load performs a cached token verify (POST `/api/auth/verify`, 5‑min cache) to avoid double login.
+4. All protected calls send `Authorization: Bearer <token>`.
+5. On expiry/invalid token it is cleared; user re-auths and any buffered sessions sync automatically.
 
 ## 🗄 Data Model (Essential Fields)
 
 User:
 ```
-email, password(hash), devices[{ deviceId, deviceName, browser, os, lastLogin }],
-role, settings{ receiveReports, reportFrequency, categories(Map) }, lastActive
+email, password(hash:bcrypt), role, settings{ receiveReports, reportFrequency, categories(Map) }, timezone{name,offset}, lastActive
 ```
 TimeData (unique per userEmail+date+domain):
 ```
@@ -133,7 +140,7 @@ Time Tracking:
 - PATCH `/api/time-data/category` (update a domain’s category for a date)
 
 Reports:
-- POST `/api/report/generate` (returns PDF binary) – includes charts + ranked domains + sessions.
+- POST `/api/report/generate` (returns PDF binary) – includes charts + ranked domains + sessions (returns a minimal PDF with a “No activity” note if the day is empty).
 
 Feedback:
 - POST `/api/feedback/submit`
@@ -149,7 +156,7 @@ Feedback:
 | Domain Table | Rank · Domain · Time · Category · Sessions · Avg Session · Longest Session · Active Span |
 | Charts | Doughnut (category distribution) & Horizontal Bar (all site times) |
 
-Rendered server‑side with `quickchart-js` + PDFKit.
+Rendered server‑side with `quickchart-js` + PDFKit (empty datasets produce a graceful minimal PDF instead of errors).
 
 ## ✉️ Email Reports (EmailJS)
 
@@ -213,13 +220,13 @@ Extension (unpacked):
 ## ⚡ Quick Start (End User)
 
 1. Install from Chrome Web Store (link above) or load unpacked from `extension/`.
-2. Open the extension popup → Sign up (email + password) or Sign in.
-3. Start browsing; time is tracked automatically per active domain.
-4. Reassign categories in the list to tune productivity score.
-5. Use Guard to block distracting sites/keywords (Quick Block for current site). 
-6. Start Focus Sessions using presets; pause/resume/stop as needed.
-7. Download a PDF report or enable scheduled reports in Settings.
-7. Press the ? help button for updated docs (opens this README on GitHub).
+2. Open the popup → inline Sign up / Sign in (no verification codes).
+3. Browse normally; active tab domain time is tracked automatically.
+4. Reassign categories to adjust productivity scoring.
+5. Guard tab: block distracting sites / keywords (use Quick Block for current site).
+6. Focus Sessions: start a preset, pause/resume, stop to log.
+7. Summary tab: use Download PDF for a daily report (Settings now only configures scheduling).
+8. Press the ? help button for the bundled guide or view developer docs on GitHub.
 
 ## 🆘 In-Extension Help
 
@@ -232,20 +239,20 @@ An offline user guide (`extension/guide.html`) is bundled with the extension (op
 | Backend | Node.js, Express, Mongoose, PDFKit, quickchart-js, JSON Web Tokens |
 | DB | MongoDB |
 | Extension UI | Vanilla JS, Chart.js, HTML/CSS |
-| Auth | JWT (Bearer), PBKDF2 (CryptoJS) password hashing |
+| Auth | JWT (Bearer), bcrypt password hashing |
 
 ## 🔒 Security Notes
 
-- PBKDF2 (1000 iterations) with shared secret currently (improvable: per-user salt + higher iterations)
+- bcrypt hashing (configurable rounds) with per-hash salt
 - JWT 30d expiry; no refresh token layer yet
 - CORS restricted to extension origin(s) + localhost dev
 - All time & feedback endpoints behind auth middleware
 
 Planned improvements:
-1. Per-user salt + higher PBKDF2 iterations
-2. Short‑lived access + refresh token rotation
-3. Rate limiting / anomaly detection
-4. Optional encryption-at-rest for session payloads
+1. Short‑lived access + refresh token rotation
+2. Rate limiting / anomaly detection
+3. Optional encryption-at-rest for session payloads
+4. Additional password strength validation
 
 ## 🧪 Testing Ideas (Not Yet Included)
 
