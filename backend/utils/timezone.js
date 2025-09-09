@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+// Timezone utility helpers
 
 /**
  * Validates timezone offset.
@@ -119,5 +119,19 @@ module.exports = {
   getUserDayBounds,
   formatDuration,
   scheduleAtMidnight,
-  generateDeviceId: () => uuidv4()
+  /**
+   * Derive a human-readable timezone label from an offset (in minutes).
+   * Example: 330 -> "UTC+05:30", -480 -> "UTC-08:00", 0 -> "UTC".
+   * @param {number} offset
+   * @returns {string}
+   */
+  getTimezoneNameFromOffset(offset) {
+    if (!Number.isInteger(offset) || offset < -720 || offset > 840) return 'UTC';
+    if (offset === 0) return 'UTC';
+    const sign = offset > 0 ? '+' : '-';
+    const abs = Math.abs(offset);
+    const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+    const mm = String(abs % 60).padStart(2, '0');
+    return `UTC${sign}${hh}:${mm}`;
+  }
 };

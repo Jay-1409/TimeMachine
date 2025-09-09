@@ -16,8 +16,7 @@ const app = express();
 // Middleware
 app.use(express.json({ limit: '2mb' }));
 
-// Rate limiter removed per configuration
-
+// CORS configuration
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
@@ -36,15 +35,17 @@ app.use(cors({
     }
   },
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-ID', 'X-User-Email'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
+// Request logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
+// MongoDB connection with retry
 const connectWithRetry = (retries = 5, delay = 5000) => {
   mongoose.connect(process.env.MONGODB_URI, {
     serverSelectionTimeoutMS: 15000,
@@ -53,7 +54,7 @@ const connectWithRetry = (retries = 5, delay = 5000) => {
   }).then(() => {
     console.log('Connected to MongoDB');
   }).catch(err => {
-    console.error(`MongoDB connection error (attempt ${6 - retries}):`, err);
+    console.error(`MongoDB connection error (attempt ${6 - retries}):`, err.message);
     if (retries > 1) {
       setTimeout(() => connectWithRetry(retries - 1, delay * 2), delay);
     } else {
@@ -65,8 +66,8 @@ const connectWithRetry = (retries = 5, delay = 5000) => {
 
 connectWithRetry();
 
+// Routes
 const { authenticateToken } = require('./routes/auth');
-
 const timeDataRoutes = require('./routes/timeData');
 const authRoutes = require('./routes/auth');
 const feedbackRoutes = require('./routes/feedback');
@@ -85,6 +86,7 @@ app.use('/api/blocked-sites', authenticateToken, blockedSitesRoutes);
 app.use('/api/blocked-keywords', authenticateToken, blockedKeywordsRoutes);
 app.use('/api/problem-sessions', authenticateToken, problemSessionRoutes);
 
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
@@ -92,6 +94,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Status endpoint for admin
 app.get('/status', authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' });
@@ -112,6 +115,7 @@ app.get('/status', authenticateToken, (req, res) => {
   });
 });
 
+// 404 handler
 app.use((req, res, next) => {
   res.status(404).json({
     error: 'Not Found',
@@ -119,9 +123,10 @@ app.use((req, res, next) => {
   });
 });
 
+// Error handler
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
-  console.error(`Server error (${statusCode}):`, err);
+  console.error(`Server error (${statusCode}):`, err.message);
   res.status(statusCode).json({
     error: err.name || 'Internal Server Error',
     message: err.message || 'Something went wrong',
@@ -129,31 +134,35 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Graceful shutdown
 process.on('SIGINT', () => {
   console.log('Received SIGINT. Shutting down gracefully...');
   mongoose.connection.close().then(() => {
     console.log('MongoDB connection closed.');
     process.exit(0);
   }).catch(err => {
-    console.error('Error closing MongoDB connection:', err);
+    console.error('Error closing MongoDB connection:', err.message);
     process.exit(1);
   });
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 
+  // Daily midnight processing cron
   cron.schedule('0 0 * * *', async () => {
     try {
       await processMidnightResetForAllTimezones();
     } catch (error) {
-      console.error('Error in midnight processing:', error);
+      console.error('Error in midnight processing:', error.message);
     }
   }, { timezone: 'UTC' });
   console.log('Timezone-aware midnight processing cron scheduled (daily at 00:00 UTC)');
 
+  // Keep-alive cron
   if (process.env.DISABLE_KEEPALIVE !== 'true') {
     const baseEnv = (process.env.HEALTH_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
     let healthUrl = process.env.HEALTH_URL || (process.env.RENDER_EXTERNAL_URL ? `${baseEnv}/health` : null);
@@ -214,7 +223,7 @@ async function processMidnightResetForAllTimezones() {
       await processMidnightForTimezone(timezoneOffset);
     }
   } catch (error) {
-    console.error('Error processing midnight reset for all timezones:', error);
+    console.error('Error processing midnight reset for all timezones:', error.message);
   }
 }
 
@@ -244,7 +253,7 @@ async function processMidnightForTimezone(timezoneOffset) {
 
     console.log(`Processed ${skip} users in timezone ${timezoneName}`);
   } catch (error) {
-    console.error(`Error processing midnight for timezone offset ${timezoneOffset}:`, error);
+    console.error(`Error processing midnight for timezone offset ${timezoneOffset}:`, error.message);
   }
 }
 
@@ -259,7 +268,7 @@ async function processMidnightForUser(user, timezoneOffset, timezoneName) {
     console.log(`Processing midnight for user ${userEmail}: ${yesterdayUserDate} -> ${todayUserDate}`);
 
     const yesterdayActivity = await TimeData.find({
-      userEmail,
+      userEmail: user.email,
       userLocalDate: yesterdayUserDate
     }).lean();
 
@@ -276,6 +285,6 @@ async function processMidnightForUser(user, timezoneOffset, timezoneName) {
       { lastActive: new Date(), updatedAt: new Date() }
     );
   } catch (error) {
-    console.error(`Error processing midnight for user ${user.email}:`, error);
+    console.error(`Error processing midnight for user ${user.email}:`, error.message);
   }
 }

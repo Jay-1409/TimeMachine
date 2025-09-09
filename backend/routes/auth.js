@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
+const { validateEmail, normalizeEmail, validatePassword } = require('../utils/validation');
+const { v4: uuidv4 } = require('uuid');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS);
@@ -11,78 +12,40 @@ const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS);
 if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required');
 if (!BCRYPT_ROUNDS || isNaN(BCRYPT_ROUNDS)) throw new Error('BCRYPT_ROUNDS environment variable is required and must be a number');
 
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-function isValidPassword(password) {
-  return password && password.length >= 6;
-}
-
-function getDeviceInfo(req) {
-  const userAgent = req.headers['user-agent'] || '';
-  
-  let browser = 'Unknown';
-  if (userAgent.includes('Chrome')) browser = 'Chrome';
-  else if (userAgent.includes('Firefox')) browser = 'Firefox';
-  else if (userAgent.includes('Safari')) browser = 'Safari';
-  else if (userAgent.includes('Edge')) browser = 'Edge';
-  else if (userAgent.includes('Opera')) browser = 'Opera';
-  
-  let os = 'Unknown';
-  if (userAgent.includes('Windows')) os = 'Windows';
-  else if (userAgent.includes('Mac')) os = 'MacOS';
-  else if (userAgent.includes('Linux')) os = 'Linux';
-  else if (userAgent.includes('Android')) os = 'Android';
-  else if (userAgent.includes('iOS')) os = 'iOS';
-  
-  let deviceType = 'desktop';
-  if (userAgent.includes('Mobile')) deviceType = 'mobile';
-  else if (userAgent.includes('Tablet')) deviceType = 'tablet';
-  
-  return {
-    deviceId: req.body.deviceId || uuidv4(),
-    deviceName: req.body.deviceName || `${browser} on ${os}`,
-    deviceType,
-    browser,
-    operatingSystem: os
-  };
+// Unified response helpers
+function sendBadRequest(res, message) { return res.status(400).json({ error: message || 'Bad request' }); }
+function sendUnauthorized(res, message) { return res.status(401).json({ error: message || 'Unauthorized' }); }
+function issueToken(user) {
+  return jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
 }
 
 router.post('/signup', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
+    if (!validateEmail(email)) return sendBadRequest(res, 'Invalid email format');
+    if (!validatePassword(password)) return sendBadRequest(res, 'Password must be at least 6 characters long');
     
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
-    
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
-    }
-    
-    const existingUser = await User.findByEmail(email);
+    const existingUser = await User.findOne({ email: normalizeEmail(email) });
     if (existingUser) {
       return res.status(409).json({ error: 'Email already in use' });
     }
     
-    const deviceInfo = getDeviceInfo(req);
-    const user = await User.createUser(email, password, deviceInfo);
-    
-    const token = jwt.sign(
-      { 
-        id: user._id,
-        email: user.email,
-        role: user.role
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const user = new User({
+      email: normalizeEmail(email),
+      password: hashedPassword,
+      role: 'user',
+      settings: {
+        receiveReports: true,
+        reportFrequency: 'weekly',
+        categories: new Map()
       },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
+      lastActive: new Date()
+    });
+    
+    await user.save();
+    const token = issueToken(user);
     
     res.status(201).json({
       message: 'User created successfully',
@@ -98,35 +61,21 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('[LOGIN_HANDLER] incoming login for', email);
     
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return sendBadRequest(res, 'Email and password are required');
     }
     
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    const user = await User.findOne({ email: normalizeEmail(email) }).select('+password');
     if (!user || !await user.verifyPassword(password)) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return sendUnauthorized(res, 'Invalid email or password');
     }
     
-    const deviceInfo = getDeviceInfo(req);
-    try {
-      await user.addDevice(deviceInfo);
-    } catch (error) {
-      if (error.message === 'Device ID already exists') {
-        return res.status(400).json({ error: 'Device already registered' });
-      }
-      throw error;
-    }
+    user.lastActive = new Date();
+    await user.save();
     
-    const token = jwt.sign(
-      { 
-        id: user._id,
-        email: user.email,
-        role: user.role
-      },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
+    const token = issueToken(user);
     
     res.status(200).json({
       message: 'Login successful',
@@ -135,14 +84,22 @@ router.post('/login', async (req, res) => {
       user: {
         email: user.email,
         role: user.role,
-        deviceId: deviceInfo.deviceId,
-        deviceName: deviceInfo.deviceName,
         timezone: user.timezone
       }
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error during login', details: error.message });
+  }
+});
+
+// Debug endpoint to list current User schema paths (dev only)
+router.get('/debug-schema', async (req, res) => {
+  try {
+    const paths = Object.keys(User.schema.paths);
+    res.json({ paths });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -194,7 +151,7 @@ router.post('/verify', authenticateToken, (req, res) => {
 
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findByEmail(req.user.email);
+    const user = await User.findOne({ email: req.user.email });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -219,11 +176,11 @@ router.post('/reset-password-request', async (req, res) => {
   try {
     const { email } = req.body;
     
-    if (!email || !isValidEmail(email)) {
-      return res.status(400).json({ error: 'Valid email is required' });
+    if (!email || !validateEmail(email)) {
+      return sendBadRequest(res, 'Valid email is required');
     }
     
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+resetToken +resetTokenExpires');
+    const user = await User.findOne({ email: normalizeEmail(email) }).select('+resetToken +resetTokenExpires');
     if (!user) {
       return res.status(200).json({ message: 'If an account exists, a reset link will be sent' });
     }
@@ -247,11 +204,11 @@ router.post('/reset-password', async (req, res) => {
     const { token, password } = req.body;
     
     if (!token || !password) {
-      return res.status(400).json({ error: 'Token and password are required' });
+      return sendBadRequest(res, 'Token and password are required');
     }
     
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    if (!validatePassword(password)) {
+      return sendBadRequest(res, 'Password must be at least 6 characters long');
     }
     
     const user = await User.findOne({
@@ -260,7 +217,7 @@ router.post('/reset-password', async (req, res) => {
     }).select('+resetToken +resetTokenExpires +password');
     
     if (!user) {
-      return res.status(400).json({ error: 'Invalid or expired token' });
+      return sendBadRequest(res, 'Invalid or expired token');
     }
     
     user.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -279,7 +236,7 @@ router.post('/update-settings', authenticateToken, async (req, res) => {
   try {
     const { receiveReports, reportFrequency, categories } = req.body;
     
-    const user = await User.findByEmail(req.user.email);
+    const user = await User.findOne({ email: req.user.email });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -290,7 +247,7 @@ router.post('/update-settings', authenticateToken, async (req, res) => {
     
     if (reportFrequency) {
       if (!['daily', 'weekly', 'monthly'].includes(reportFrequency)) {
-        return res.status(400).json({ error: 'Invalid report frequency' });
+        return sendBadRequest(res, 'Invalid report frequency');
       }
       user.settings.reportFrequency = reportFrequency;
     }
