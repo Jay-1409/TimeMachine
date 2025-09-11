@@ -515,16 +515,47 @@ export const SolverTab = (() => {
   function updateStopwatchStatus() {
     if (!activeSession || !el.pauseResumeBtn) return;
     const text = el.pauseResumeBtn.querySelector('.btn-text');
+    const icon = el.pauseResumeBtn.querySelector('.btn-icon');
+    // Update button state (class, label, icon)
     if (activeSession.status === 'paused') {
       el.pauseResumeBtn.classList.remove('pause');
       el.pauseResumeBtn.classList.add('resume');
       if (text) text.textContent = 'Resume';
       el.pauseResumeBtn.title = 'Resume session';
+      if (icon) icon.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 5v14l11-7-11-7z" />
+        </svg>`;
+      // Stop ticking while paused
+      stopStopwatchTimer();
     } else {
       el.pauseResumeBtn.classList.remove('resume');
       el.pauseResumeBtn.classList.add('pause');
       if (text) text.textContent = 'Pause';
       el.pauseResumeBtn.title = 'Pause session';
+      if (icon) icon.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="4" width="4" height="16" />
+          <rect x="14" y="4" width="4" height="16" />
+        </svg>`;
+      // Ensure ticking when active
+      startStopwatchTimer();
+    }
+
+    // Update header status badge ("In Progress" vs "Paused")
+    const statusWrap = el.activeCard?.querySelector('.session-status');
+    const statusTextEl = statusWrap?.querySelector('span');
+    const dot = statusWrap?.querySelector('.status-indicator');
+    if (statusWrap && statusTextEl && dot) {
+      if (activeSession.status === 'paused') {
+        statusWrap.classList.add('paused');
+        statusWrap.classList.remove('active');
+        statusTextEl.textContent = 'Paused';
+      } else {
+        statusWrap.classList.remove('paused');
+        statusWrap.classList.add('active');
+        statusTextEl.textContent = 'In Progress';
+      }
     }
   }
 

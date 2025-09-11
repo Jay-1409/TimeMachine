@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeMachine",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Track your browsing habits and boost productivity with insightful stats.",
   "permissions": [
     "tabs",
@@ -14,8 +14,6 @@
   ],
   "host_permissions": [
     "https://timemachine-1.onrender.com/*",
-    "http://localhost:3000/*",
-    "http://127.0.0.1:3000/*",
     "https://api.emailjs.com/*",
     "https://quickchart.io/*"
   ],
@@ -41,7 +39,7 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000 https://timemachine-1.onrender.com https://api.emailjs.com https://quickchart.io"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://timemachine-1.onrender.com https://api.emailjs.com https://quickchart.io"
   },
   "web_accessible_resources": [
     {

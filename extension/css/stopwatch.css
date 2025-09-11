@@ -124,6 +124,15 @@
   background: var(--accent);
 }
 
+/* Paused status styling */
+.session-status.paused {
+  background: rgba(245, 158, 11, 0.15); /* amber-500 at 15% */
+  color: #f59e0b;
+}
+.session-status.paused .status-indicator {
+  background: #f59e0b;
+}
+
 /* Timer Display */
 .timer-display {
   display: flex;
