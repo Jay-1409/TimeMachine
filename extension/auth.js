@@ -58,104 +58,8 @@ const TokenStorage = {
   }
 };
 
-// Create login/signup UI modal
-const createAuthUI = (mode = 'login', onComplete) => {
-  document.getElementById('tm-auth-modal')?.remove();
-  const modal = Object.assign(document.createElement('div'), { id: 'tm-auth-modal', className: 'verification-modal' });
-  const content = Object.assign(document.createElement('div'), { className: 'verification-content' });
-  const header = Object.assign(document.createElement('h2'), { textContent: mode === 'login' ? 'Sign In' : 'Create Account', className: 'verification-title' });
-  const explanation = Object.assign(document.createElement('p'), { 
-    textContent: mode === 'login' ? 'Sign in to access your TimeMachine data' : 'Create an account to start using TimeMachine', 
-    className: 'verification-text' 
-  });
-  const emailInput = Object.assign(document.createElement('input'), { type: 'email', placeholder: 'Email address', className: 'verification-input', id: 'tm-auth-email' });
-  const passwordWrapper = Object.assign(document.createElement('div'), { className: 'tm-password-wrapper' });
-  const passwordInput = Object.assign(document.createElement('input'), { 
-    type: 'password', placeholder: 'Password', className: 'verification-input', id: 'tm-auth-password', autocomplete: 'current-password' 
-  });
-  const toggleBtn = Object.assign(document.createElement('button'), { 
-    type: 'button', className: 'tm-password-toggle', innerHTML: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>' 
-  });
-  toggleBtn.setAttribute('aria-label', 'Show password');
-  toggleBtn.onclick = () => {
-    const showing = passwordInput.type === 'text';
-    passwordInput.type = showing ? 'password' : 'text';
-    toggleBtn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
-    toggleBtn.classList.toggle('active', !showing);
-  };
-  passwordWrapper.append(passwordInput, toggleBtn);
-  const errorMsg = Object.assign(document.createElement('div'), { className: 'verification-error' });
-  const btnContainer = Object.assign(document.createElement('div'), { className: 'verification-button-container' });
-  const primaryBtn = Object.assign(document.createElement('button'), { 
-    className: 'btn primary', id: 'tm-auth-primary', type: 'button', innerHTML: `<span class="btn-label">${mode === 'login' ? 'Sign In' : 'Create Account'}</span>` 
-  });
-  const cancelBtn = Object.assign(document.createElement('button'), { textContent: 'Cancel', className: 'btn secondary' });
-  const toggleLink = Object.assign(document.createElement('button'), { 
-    textContent: mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in', 
-    className: 'verification-resend', id: 'tm-auth-toggle' 
-  });
-
-  const showError = msg => Object.assign(errorMsg, { textContent: msg, style: { display: msg ? 'block' : 'none' } });
-  const validateEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const validatePassword = pwd => pwd.length >= 6;
-
-  const toggleMode = () => {
-    const isLogin = header.textContent === 'Sign In';
-    header.textContent = isLogin ? 'Create Account' : 'Sign In';
-    explanation.textContent = isLogin ? 'Create an account to start using TimeMachine' : 'Sign in to access your TimeMachine data';
-    primaryBtn.innerHTML = `<span class="btn-label">${isLogin ? 'Create Account' : 'Sign In'}</span>`;
-    toggleLink.textContent = isLogin ? 'Already have an account? Sign in' : "Don't have an account? Sign up";
-    showError('');
-    emailInput.value = passwordInput.value = '';
-  };
-
-  const handleSubmit = async () => {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-    const isLogin = /Sign In/i.test(primaryBtn.textContent);
-    if (!email) return showError('Enter email'), emailInput.focus();
-    if (!validateEmail(email)) return showError('Invalid email'), emailInput.focus();
-    if (!password) return showError('Enter password'), passwordInput.focus();
-    if (!validatePassword(password)) return showError('Password must be 6+ characters'), passwordInput.focus();
-    try {
-      primaryBtn.disabled = true;
-      primaryBtn.querySelector('.btn-label').textContent = isLogin ? 'Signing In...' : 'Creating...';
-      primaryBtn.classList.add('loading');
-      const spinner = Object.assign(document.createElement('div'), { className: 'tm-spinner' });
-      primaryBtn.appendChild(spinner);
-      showError('');
-      const success = isLogin ? await login(email, password) : await signup(email, password);
-      if (success) {
-        localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
-        modal.remove();
-        onComplete?.(true, email);
-      } else {
-        showError(isLogin ? 'Invalid email or password' : 'Account creation failed. Try another email.');
-      }
-    } catch (e) {
-      console.error('Auth failed:', e);
-      showError(e.message || 'Authentication failed');
-    } finally {
-      primaryBtn.disabled = false;
-      primaryBtn.querySelector('.btn-label').textContent = header.textContent === 'Sign In' ? 'Sign In' : 'Create Account';
-      primaryBtn.classList.remove('loading');
-      primaryBtn.querySelector('.tm-spinner')?.remove();
-    }
-  };
-
-  primaryBtn.onclick = handleSubmit;
-  emailInput.onkeydown = e => e.key === 'Enter' && handleSubmit();
-  passwordInput.onkeydown = e => e.key === 'Enter' && handleSubmit();
-  cancelBtn.onclick = () => { modal.remove(); onComplete?.(false); };
-  toggleLink.onclick = toggleMode;
-
-  btnContainer.append(primaryBtn, cancelBtn);
-  content.append(header, explanation, emailInput, passwordWrapper, errorMsg, btnContainer, toggleLink);
-  modal.appendChild(content);
-  document.body.appendChild(modal);
-  setTimeout(() => emailInput.focus(), 100);
-  return modal;
-};
+// Removed modal-based auth UI. Auth now relies solely on the inline form (#emailPrompt) present in popup.html.
+// authenticateUser will reveal the inline prompt and wait for a "tm-auth-success" event fired after successful login.
 
 const login = async (email, password) => authRequest('login', email, password);
 const signup = async (email, password) => authRequest('signup', email, password);
@@ -224,7 +128,20 @@ const authenticateUser = async callback => {
     callback?.(true, email);
     return true;
   }
-  return new Promise(resolve => createAuthUI('login', (success, email) => { callback?.(success, email); resolve(success); }));
+  // Show inline auth form
+  try {
+    document.getElementById('emailPrompt')?.classList.remove('hidden');
+    document.getElementById('mainApp')?.classList.add('hidden');
+  } catch {}
+  return new Promise(resolve => {
+    const handler = e => {
+      const email = e.detail?.email;
+      document.removeEventListener('tm-auth-success', handler);
+      callback?.(true, email);
+      resolve(true);
+    };
+    document.addEventListener('tm-auth-success', handler);
+  });
 };
 
 const logout = async () => await TokenStorage.clearToken();

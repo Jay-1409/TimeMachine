@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
-[![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)](https://github.com/HarshDev625/TimeMachine)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/HarshDev625/TimeMachine/pulls)
 
@@ -30,14 +30,23 @@ TimeMachine is a lightweight Chrome extension + Node.js backend that automatical
 | Scheduling | Local daily / weekly / monthly report trigger (no external cron) |
 | Resilience | Offline local buffering & retry; incremental 1‑min flush; 5‑min bulk sync |
 | Focus Sessions | Preset durations with Start/Pause/Resume/Stop and daily stats |
-| Guard | Block websites & keywords, Quick Block current site, in‑app confirm modal |
-| Blocked Page | Modern, theme‑aware page with Go Back / Start Focus / Open App |
+| Guard | Block websites & keywords, Quick Block current site, in‑app confirm modal, optional in‑page keyword scan toggle |
+| Blocked Page | Modern, theme‑aware page with Go Back / Start Focus / Open App buttons |
 | Solver | Track problem‑solving sessions with categories and history cards |
 | Theming | 7 UI themes (light, dark, cyberpunk, minimal, ocean, sunset, forest) |
 | Feedback | In‑extension authenticated feedback submission |
 | Privacy | Only domains + aggregated session durations stored (no full URLs) |
 
 ## 🆕 What’s New
+
+### v1.6.0
+
+- Added optional in‑page keyword scanning toggle (privacy control) in Guard tab
+- Enhanced blocked page with action buttons (Close Tab, Open Dashboard, Start Focus)
+- Pruned legacy modal authentication CSS (lighter bundle)
+- Added `PRIVACY.md` with detailed data handling policy
+- Manifest version bump, added `homepage_url`
+- Minor copy and doc adjustments for clarity
 
 ### v1.5.1
 
@@ -268,6 +277,10 @@ PRs welcome. Keep changes focused and include a brief description (screenshots f
 ## 📜 License
 
 MIT. See [LICENSE](LICENSE).
+
+## 📑 Privacy
+
+See [PRIVACY.md](PRIVACY.md) for details on data collected, processing, controls, and user choices (including disabling in‑page keyword scanning).
 
 ## 🛡️ Security
 

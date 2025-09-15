@@ -5,7 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     infoReason: 'infoReason',
     infoRule: 'infoRule',
     infoFocus: 'infoFocus',
-    infoLocalTime: 'infoLocalTime'
+    infoLocalTime: 'infoLocalTime',
+    actionBack: 'actionBack',
+    actionDashboard: 'actionDashboard',
+    actionStartFocus: 'actionStartFocus'
   };
 
   const THEME_CLASSES = {
@@ -95,4 +98,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Actions
+  const bindAction = (id, handler) => {
+    const el = getElement(id);
+    if (el) el.addEventListener('click', handler);
+  };
+
+  bindAction(ELEMENTS.actionBack, () => closeThisTab());
+  bindAction(ELEMENTS.actionDashboard, () => {
+    // Open extension popup via a temporary tab pointing to chrome-extension://popup.html is not allowed; instead open a new tab with guide or fallback.
+    chrome.runtime?.sendMessage?.({ action: 'openExtensionPopupPreferred' });
+    chrome.tabs?.create?.({ url: 'chrome://extensions/' }); // fallback context; user can open popup from toolbar
+  });
+  bindAction(ELEMENTS.actionStartFocus, () => {
+    chrome.runtime?.sendMessage?.({ action: 'startQuickFocusSession', durationMinutes: 25 });
+    // Poll and update focus label after short delay
+    setTimeout(() => chrome.runtime?.sendMessage?.({ action: 'getPomodoroState' }, response => {
+      const infoFocus2 = getElement(ELEMENTS.infoFocus);
+      if (infoFocus2 && response?.state?.running && response.state.endsAt) {
+        const mins = Math.max(0, Math.ceil((response.state.endsAt - Date.now()) / 60000));
+        infoFocus2.textContent = `Focus running (${mins}m left)`;
+      }
+    }), 1000);
+  });
 });

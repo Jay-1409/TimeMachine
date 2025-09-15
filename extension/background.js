@@ -499,6 +499,8 @@ async function checkBlockedSite(url) {
     const urlObj = new URL(url);
     const domain = urlObj.hostname.replace(/^www\./, '').toLowerCase();
     const fullUrl = url.toLowerCase();
+    let decodedUrl = fullUrl;
+    try { decodedUrl = decodeURIComponent(fullUrl); } catch (_) { /* ignore decode errors */ }
     for (const [blockedDomain, config] of blockedSites) {
       if (!config?.enabled) continue;
       const b = blockedDomain.toLowerCase();
@@ -506,7 +508,13 @@ async function checkBlockedSite(url) {
     }
     for (const [keyword, config] of blockedKeywords) {
       if (!config?.enabled || !keyword) continue;
-      if (domain.includes(keyword.toLowerCase()) || fullUrl.includes(keyword.toLowerCase())) {
+      const kw = keyword.toLowerCase();
+      // Match keyword as token in domain OR anywhere in encoded/decoded URL
+      if (
+        domain.split('.').some(part => part === kw) ||
+        fullUrl.includes(kw) ||
+        decodedUrl.includes(kw)
+      ) {
         return { blocked: true, type: 'keyword', item: keyword };
       }
     }
@@ -893,6 +901,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           blockedKeywords = new Map(request.keywords);
           await chrome.storage.local.set({ blockedKeywords: Array.from(blockedKeywords.entries()) });
           sendResponse({ success: true, keywords: Array.from(blockedKeywords.entries()) });
+          break;
+        case "contentKeywordDetected":
+          // Content script detected keyword within page content; re-check including page URL and block.
+          if (!request.keyword) return sendResponse({ status: 'ignored' });
+          try {
+            const candidateUrl = request.url || sender?.tab?.url;
+            const info = candidateUrl ? await checkBlockedSite(candidateUrl) : { blocked: false };
+            const tabToBlock = sender?.tab || (await (async () => {
+              try {
+                const tabsMatch = await chrome.tabs.query({ active: true, currentWindow: true });
+                return tabsMatch[0];
+              } catch { return null; }
+            })());
+            if (tabToBlock) {
+              await blockWebsite(tabToBlock, { type: 'keyword', item: request.keyword });
+              sendResponse({ status: 'blocked', preMatched: info.blocked });
+            } else {
+              sendResponse({ status: 'no-active-tab' });
+            }
+          } catch (e) {
+            console.warn('contentKeywordDetected handling failed:', e);
+            sendResponse({ status: 'error', error: e?.message || String(e) });
+          }
           break;
         case "stopFocusSession":
         case "completeFocusSession":

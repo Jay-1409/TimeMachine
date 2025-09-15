@@ -10,7 +10,9 @@ const GuardTab = (() => {
     sitesCount: () => document.getElementById('blockedSitesCount'),
     status: () => document.getElementById('blockingStatus'),
     addBtn: () => document.getElementById('addBlockBtn'),
-    input: () => document.getElementById('blockInput')
+    input: () => document.getElementById('blockInput'),
+    keywordScanToggle: () => document.getElementById('keywordScanToggle'),
+    keywordScanLabel: () => document.getElementById('keywordScanToggleLabel')
   };
 
   const init = async () => {
@@ -24,6 +26,7 @@ const GuardTab = (() => {
     const addListener = (elem, event, handler) => elem?.addEventListener(event, handler, { once: false });
     addListener(el.addBtn(), 'click', handleQuickAdd);
     addListener(el.list(), 'click', handleItemAction);
+    addListener(el.keywordScanToggle(), 'change', handleKeywordScanToggleChange);
   };
 
   const checkPremiumStatus = async () => {
@@ -82,7 +85,28 @@ const GuardTab = (() => {
     if (!container) return console.error('Guard tab container not found');
     container.classList.add('active');
     await init();
+    await loadKeywordScanSetting();
     await refreshItemsAndStats();
+  };
+
+  const loadKeywordScanSetting = async () => {
+    try {
+      const { keywordScanEnabled = true } = await chrome.storage.local.get(['keywordScanEnabled']);
+      const toggle = el.keywordScanToggle();
+      if (toggle) toggle.checked = !!keywordScanEnabled;
+      const label = el.keywordScanLabel();
+      if (label) label.textContent = `In‑page keyword scanning ${keywordScanEnabled ? 'On' : 'Off'}`;
+    } catch (e) { /* ignore */ }
+  };
+
+  const handleKeywordScanToggleChange = async (e) => {
+    const enabled = !!e.target.checked;
+    await chrome.storage.local.set({ keywordScanEnabled: enabled });
+    const label = el.keywordScanLabel();
+    if (label) label.textContent = `In‑page keyword scanning ${enabled ? 'On' : 'Off'}`;
+    window.showToast?.(`Keyword scanning ${enabled ? 'enabled' : 'disabled'}`);
+    // Ask active tab's content script (if any) to re-evaluate / self-disable. We'll send a ping.
+    chrome.runtime.sendMessage({ action: 'keywordScanSettingChanged', enabled }).catch(() => {});
   };
 
   const ensureAuthenticated = async (showErrors = false) => {
@@ -272,6 +296,7 @@ const GuardTab = (() => {
   const cleanup = () => {
     el.addBtn()?.removeEventListener('click', handleQuickAdd);
     el.list()?.removeEventListener('click', handleItemAction);
+    el.keywordScanToggle()?.removeEventListener('change', handleKeywordScanToggleChange);
     initialized = false;
   };
 

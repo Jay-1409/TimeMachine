@@ -212,6 +212,8 @@ async function saveEmail() {
     showToast(isSignupMode ? "Account created!" : "Signed in!");
     updateEmailUI(email);
     switchMainTab("analytics");
+    // Notify any listeners (e.g., authenticateUser waiting) that auth succeeded
+    document.dispatchEvent(new CustomEvent('tm-auth-success', { detail: { email } }));
   } catch (error) {
     console.error("Authentication error:", error);
     showError(error.message, ELEMENTS.emailError);

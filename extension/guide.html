@@ -92,8 +92,9 @@
 		<li>Add a website (domain) or a keyword via the input and Block button.</li>
 		<li>Quick Block: from the Guard header, block the current active site in one click.</li>
 		<li>Manage list items inline; deletions use an in‑app confirmation modal (no browser prompt).</li>
-		<li>Blocked page is modern and theme‑aware. It offers Go Back, Start Focus, or open TimeMachine.</li>
-		<li>By default, blocks apply during Focus Sessions; keyword blocking is supported.</li>
+		<li>Blocked page is modern and theme‑aware. It offers Close Tab, Start Focus, or open the dashboard.</li>
+		<li>Optional in‑page keyword scanning (toggle in Guard) lets you disable page text scanning for stricter privacy (URL/domain matching still works).</li>
+		<li>Keyword matches block immediately; enabling/disabling the toggle takes effect without a reload.</li>
 	</ul>
 
 	<h3>Solver (Problem Sessions)</h3>
@@ -189,10 +190,11 @@
 
 	<h2>Privacy</h2>
 	<ul>
-		<li>Only domain + aggregated timing stored (no full URLs, titles, or page content).</li>
-		<li>Session stats derived locally then synced.</li>
-		<li>Your EmailJS keys stay local (used only for client POST to EmailJS API).</li>
+		<li>Only domain + aggregated timing stored (no full URLs).</li>
+		<li>Optional keyword scanning reads visible text locally; no page bodies are sent to the server and you can disable it anytime.</li>
+		<li>Your EmailJS keys stay local (client‑side calls only).</li>
 		<li>Feedback includes your email solely for follow‑up context.</li>
+		<li>See full policy in the repository: <code>PRIVACY.md</code>.</li>
 	</ul>
 
 	<h2>Advanced (Optional Backend SMTP)</h2>

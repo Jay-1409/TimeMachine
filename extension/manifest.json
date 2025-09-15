@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TimeMachine",
-  "version": "1.5.1",
+  "version": "1.6.0",
+  "homepage_url": "https://github.com/HarshDev625/TimeMachine",
   "description": "Track your browsing habits and boost productivity with insightful stats.",
   "permissions": [
     "tabs",
@@ -28,6 +29,13 @@
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content-blocker.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "commands": {
     "tm_toggle_pomodoro": {
       "suggested_key": { "default": "Ctrl+Shift+P" },
