@@ -6,6 +6,7 @@
 [![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/HarshDev625/TimeMachine/pulls)
+[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-Open%20for%20Contributions-orange)](https://hacktoberfest.com/)
 
 </div>
 
@@ -273,6 +274,10 @@ Add tests for:
 ## 🤝 Contributing
 
 PRs welcome. Keep changes focused and include a brief description (screenshots for UI changes help). Open an issue to discuss bigger ideas first.
+
+See CONTRIBUTING.md for setup, coding guidelines, and the PR process. Please also review our CODE_OF_CONDUCT.md. For security matters, see SECURITY.md.
+
+Hacktoberfest: We label issues with `hacktoberfest` and `good first issue`. Valid PRs will be merged, approved, or labeled `hacktoberfest-accepted`. Spam/invalid PRs will be labeled accordingly and closed.
 
 ## 📜 License
 
