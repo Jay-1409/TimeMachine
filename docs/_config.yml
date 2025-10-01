@@ -1,10 +1,5 @@
-# GitHub Pages configuration for TimeMachine
-name: TimeMachine
-description: Chrome Extension for Productivity & Focus
-url: https://harshdev625.github.io/TimeMachine/
-markdown: kramdown
-highlighter: rouge
-plugins:
-  - jekyll-feed
-  - jekyll-sitemap
-  - jekyll-seo-tag
+theme: jekyll-theme-minimal
+title: TimeMachine
+description: Smart Time Tracking Chrome Extension
+url: https://harshdev625.github.io/TimeMachine
+baseurl: /TimeMachine
