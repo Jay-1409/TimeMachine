@@ -1,301 +1,475 @@
+﻿<div align="center">
+
 # TimeMachine
 
-<div align="center">
+<img src="extension/icon128.png" width="128" height="128" alt="TimeMachine Logo">
 
+### Smart Time Tracking & Productivity Management for Chrome
+
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![Chart.js](https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+
+[![Website](https://img.shields.io/badge/Website-Live-blue)](https://harshdev625.github.io/TimeMachine/)
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Available-brightgreen?logo=googlechrome)](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
-[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](https://github.com/HarshDev625/TimeMachine)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/HarshDev625/TimeMachine/pulls)
-[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-Open%20for%20Contributions-orange)](https://hacktoberfest.com/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-2025-orange)](https://hacktoberfest.com/)
+
+[Getting Started](#quick-start)  [Features](#features)  [Documentation](#documentation)  [Contributing](CONTRIBUTING.md)  [Changelog](CHANGELOG.md)
 
 </div>
 
-<p align="center">
-  <img src="extension/icon128.png" width="128" height="128" alt="TimeMachine Logo">
-</p>
+---
 
-<h3 align="center">Minimal time tracking, Focus Sessions, Guard blocking, and rich reports</h3>
+## 📖 Overview
 
-TimeMachine is a lightweight Chrome extension + Node.js backend that automatically tracks active website time, groups it into categories, and generates rich PDF and HTML reports. It now includes Focus Sessions, a Guard for websites & keywords (with a themed blocked page), a Solver tracker, a polished Summary with medals, and 7 UI themes.
+TimeMachine is an open-source Chrome extension with a Node.js backend designed to help you understand and optimize your digital time usage. It automatically tracks website activity, provides insightful analytics, enables focus management, and generates comprehensive reports—all while respecting your privacy.
 
-## ✨ Current Features
+**Built for developers, students, remote workers, and anyone seeking better digital wellness.**
 
-| Area | Highlights |
-|------|------------|
-| Auth | Inline email + password (30‑day JWT, no verification codes) |
-| Tracking | Automatic per‑domain active time (minute slices, local timezone) |
-| Classification | Editable categories: Work / Social / Entertainment / Professional / Other |
-| Dashboard | Daily / Weekly / Monthly views + Quick Insights panel (Top Site, Focus vs Leisure, Balance Score, Category Mix) |
-| Scoring | Productivity score (Work + Professional + 0.5×Other) + balance heuristic |
-| Reports | Rich PDF (insights + ranked domains + per-domain session stats + charts) + HTML email reports via EmailJS (with charts) |
-| Scheduling | Local daily / weekly / monthly report trigger (no external cron) |
-| Resilience | Offline local buffering & retry; incremental 1‑min flush; 5‑min bulk sync |
-| Focus Sessions | Preset durations with Start/Pause/Resume/Stop and daily stats |
-| Guard | Block websites & keywords, Quick Block current site, in‑app confirm modal, optional in‑page keyword scan toggle |
-| Blocked Page | Modern, theme‑aware page with Go Back / Start Focus / Open App buttons |
-| Solver | Track problem‑solving sessions with categories and history cards |
-| Theming | 7 UI themes (light, dark, cyberpunk, minimal, ocean, sunset, forest) |
-| Feedback | In‑extension authenticated feedback submission |
-| Privacy | Only domains + aggregated session durations stored (no full URLs) |
+### 🎯 Key Capabilities
 
-## 🆕 What’s New
+- **Automatic Time Tracking** - Monitors active tab time with minute-level precision
+- **Focus Sessions** - Pomodoro-style timers with pause/resume controls
+- **Smart Blocking** - Website and keyword filtering to minimize distractions
+- **Rich Analytics** - Daily, weekly, and monthly productivity insights
+- **PDF & Email Reports** - Comprehensive summaries with charts and statistics
+- **Privacy-First** - Only domains and durations stored, no full URLs
+- **Customizable Themes** - 7 built-in themes to match your preferences
 
-### v1.6.0
+## 🌐 Landing Page
 
-- Added optional in‑page keyword scanning toggle (privacy control) in Guard tab
-- Enhanced blocked page with action buttons (Close Tab, Open Dashboard, Start Focus)
-- Pruned legacy modal authentication CSS (lighter bundle)
-- Added `PRIVACY.md` with detailed data handling policy
-- Manifest version bump, added `homepage_url`
-- Minor copy and doc adjustments for clarity
+Visit our official landing page: **[https://harshdev625.github.io/TimeMachine/](https://harshdev625.github.io/TimeMachine/)**
 
-### v1.5.1
+The landing page showcases:
+- 📊 Interactive feature demos with screenshots
+- 🎨 Visual design and theming examples
+- 📱 Live analytics dashboard preview
+- 🚀 Quick installation guide
+- 💡 Use cases and benefits
 
-- Removed all remaining device references (code & docs)
-- Inline auth (no modal / verification codes) fully adopted
-- Summary tab now contains the PDF Download button (removed from Settings)
-- Report generator always returns a PDF (even with no activity – shows a note)
-- Security docs aligned to bcrypt hashing
+**Source:** The landing page is built with HTML5, CSS3, and vanilla JavaScript. Source files are in the `docs/` directory.
 
-### v1.5.0
+## ✨ Features
 
-- Focus: refreshed Focus Sessions UI with presets and clear controls
-- Guard: website + keyword blocking, Quick Block, in‑app confirm modal, and a modern theme‑aware blocked page
-- Summary: top 3 sites highlighted with Gold/Silver/Bronze styling and normalized spacing
-- Solver: redesigned session cards and quick start
-- Theming: shared tokens across popup and blocked page
-- Scheduler: “next scheduled” time shown in Settings
-- Performance: popup.js memoized backend URL + event delegation for Guard lists
-- Publish prep: cleaned manifest host permissions (removed localhost) and bumped version
+### Time Tracking & Analytics
+- **Automatic Monitoring** - Tracks active tab time in real-time (minute-level granularity)
+- **Timezone Support** - Local time tracking for accurate day boundaries
+- **Category Classification** - Organize sites into Work, Social, Entertainment, Professional, or Other
+- **Multi-View Dashboard** - Daily, weekly, and monthly analytics
+- **Quick Insights** - Top sites, focus vs leisure ratio, balance score, category distribution
+- **Productivity Scoring** - Algorithmic score based on category weights
 
-### v2 Simplification
+### Focus Management
+- **Focus Sessions** - Preset timers with full controls (start, pause, resume, stop)
+- **Daily Statistics** - Track focus time trends
+- **Theme-Aware Interface** - Seamless integration with chosen theme
 
-| Before | Now |
-|--------|-----|
-| Email verification codes | Direct email/password signup & login |
-| Device tracking / IDs | Removed entirely |
-| Separate device & utility scripts | Removed (cronJobs, dataCleanup, device-management) |
-| Plain PDF summary | Enhanced PDF with charts + session table |
-| UTC-based date (timezone drift) | Local date derivation for correct regional day boundaries |
+### Guard & Blocking
+- **Website Blocking** - Block distracting domains
+- **Keyword Filtering** - Optional in-page keyword scanning
+- **Quick Block** - One-click blocking for current site
+- **Custom Blocked Page** - Informative page with action buttons (Go Back, Start Focus, Open Dashboard)
+- **Privacy Toggle** - Enable/disable keyword scanning as needed
 
-## 📦 Repository Structure (Active Parts Only)
+### Reports & Insights
+- **PDF Reports** - Comprehensive summaries with:
+  - Key insights and productivity metrics
+  - Ranked domain table with session statistics
+  - Category distribution charts
+  - Time-based visualizations
+- **Email Integration** - Automated reports via EmailJS (HTML format with charts)
+- **Local Scheduling** - Daily, weekly, or monthly report triggers (no external dependencies)
 
+### Additional Features
+- **Solver Tracker** - Log problem-solving sessions with categories
+- **Offline Support** - Local buffering with automatic retry and sync
+- **Authentication** - Simple email/password with 30-day JWT tokens
+- **Feedback System** - In-app authenticated feedback submission
+- **7 UI Themes** - Light, Dark, Cyberpunk, Minimal, Ocean, Sunset, Forest
+- **In-App Guide** - Built-in help documentation
+
+> **📋 Latest Release:** See [CHANGELOG.md](CHANGELOG.md) for version history and recent updates.
+
+## 🛠️ Tech Stack
+
+> **Important for Contributors:** Understanding our tech stack helps you get started quickly!
+
+### Frontend (Extension)
+- **Languages:** JavaScript (ES6+), HTML5, CSS3
+- **Manifest:** Chrome Extension Manifest V3
+- **Charts:** Chart.js (interactive visualizations)
+- **Architecture:** Modular design with service workers
+- **Styling:** Custom CSS with theme system (7 themes)
+
+### Backend (API Server)
+- **Runtime:** Node.js (v14+)
+- **Framework:** Express.js
+- **Database:** MongoDB with Mongoose ODM
+- **Authentication:** JWT (JSON Web Tokens), bcrypt
+- **Reports:** PDFKit (PDF generation), quickchart-js (charts)
+- **Email:** EmailJS Integration
+
+### Development Tools
+- **Version Control:** Git & GitHub
+- **Package Manager:** npm
+- **Testing:** Manual testing + Chrome DevTools
+- **Deployment:** Chrome Web Store (extension), Self-hosted (backend)
+
+### Key Libraries
+| Library | Purpose | Version |
+|---------|---------|---------|
+| `express` | Backend API framework | ^4.18.0 |
+| `mongoose` | MongoDB object modeling | ^8.0.0 |
+| `jsonwebtoken` | JWT authentication | ^9.0.0 |
+| `bcrypt` | Password hashing | ^5.1.0 |
+| `pdfkit` | PDF report generation | ^0.15.0 |
+| `chart.js` | Frontend charting | ^4.4.0 |
+| `quickchart-js` | Server-side chart images | ^3.1.3 |
+
+### Architecture Overview
 ```
-backend/
-  index.js                # Express app + CORS + route mounting
-  routes/
-    auth.js               # /api/auth (signup, login, profile, settings)
-    timeData.js           # /api/time-data (sync, reports, category patch)
-    feedback.js           # /api/feedback (submit, list, admin ops)
-    report.js             # /api/report (generate PDF)
-  models/
-  User.js               # Email/password user + settings & timezone
-    TimeData.js           # Per user/date/domain aggregated sessions
-    Feedback.js           # Feedback messages
-  README.md               # Backend-only docs
-
-extension/
-  manifest.json           # MV3 config (service worker, permissions, resources)
-  background.js           # Tracking engine (sessions, sync, idle handling)
-  popup.html              # Main UI (tabs: Analytics, Summary, Focus, Guard, Solver)
-  popup.js                # UI logic (charts, categories, focus, guard, solver, reports)
-  blocked.html            # Theme-aware blocked page
-  blocked.js              # Blocked page logic (actions & timer)
-  guide.html         # In-extension user guide
-  auth.js                 # Token storage & auth helpers
-  config.js               # Dynamic base URL + overrides
-  report-scheduler.js     # Local schedule logic (daily/weekly/monthly)
-  css/
-    style.css, analytics.css, summary.css, focus.css, guard.css, stopwatch.css, blocked.css
-  icon16.png, icon48.png, icon128.png
+                    ┌─────────────────────────────────────┐
+                    │      Chrome Extension (Frontend)     │
+                    │                                      │
+                    │  ┌──────────────┐  ┌──────────────┐  │
+                    │  │   Popup UI   │  │   Content    │  │
+                    │  │  (HTML/CSS)  │  │   Scripts    │  │
+                    │  └──────┬───────┘  └──────┬───────┘  │
+                    │         │                 │          │
+                    │  ┌──────┴─────────────────┴───────┐  │
+                    │  │   Background Service Worker    │  │
+                    │  │   (Time Tracking Logic)        │  │
+                    │  └────────────────┬───────────────┘  │
+                    └───────────────────┼──────────────────┘
+                                        │
+                                        │ REST API (HTTPS)
+                                        │ JWT Authentication
+                                        │
+                    ┌───────────────────▼──────────────────┐
+                    │      Node.js + Express Backend       │
+                    │                                      │
+                    │  ┌────────────┐   ┌──────────────┐  │
+                    │  │   Routes   │   │   Models     │  │
+                    │  │   (API)    │──▶│  (Mongoose)  │  │
+                    │  └────────────┘   └──────┬───────┘  │
+                    │                          │          │
+                    │  ┌────────────┐          │          │
+                    │  │   Utils    │          │          │
+                    │  │ (Timezone, │          │          │
+                    │  │ Validation)│          │          │
+                    │  └────────────┘          │          │
+                    └─────────────────────────┼───────────┘
+                                              │
+                                              ▼
+                              ┌─────────────────────────┐
+                              │   MongoDB Database      │
+                              │                         │
+                              │  • Users                │
+                              │  • TimeData             │
+                              │  • FocusSessions        │
+                              │  • BlockedSites         │
+                              │  • Feedback             │
+                              └─────────────────────────┘
 ```
 
-Removed legacy files (device-authentication.js, utils/cronJobs.js, utils/dataCleanup.js, etc.) for clarity.
+## 🚀 Quick Start
 
-## 🔐 Authentication Flow
+### 👤 For Users
 
-1. User signs up or logs in via inline form: POST `/api/auth/signup` or `/api/auth/login` (email, password).
-2. Backend returns a JWT (30d). Token stored in both `localStorage` and `chrome.storage.local` (kept in sync lazily).
-3. Popup load performs a cached token verify (POST `/api/auth/verify`, 5‑min cache) to avoid double login.
-4. All protected calls send `Authorization: Bearer <token>`.
-5. On expiry/invalid token it is cleared; user re-auths and any buffered sessions sync automatically.
+**Install from Chrome Web Store (Recommended)** 🌟
+1. Visit [Chrome Web Store](https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij)
+2. Click "Add to Chrome"
+3. Click the extension icon and sign up with email/password
+4. Start browsing - tracking happens automatically
 
-## 🗄 Data Model (Essential Fields)
+**Basic Usage** 📱
+- View analytics in the **Analytics** tab
+- Start focus sessions in the **Focus** tab
+- Block distractions in the **Guard** tab
+- Generate reports in the **Summary** tab
+- Click the **?** button anytime for help
 
-User:
-```
-email, password(hash:bcrypt), role, settings{ receiveReports, reportFrequency, categories(Map) }, timezone{name,offset}, lastActive
-```
-TimeData (unique per userEmail+date+domain):
-```
-userEmail, date(YYYY-MM-DD), domain, totalTime(ms), sessions[{startTime,endTime,duration}], category, timezone
-```
-Feedback:
-```
-userEmail, message, status, timestamp
-```
+### 👨‍💻 For Developers
 
-## 🔌 Core API Endpoints
-
-Auth:
-- POST `/api/auth/signup`
-- POST `/api/auth/login`
-- POST `/api/auth/verify`
-- GET  `/api/auth/profile`
-- POST `/api/auth/update-settings`
-
-Time Tracking:
-- POST `/api/time-data/sync` (batch push sessions)
-- GET  `/api/time-data/report/:userEmail?date=YYYY-MM-DD&endDate=...` (range list)
-- PATCH `/api/time-data/category` (update a domain’s category for a date)
-
-Reports:
-- POST `/api/report/generate` (returns PDF binary) – includes charts + ranked domains + sessions (returns a minimal PDF with a “No activity” note if the day is empty).
-
-Feedback:
-- POST `/api/feedback/submit`
-- GET  `/api/feedback/my`
-- (Admin) GET `/api/feedback/all`, PATCH `/api/feedback/status/:id`
-
-## 📄 Rich PDF Report Contents
-
-| Section | Details |
-|---------|---------|
-| Header | Date, user, generated timestamp |
-| Key Insights | Top site, main category share, unique domains, session medians/longest, focus ratio |
-| Domain Table | Rank · Domain · Time · Category · Sessions · Avg Session · Longest Session · Active Span |
-| Charts | Doughnut (category distribution) & Horizontal Bar (all site times) |
-
-Rendered server‑side with `quickchart-js` + PDFKit (empty datasets produce a graceful minimal PDF instead of errors).
-
-## ✉️ Email Reports (EmailJS)
-
-- Send one-off reports or schedule them to send automatically from the background
-- Works with your own EmailJS credentials (privacy-first, no central mail server)
-- Uses HTML with embedded charts (QuickChart); plain-text fallback included
-- Template tip: render the message variable using triple braces to avoid escaping HTML, e.g. `{{{message}}}`
-
-Setup in the extension Settings:
-1. Select EmailJS as the service
-2. Enter Service ID, Template ID, and Public Key
-3. In your EmailJS template, add variables: `to_email`, `subject`, `message`, `message_text`
-4. Click “Send Test Email” to verify
-
-## 🧠 Tracking Logic (background.js)
-
-Event-driven session handling:
-1. Tab activated / URL changed → close previous tab session (duration = now - start).
-2. Start new session for active domain.
-3. Alarms: incremental flush (1 min), bulk sync (5 min), stale session cutoff (15 min).
-4. Idle / lock → end all active sessions; resume on activity.
-5. Offline failures store sessions locally until next successful sync.
-
-Date key is derived in LOCAL TIME (fixes prior off-by-one for positive timezones like IST).
-
-## 🛠 Development Setup
-
-Backend:
+**Backend Setup**
 ```bash
+# Clone repository
 git clone https://github.com/HarshDev625/TimeMachine.git
 cd TimeMachine/backend
+
+# Install dependencies
 npm install
-cp .env.example .env   # (create one if not present)
-# .env needs at least:
-# MONGODB_URI=mongodb://localhost:27017/timemachine
-# JWT_SECRET=your-long-secret
+
+# Configure environment
+cp .env.example .env
+# Edit .env and set:
+# - MONGODB_URI=mongodb://localhost:27017/timemachine
+# - JWT_SECRET=your-secret-key
+
+# Start development server
 npm run dev
 ```
 
-Extension (unpacked):
-1. Open Chrome → `chrome://extensions` → enable Developer Mode.
-2. Load unpacked → select `TimeMachine/extension` folder.
-3. Click the extension icon → login → start browsing.
-4. Click the help ( ? ) button anytime to open the bundled in‑extension user guide.
+**Extension Setup**
+1. Open Chrome and navigate to `chrome://extensions`
+2. Enable "Developer mode" (top right toggle)
+3. Click "Load unpacked"
+4. Select the `extension` folder from the cloned repository
+5. The extension icon will appear in your toolbar
 
-## 🔎 Table of Contents
+## 📁 Project Structure
 
-1. Features
-2. Quick Start
-3. Architecture Overview
-4. Data Model
-5. API Endpoints
-6. Tracking & Sync Logic
-7. Reports
-8. Development Setup
-9. Security Notes
-10. Email Reports (EmailJS)
-11. Contribution Guide
-12. License
+```
+TimeMachine/
+ backend/
+    index.js              # Express server entry point
+    models/
+       User.js           # User schema (email, password, settings)
+       TimeData.js       # Time tracking data schema
+       FocusSession.js   # Focus session records
+       BlockedSite.js    # Blocked websites/keywords
+       Feedback.js       # User feedback
+    routes/
+       auth.js           # Authentication endpoints
+       timeData.js       # Time tracking API
+       focusSessions.js  # Focus management API
+       blockedSites.js   # Guard/blocking API
+       report.js         # PDF generation
+       feedback.js       # Feedback API
+    utils/
+        validation.js     # Input validation
+        timezone.js       # Timezone utilities
 
-## ⚡ Quick Start (End User)
+ extension/
+    manifest.json         # Extension configuration
+    background.js         # Service worker (tracking logic)
+    popup.html            # Main UI
+    popup.js              # UI controller
+    auth.js               # Authentication helper
+    config.js             # API configuration
+    blocked.html          # Blocked page template
+    blocked.js            # Blocked page logic
+    content-blocker.js    # Content script for keyword blocking
+    report-scheduler.js   # Report scheduling logic
+    modules/
+       api.js            # API client
+       analytics-tab.js  # Analytics functionality
+       focus-tab.js      # Focus session management
+       guard-tab.js      # Blocking controls
+       summary-tab.js    # Summary & reports
+       solver-tab.js     # Problem solver tracker
+       utils.js          # Shared utilities
+    css/                  # Stylesheets
 
-1. Install from Chrome Web Store (link above) or load unpacked from `extension/`.
-2. Open the popup → inline Sign up / Sign in (no verification codes).
-3. Browse normally; active tab domain time is tracked automatically.
-4. Reassign categories to adjust productivity scoring.
-5. Guard tab: block distracting sites / keywords (use Quick Block for current site).
-6. Focus Sessions: start a preset, pause/resume, stop to log.
-7. Summary tab: use Download PDF for a daily report (Settings now only configures scheduling).
-8. Press the ? help button for the bundled guide or view developer docs on GitHub.
+ docs/                     # Landing page (GitHub Pages)
+    index.html           # Landing page HTML
+    assets/              # Images and icons
+    css/style.css        # Landing page styles
+    js/main.js           # Landing page scripts
+```
 
-## 🆘 In-Extension Help
+## 📚 Documentation
 
-An offline user guide (`extension/guide.html`) is bundled with the extension (open via the ? button) covering features, tabs, themes, scheduling, Guard, Focus, Solver, and troubleshooting. This README hosts developer documentation.
+### 🔌 API Endpoints
 
-## ⚙ Tech Stack
+#### 🔐 Authentication
+- `POST /api/auth/signup` - Create new user account
+- `POST /api/auth/login` - Login and receive JWT token
+- `POST /api/auth/verify` - Verify JWT token
+- `GET /api/auth/profile` - Get user profile
+- `POST /api/auth/update-settings` - Update user settings
 
-| Layer | Tech |
-|-------|------|
-| Backend | Node.js, Express, Mongoose, PDFKit, quickchart-js, JSON Web Tokens |
-| DB | MongoDB |
-| Extension UI | Vanilla JS, Chart.js, HTML/CSS |
-| Auth | JWT (Bearer), bcrypt password hashing |
+#### ⏱️ Time Tracking
+- `POST /api/time-data/sync` - Sync tracking data (batch)
+- `GET /api/time-data/report/:email` - Get time data for date range
+- `PATCH /api/time-data/category` - Update domain category
 
-## 🔒 Security Notes
+#### 📊 Reports
+- `POST /api/report/generate` - Generate PDF report
 
-- bcrypt hashing (configurable rounds) with per-hash salt
-- JWT 30d expiry; no refresh token layer yet
-- CORS restricted to extension origin(s) + localhost dev
-- All time & feedback endpoints behind auth middleware
+#### 🎯 Focus Sessions
+- `POST /api/focus-sessions` - Create focus session
+- `GET /api/focus-sessions/:email` - Get user's focus sessions
 
-Planned improvements:
-1. Short‑lived access + refresh token rotation
-2. Rate limiting / anomaly detection
-3. Optional encryption-at-rest for session payloads
-4. Additional password strength validation
+#### 🛡️ Guard/Blocking
+- `GET /api/blocked-sites/:email` - Get blocked sites list
+- `POST /api/blocked-sites` - Add blocked site/keyword
+- `DELETE /api/blocked-sites/:id` - Remove blocked item
 
-## 🧪 Testing Ideas (Not Yet Included)
+#### 💬 Feedback
+- `POST /api/feedback/submit` - Submit feedback
+- `GET /api/feedback/my` - Get user's feedback
+- `GET /api/feedback/all` - Get all feedback (admin)
+- `PATCH /api/feedback/status/:id` - Update feedback status (admin)
 
-Add tests for:
-- auth (signup/login/verify invalid creds)
-- time-data sync (capping >12h sessions, daily aggregation)
-- report generation (PDF produced, MIME, size threshold)
+### 🗄️ Data Models
+
+**User**
+```javascript
+{
+  email: String,
+  password: String (bcrypt hashed),
+  role: String (default: 'user'),
+  settings: {
+    receiveReports: Boolean,
+    reportFrequency: String,
+    categories: Map
+  },
+  timezone: {
+    name: String,
+    offset: Number
+  },
+  lastActive: Date
+}
+```
+
+**TimeData** (unique per user/date/domain)
+```javascript
+{
+  userEmail: String,
+  date: String (YYYY-MM-DD),
+  domain: String,
+  totalTime: Number (milliseconds),
+  sessions: [{
+    startTime: Date,
+    endTime: Date,
+    duration: Number
+  }],
+  category: String,
+  timezone: String
+}
+```
+
+### ⚙️ Tracking Logic
+
+The extension uses a sophisticated event-driven tracking system:
+
+1. **Session Management**
+   - Tab activation or URL change closes previous session
+   - New session starts for active domain
+   - Sessions are buffered locally before sync
+
+2. **Sync Strategy**
+   - Incremental flush every 1 minute
+   - Bulk sync every 5 minutes
+   - Stale session cutoff at 15 minutes
+   - Offline support with retry mechanism
+
+3. **Time Calculation**
+   - Minute-level granularity
+   - Local timezone tracking (fixes UTC drift issues)
+   - Idle detection with automatic session termination
+   - Lock screen handling
+
+### 📧 Email Reports
+
+Configure automated email reports using EmailJS:
+
+1. Create account at [EmailJS](https://www.emailjs.com/)
+2. Set up email template with variables:
+   - `to_email` - Recipient address
+   - `subject` - Email subject
+   - `message` - HTML content with charts
+   - `message_text` - Plain text fallback
+3. In extension Settings, enter:
+   - Service ID
+   - Template ID
+   - Public Key
+4. Test with "Send Test Email" button
+5. Enable scheduling (daily/weekly/monthly)
+
+**Template Tip:** Use triple braces `{{{message}}}` to render HTML without escaping.
 
 ## 🤝 Contributing
 
-PRs welcome. Keep changes focused and include a brief description (screenshots for UI changes help). Open an issue to discuss bigger ideas first.
+We welcome contributions from the community! TimeMachine is open-source and thrives on collaboration.
 
-See CONTRIBUTING.md for setup, coding guidelines, and the PR process. Please also review our CODE_OF_CONDUCT.md. For security matters, see SECURITY.md.
+### 📝 How to Contribute
 
-Hacktoberfest: We label issues with `hacktoberfest` and `good first issue`. Valid PRs will be merged, approved, or labeled `hacktoberfest-accepted`. Spam/invalid PRs will be labeled accordingly and closed.
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Make your changes**
+   - Follow existing code style
+   - Add comments for complex logic
+   - Test thoroughly
+4. **Commit your changes** (`git commit -m 'Add amazing feature'`)
+5. **Push to branch** (`git push origin feature/amazing-feature`)
+6. **Open a Pull Request**
 
-## 📜 License
+### 📋 Contribution Guidelines
 
-MIT. See [LICENSE](LICENSE).
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines
+- Follow our [Code of Conduct](CODE_OF_CONDUCT.md)
+- Check existing issues before creating new ones
+- Include screenshots for UI changes
+- Update documentation as needed
 
-## 📑 Privacy
+## 🔒 Security
 
-See [PRIVACY.md](PRIVACY.md) for details on data collected, processing, controls, and user choices (including disabling in‑page keyword scanning).
+Security is a top priority. Current measures:
 
-## 🛡️ Security
+- **Password Security**: bcrypt hashing with per-hash salt
+- **Authentication**: JWT tokens with 30-day expiry
+- **CORS**: Restricted to extension origins + localhost (dev)
+- **Authorization**: All endpoints require valid JWT
+- **Privacy**: No full URLs stored, only domains and durations
 
-If you find a security issue, please open a private issue with minimal details and request a secure contact.
+**Found a security issue?** Please open a private issue with minimal details and request secure contact. See [SECURITY.md](SECURITY.md) for details.
 
-## ❤️ Credits
+## 🔐 Privacy
 
-- Chart.js & QuickChart for visualization
-- PDFKit for report generation
-- All contributors & users providing feedback
+TimeMachine respects your privacy:
+
+- **Minimal Data Collection**: Only domains and time durations
+- **No URL Tracking**: Full URLs are never stored
+- **Local First**: Data buffered locally before sync
+- **Optional Features**: Keyword scanning can be disabled
+- **User Control**: Delete data anytime
+- **No Third-Party Tracking**: No analytics or ads
+
+Read our complete [Privacy Policy](PRIVACY.md) for details.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 💬 Support
+
+- **Documentation**: This README + in-app guide
+- **Issues**: [GitHub Issues](https://github.com/HarshDev625/TimeMachine/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/HarshDev625/TimeMachine/discussions)
+- **Website**: [https://harshdev625.github.io/TimeMachine/](https://harshdev625.github.io/TimeMachine/)
+
+## 🙏 Acknowledgments
+
+- **Chart.js** - Beautiful charts and visualizations
+- **QuickChart** - Server-side chart generation for reports
+- **PDFKit** - PDF generation
+- **EmailJS** - Email integration
+- **All Contributors** - Thank you for your contributions!
+
+## 👥 Contributors
+
+Thanks to all the amazing people who have contributed to TimeMachine! 🎉
+
+<a href="https://github.com/Harshdev625/TimeMachine/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Harshdev625/TimeMachine" />
+</a>
 
 ---
-<p align="center"><a href="https://github.com/HarshDev625/TimeMachine/issues">Report Bug</a> • <a href="https://github.com/HarshDev625/TimeMachine/issues">Request Feature</a></p>
+
+<div align="center">
+
+**Built with ❤️ by the open-source community**
+
+[Report Bug](https://github.com/HarshDev625/TimeMachine/issues) • [Request Feature](https://github.com/HarshDev625/TimeMachine/issues) • [Star this repo ⭐](https://github.com/HarshDev625/TimeMachine)
+
+</div>
