@@ -155,6 +155,8 @@ JWT_SECRET=change-me-please-32chars-min
 BCRYPT_ROUNDS=10
 PORT=3000
 NODE_ENV=development
+RESEND_KEY=
+RESEND_MAIL=noreply@p<your domain>
 ```
 
 `BCRYPT_ROUNDS` must be a number; signup/login will throw if unset.
