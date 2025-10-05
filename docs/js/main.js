@@ -29,6 +29,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Setting up Lottie Animations 
+    const lottieAnimations = [
+        { id: 'lottie-tracking', path: 'assets/lottie/timeTracker.json' },
+        { id: 'lottie-focus', path: 'assets/lottie/target.json' },
+        { id: 'lottie-block', path: 'assets/lottie/block.json' },
+        { id: 'lottie-report', path: 'assets/lottie/report.json' },
+        { id: 'lottie-palette', path: 'assets/lottie/palette.json' },
+        { id: 'lottie-privacy', path: 'assets/lottie/privacy.json' }
+    ];
+
+    lottieAnimations.forEach(a => {
+        const el = document.getElementById(a.id);
+        if (el) {
+            lottie.loadAnimation({
+                container: el,
+                renderer: 'svg',
+                loop: true,
+                autoplay: true,
+                path: a.path
+            });
+        }
+    });
+
+
+
     // Modern screenshot card interactions
     const screenshotCards = document.querySelectorAll('.screenshot-card');
     
