@@ -1,33 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TimeMachine - Smart Time Tracking Chrome Extension</title>
-    <meta name="description" content="Minimal time tracking, Focus Sessions, Guard blocking, and rich reports. Take control of your digital productivity with TimeMachine.">
+    <meta name="description"
+        content="Minimal time tracking, Focus Sessions, Guard blocking, and rich reports. Take control of your digital productivity with TimeMachine.">
     <meta name="keywords" content="time tracking, productivity, chrome extension, focus sessions, website blocking">
-    
+
     <!-- Open Graph -->
     <meta property="og:title" content="TimeMachine - Smart Time Tracking Chrome Extension">
     <meta property="og:description" content="Minimal time tracking, Focus Sessions, Guard blocking, and rich reports.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://your-domain.com">
     <meta property="og:image" content="assets/og-image.png">
-    
+
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="48x48" href="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon48.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon16.png">
-    
+    <link rel="icon" type="image/png" sizes="48x48"
+        href="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon48.png">
+    <link rel="icon" type="image/png" sizes="16x16"
+        href="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon16.png">
+
     <!-- Styles -->
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <img src="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon48.png" alt="TimeMachine" class="logo">
+                <img src="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon48.png"
+                    alt="TimeMachine" class="logo">
                 <span class="brand-text">TimeMachine</span>
             </div>
             <div class="nav-links">
@@ -54,13 +60,14 @@
                         <span class="gradient-text">Digital Time</span>
                     </h1>
                     <p class="hero-description">
-                        TimeMachine is a lightweight Chrome extension that helps you understand and improve how you spend 
-                        your time online. It automatically tracks active website time, organizes it into categories, and 
+                        TimeMachine is a lightweight Chrome extension that helps you understand and improve how you
+                        spend
+                        your time online. It automatically tracks active website time, organizes it into categories, and
                         generates rich PDF and HTML reports. Your data stays private.
                     </p>
                     <div class="hero-cta">
-                        <a href="https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij" 
-                           class="btn btn-primary" target="_blank">
+                        <a href="https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij"
+                            class="btn btn-primary" target="_blank">
                             <img src="assets/chrome-icon.svg" alt="Chrome" class="btn-icon">
                             Add to Chrome - It's Free
                         </a>
@@ -85,8 +92,8 @@
                 </div>
                 <div class="hero-visual">
                     <div class="hero-card">
-                        <img src="assets/analytics-dashboard.png" alt="TimeMachine Extension Interface" class="hero-image" 
-                             onerror="this.style.display='none'">
+                        <img src="assets/analytics-dashboard.png" alt="TimeMachine Extension Interface"
+                            class="hero-image" onerror="this.style.display='none'">
                     </div>
                 </div>
             </div>
@@ -99,61 +106,74 @@
             <div class="section-header">
                 <h2 class="section-title">Everything You Need for Digital Productivity</h2>
                 <p class="section-description">
-                    From automatic time tracking to focus sessions and detailed reports - all in one lightweight extension.
+                    From automatic time tracking to focus sessions and detailed reports - all in one lightweight
+                    extension.
                 </p>
             </div>
-            
+
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">📈</div>
+                    <div class="feature-icon">
+                        <div id="lottie-tracking" class="lottie-animation"></div>
+                    </div>
                     <h3 class="feature-title">Automatic Tracking</h3>
                     <p class="feature-description">
-                        Seamlessly tracks time spent on websites without any manual input. 
+                        Seamlessly tracks time spent on websites without any manual input.
                         Categorizes activity into Work, Social, Entertainment, and more.
                     </p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
+                    <div class="feature-icon">
+                        <div id="lottie-focus" class="lottie-animation"></div>
+                    </div>
                     <h3 class="feature-title">Focus Sessions</h3>
                     <p class="feature-description">
-                        Start preset focus sessions with timers. Block distracting websites 
+                        Start preset focus sessions with timers. Block distracting websites
                         and track your productivity streaks.
                     </p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">�️</div>
+                    <div class="feature-icon">
+                        <div id="lottie-block" class="lottie-animation"></div>
+                    </div>
                     <h3 class="feature-title">Smart Blocking</h3>
                     <p class="feature-description">
-                        Block websites and keywords that distract you. Quick-block current site 
+                        Block websites and keywords that distract you. Quick-block current site
                         with one click and get a beautiful blocked page.
                     </p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">✨</div>
+                    <div class="feature-icon">
+                        <div id="lottie-report" class="lottie-animation"></div>
+                    </div>
                     <h3 class="feature-title">Rich Reports</h3>
                     <p class="feature-description">
-                        Generate detailed PDF reports with charts, insights, and session breakdowns. 
+                        Generate detailed PDF reports with charts, insights, and session breakdowns.
                         Schedule automatic email reports.
                     </p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">🎨</div>
+                    <div class="feature-icon">
+                        <div id="lottie-palette" class="lottie-animation"></div>
+                    </div>
                     <h3 class="feature-title">7 UI Themes</h3>
                     <p class="feature-description">
-                        Choose from Light, Dark, Cyberpunk, Minimal, Ocean, Sunset, and Forest themes 
+                        Choose from Light, Dark, Cyberpunk, Minimal, Ocean, Sunset, and Forest themes
                         to match your style.
                     </p>
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
+                    <div class="feature-icon">
+                        <div id="lottie-privacy" class="lottie-animation"></div>
+                    </div>
                     <h3 class="feature-title">Privacy First</h3>
                     <p class="feature-description">
-                        Only domains and session durations are stored. No full URLs, 
+                        Only domains and session durations are stored. No full URLs,
                         no browsing history, complete privacy control.
                     </p>
                 </div>
@@ -171,7 +191,7 @@
                 </p>
             </div>
         </div>
-        
+
         <!-- Full-Screen Carousel -->
         <div class="screenshot-carousel">
             <!-- Slides -->
@@ -184,7 +204,9 @@
                         <div class="slide-info">
                             <div class="feature-badge">📈 Analytics Dashboard</div>
                             <h3>Track Your Digital Time</h3>
-                            <p>Get comprehensive insights into your daily, weekly, and monthly browsing patterns. Beautiful charts show your productivity score, top sites, and time distribution across categories.</p>
+                            <p>Get comprehensive insights into your daily, weekly, and monthly browsing patterns.
+                                Beautiful charts show your productivity score, top sites, and time distribution across
+                                categories.</p>
                             <ul class="feature-list">
                                 <li>Real-time activity tracking</li>
                                 <li>Productivity scoring system</li>
@@ -203,7 +225,8 @@
                         <div class="slide-info">
                             <div class="feature-badge">⚡ Focus Sessions</div>
                             <h3>Stay Focused & Productive</h3>
-                            <p>Start preset focus sessions with customizable timers. Track your focus streaks and build productive habits with pause/resume controls and session history.</p>
+                            <p>Start preset focus sessions with customizable timers. Track your focus streaks and build
+                                productive habits with pause/resume controls and session history.</p>
                             <ul class="feature-list">
                                 <li>Preset timer durations</li>
                                 <li>Pause/Resume functionality</li>
@@ -222,7 +245,8 @@
                         <div class="slide-info">
                             <div class="feature-badge">🚀 Smart Guard</div>
                             <h3>Block Distractions</h3>
-                            <p>Intelligent website and keyword blocking with one-click quick block. Get a beautiful themed blocked page that helps you stay on track with focus options.</p>
+                            <p>Intelligent website and keyword blocking with one-click quick block. Get a beautiful
+                                themed blocked page that helps you stay on track with focus options.</p>
                             <ul class="feature-list">
                                 <li>Website & keyword blocking</li>
                                 <li>One-click quick block</li>
@@ -241,7 +265,8 @@
                         <div class="slide-info">
                             <div class="feature-badge">💡 Problem Solver</div>
                             <h3>Track Learning Sessions</h3>
-                            <p>Log your coding and problem-solving sessions with categories. Review your learning journey and track time spent on different types of challenges.</p>
+                            <p>Log your coding and problem-solving sessions with categories. Review your learning
+                                journey and track time spent on different types of challenges.</p>
                             <ul class="feature-list">
                                 <li>Categorized problem sessions</li>
                                 <li>Solution history tracking</li>
@@ -260,7 +285,8 @@
                         <div class="slide-info">
                             <div class="feature-badge">✨ Rich Reports</div>
                             <h3>Detailed Analytics</h3>
-                            <p>Generate comprehensive PDF reports with charts, insights, and session breakdowns. Schedule automatic email delivery and get medal achievements for top sites.</p>
+                            <p>Generate comprehensive PDF reports with charts, insights, and session breakdowns.
+                                Schedule automatic email delivery and get medal achievements for top sites.</p>
                             <ul class="feature-list">
                                 <li>PDF report generation</li>
                                 <li>Email scheduling via EmailJS</li>
@@ -275,13 +301,13 @@
             <!-- Navigation -->
             <button class="carousel-nav prev" aria-label="Previous slide">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
             </button>
-            
+
             <button class="carousel-nav next" aria-label="Next slide">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
             </button>
 
@@ -304,15 +330,15 @@
                 <p class="download-description">
                     Join thousands of users who've taken control of their digital time with TimeMachine.
                 </p>
-                
+
                 <div class="download-buttons">
-                    <a href="https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij" 
-                       class="btn btn-primary btn-large" target="_blank">
+                    <a href="https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij"
+                        class="btn btn-primary btn-large" target="_blank">
                         <img src="assets/chrome-icon.svg" alt="Chrome" class="btn-icon">
                         Install TimeMachine
                         <span class="btn-subtitle">Chrome Web Store</span>
                     </a>
-                    
+
                     <div class="download-info">
                         <div class="info-item">
                             <span class="info-label">Version:</span>
@@ -328,7 +354,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="download-features">
                     <div class="feature-check">
                         <span class="check-icon">✓</span>
@@ -356,42 +382,48 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-brand">
-                    <img src="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon48.png" alt="TimeMachine" class="footer-logo">
+                    <img src="https://raw.githubusercontent.com/HarshDev625/TimeMachine/main/extension/icon48.png"
+                        alt="TimeMachine" class="footer-logo">
                     <div>
                         <h3>TimeMachine</h3>
                         <p>Smart time tracking for digital productivity</p>
                     </div>
                 </div>
-                
+
                 <div class="footer-links">
                     <div class="link-group">
                         <h4>Product</h4>
                         <a href="#features">Features</a>
                         <a href="#screenshots">Screenshots</a>
-                        <a href="https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij" target="_blank">Download</a>
+                        <a href="https://chromewebstore.google.com/detail/timemachine/hjkicompionnablkpkgnplnacnnchjij"
+                            target="_blank">Download</a>
                     </div>
-                    
+
                     <div class="link-group">
                         <h4>Resources</h4>
                         <a href="https://github.com/HarshDev625/TimeMachine" target="_blank">GitHub</a>
-                        <a href="https://github.com/HarshDev625/TimeMachine/blob/main/CONTRIBUTING.md" target="_blank">Contributing</a>
+                        <a href="https://github.com/HarshDev625/TimeMachine/blob/main/CONTRIBUTING.md"
+                            target="_blank">Contributing</a>
                         <a href="https://github.com/HarshDev625/TimeMachine/issues" target="_blank">Support</a>
                     </div>
-                    
+
                     <div class="link-group">
                         <h4>Legal</h4>
-                        <a href="https://github.com/HarshDev625/TimeMachine/blob/main/PRIVACY.md" target="_blank">Privacy Policy</a>
-                        <a href="https://github.com/HarshDev625/TimeMachine/blob/main/LICENSE" target="_blank">License</a>
+                        <a href="https://github.com/HarshDev625/TimeMachine/blob/main/PRIVACY.md"
+                            target="_blank">Privacy Policy</a>
+                        <a href="https://github.com/HarshDev625/TimeMachine/blob/main/LICENSE"
+                            target="_blank">License</a>
                     </div>
                 </div>
             </div>
-            
+
             <div class="footer-bottom">
                 <p>&copy; 2025 TimeMachine. Open source under MIT License.</p>
                 <div class="footer-social">
                     <a href="https://github.com/HarshDev625/TimeMachine" target="_blank" aria-label="GitHub">
                         <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            <path
+                                d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                         </svg>
                     </a>
                 </div>
@@ -399,7 +431,10 @@
         </div>
     </footer>
 
+    <!-- Lottie -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.10.2/lottie.min.js"></script>
     <!-- Scripts -->
-    <script src="js/main.js"></script>
+    <script defer src="js/main.js"></script>
 </body>
+
 </html>
